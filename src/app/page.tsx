@@ -1,54 +1,40 @@
-import Image from 'next/image';
-
-// 强制页面为动态渲染，确保每次访问都重新执行随机逻辑
-export const dynamic = 'force-dynamic';
-
-// 定义角色信息，每个角色拥有一个图片池 (imagePool)
-const characters = [
-  {
-    name: '可爱的莉莉丝',
-    imagePool: [
-      '/a1.png',
-      '/a2.jpg',
-      '/a3.jpg',
-    ],
-  },
-  {
-    name: '亲爱的长夜月',
-    imagePool: [
-      '/b1.png',
-      '/b2.png',
-    ],
-  },
-];
+import { QueryInput } from "./components/QueryInput";
+import { ThemeToggle } from "./components/ThemeToggle";
 
 export default function Home() {
-  // 第一步：随机选择一个角色
-  const randomCharacterIndex = Math.floor(Math.random() * characters.length);
-  const selectedCharacter = characters[randomCharacterIndex];
-
-  // 第二步：从选定角色的图片池中，随机选择一张图片
-  const randomImageIndex = Math.floor(Math.random() * selectedCharacter.imagePool.length);
-  const selectedImage = selectedCharacter.imagePool[randomImageIndex];
-
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-24 bg-gray-50">
-      <div className="text-center p-8 bg-white rounded-xl shadow-lg">
-        <h1 className="text-4xl font-bold mb-4">🚧 施工中 🚧</h1>
-        <p className="text-xl text-gray-700">
-          你来的真早~但还没开门，看看{selectedCharacter.name}吧~
-        </p>
-        <div className="mt-8">
-          <Image
-            src={selectedImage}
-            alt={`一张${selectedCharacter.name}的图片`}
-            width={400}
-            height={400}
-            className="rounded-lg object-cover"
-            priority
-          />
+    <div className="flex flex-col min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-50">
+      {/* Header */}
+      <header className="px-4 lg:px-6 h-14 flex items-center shadow-sm">
+        <a className="flex items-center justify-center" href="#">
+          <span className="text-lg font-semibold">Phigros 查询</span>
+        </a>
+        <nav className="ml-auto flex gap-4 sm:gap-6">
+          <ThemeToggle />
+        </nav>
+      </header>
+
+      {/* Main Content */}
+      <main className="flex-1 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">
+            Phigros 成绩查询与图片生成器
+          </h1>
+          <p className="text-gray-500 md:text-xl dark:text-gray-400">
+            输入您的玩家 ID，开始生成专属成绩图片。
+          </p>
+          <div className="flex justify-center">
+            <QueryInput />
+          </div>
         </div>
-      </div>
-    </main>
+      </main>
+
+      {/* Footer */}
+      <footer className="flex items-center justify-center h-16 border-t">
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          © 2024 Phigros Query. All Rights Reserved.
+        </p>
+      </footer>
+    </div>
   );
 }
