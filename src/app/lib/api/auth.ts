@@ -7,6 +7,27 @@ import {
 
 const BASE_URL = '/api';
 
+export const buildAuthRequestBody = (credential: AuthCredential): AuthRequest => {
+  switch (credential.type) {
+    case 'session':
+      return { token: credential.token };
+    case 'api':
+      return {
+        data_source: 'external',
+        api_user_id: credential.api_user_id,
+        ...(credential.api_token && { api_token: credential.api_token })
+      };
+    case 'platform':
+      return {
+        data_source: 'external',
+        platform: credential.platform,
+        platform_id: credential.platform_id
+      };
+    default:
+      throw new Error('不支持的凭证类型');
+  }
+};
+
 /**
  * API调用工具类
  * 处理所有与认证相关的后端API调用
@@ -63,32 +84,18 @@ export class AuthAPI {
 
   /**
    * 验证登录凭证有效性
+   * @returns { isValid: boolean, shouldLogout: boolean, error?: string }
+   * - isValid: 凭证是否有效
+   * - shouldLogout: 是否应该退出登录（清除凭证）
+   * - error: 错误信息
    */
-  static async validateCredential(credential: AuthCredential): Promise<boolean> {
+  static async validateCredential(credential: AuthCredential): Promise<{
+    isValid: boolean;
+    shouldLogout: boolean;
+    error?: string;
+  }> {
     try {
-      let requestBody: AuthRequest;
-
-      switch (credential.type) {
-        case 'session':
-          requestBody = { token: credential.token };
-          break;
-        case 'api':
-          requestBody = {
-            data_source: 'external',
-            api_user_id: credential.api_user_id,
-            ...(credential.api_token && { api_token: credential.api_token })
-          };
-          break;
-        case 'platform':
-          requestBody = {
-            data_source: 'external',
-            platform: credential.platform,
-            platform_id: credential.platform_id
-          };
-          break;
-        default:
-          throw new Error('不支持的凭证类型');
-      }
+      const requestBody = buildAuthRequestBody(credential);
 
       const response = await fetch(`${BASE_URL}/get/cloud/saves`, {
         method: 'POST',
@@ -99,10 +106,42 @@ export class AuthAPI {
       });
 
       // 如果返回200，说明凭证有效
-      return response.ok;
+      if (response.ok) {
+        return { isValid: true, shouldLogout: false };
+      }
+
+      // 4xx 错误：凭证问题，应该退出登录
+      if (response.status >= 400 && response.status < 500) {
+        return {
+          isValid: false,
+          shouldLogout: true,
+          error: '登录凭证已过期或无效，请重新登录'
+        };
+      }
+
+      // 5xx 错误：服务器问题，保留凭证
+      if (response.status >= 500) {
+        return {
+          isValid: false,
+          shouldLogout: false,
+          error: '服务器暂时无法访问，请稍后再试'
+        };
+      }
+
+      // 其他错误
+      return {
+        isValid: false,
+        shouldLogout: false,
+        error: '网络错误，请检查网络连接'
+      };
     } catch (error) {
       console.error('验证凭证失败:', error);
-      return false;
+      // 网络错误不应该清除凭证
+      return {
+        isValid: false,
+        shouldLogout: false,
+        error: '网络错误，请检查网络连接'
+      };
     }
   }
 
@@ -111,29 +150,7 @@ export class AuthAPI {
    */
   static async getCloudSaves(credential: AuthCredential): Promise<any> {
     try {
-      let requestBody: AuthRequest;
-
-      switch (credential.type) {
-        case 'session':
-          requestBody = { token: credential.token };
-          break;
-        case 'api':
-          requestBody = {
-            data_source: 'external',
-            api_user_id: credential.api_user_id,
-            ...(credential.api_token && { api_token: credential.api_token })
-          };
-          break;
-        case 'platform':
-          requestBody = {
-            data_source: 'external',
-            platform: credential.platform,
-            platform_id: credential.platform_id
-          };
-          break;
-        default:
-          throw new Error('不支持的凭证类型');
-      }
+      const requestBody = buildAuthRequestBody(credential);
 
       const response = await fetch(`${BASE_URL}/get/cloud/saves`, {
         method: 'POST',

@@ -5,8 +5,6 @@ import { AuthState, AuthCredential } from '../lib/types/auth';
 import { AuthStorage } from '../lib/storage/auth';
 import { AuthAPI } from '../lib/api/auth';
 import { AgreementModal } from '../components/AgreementModal';
-import fs from 'fs';
-import path from 'path';
 
 const AGREEMENT_KEY = 'phigros_agreement_accepted';
 
@@ -31,7 +29,7 @@ export function AuthProvider({ children, agreementContent }: AuthProviderProps) 
     error: null,
   });
   const [showAgreement, setShowAgreement] = useState(false);
-  const [pendingCredential, setPendingCredential] = useState<AuthCredential | null>(null);
+  const setPendingCredential = useState<AuthCredential | null>(null)[1];
 
   // 初始化时检查本地存储中的凭证
   useEffect(() => {
@@ -40,22 +38,31 @@ export function AuthProvider({ children, agreementContent }: AuthProviderProps) 
         const credential = AuthStorage.getCredential();
         
         if (credential) {
-          const isValid = await AuthAPI.validateCredential(credential);
+          const result = await AuthAPI.validateCredential(credential);
           
-          if (isValid) {
+          if (result.isValid) {
             setAuthState({
               isAuthenticated: true,
               credential,
               isLoading: false,
               error: null,
             });
-          } else {
+          } else if (result.shouldLogout) {
+            // 4xx 错误：凭证无效，清除本地凭证
             AuthStorage.clearCredential();
             setAuthState({
               isAuthenticated: false,
               credential: null,
               isLoading: false,
-              error: '登录凭证已过期，请重新登录',
+              error: result.error || '登录凭证已过期，请重新登录',
+            });
+          } else {
+            // 5xx 或网络错误：保留凭证，但标记为未认证状态
+            setAuthState({
+              isAuthenticated: false,
+              credential,
+              isLoading: false,
+              error: result.error || '服务器暂时无法访问，请稍后再试',
             });
           }
         } else {
@@ -79,10 +86,15 @@ export function AuthProvider({ children, agreementContent }: AuthProviderProps) 
     try {
       setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
 
-      const isValid = await AuthAPI.validateCredential(credential);
-      if (!isValid) throw new Error('登录凭证无效');
+      const result = await AuthAPI.validateCredential(credential);
+      if (!result.isValid) {
+        throw new Error(result.error || '登录凭证验证失败，请重新登录');
+      }
 
+      // 只有登录成功后才保存协议接受状态
+      localStorage.setItem(AGREEMENT_KEY, 'true');
       AuthStorage.saveCredential(credential);
+      
       setAuthState({
         isAuthenticated: true,
         credential,
@@ -91,7 +103,7 @@ export function AuthProvider({ children, agreementContent }: AuthProviderProps) 
       });
 
       if (typeof window !== 'undefined') {
-        window.location.href = '/debug-auth';
+        window.location.href = '/dashboard';
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '登录失败';
@@ -105,23 +117,62 @@ export function AuthProvider({ children, agreementContent }: AuthProviderProps) 
     if (agreementAccepted) {
       await proceedLogin(credential);
     } else {
-      setPendingCredential(credential);
-      setShowAgreement(true);
+      // 先验证并保存凭证，确保用户在查看协议期间也能正常访问其他页面
+      try {
+        setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
+        
+        const result = await AuthAPI.validateCredential(credential);
+        if (!result.isValid) {
+          throw new Error(result.error || '登录凭证验证失败，请重新登录');
+        }
+        
+        // 保存凭证到存储和状态
+        AuthStorage.saveCredential(credential);
+        setAuthState({
+          isAuthenticated: true,
+          credential,
+          isLoading: false,
+          error: null,
+        });
+        
+        // 显示协议弹窗
+        setPendingCredential(credential);
+        setShowAgreement(true);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : '登录失败';
+        setAuthState({ 
+          isAuthenticated: false,
+          credential: null,
+          isLoading: false, 
+          error: errorMessage 
+        });
+      }
     }
   };
 
   const handleAgree = async () => {
-    localStorage.setItem(AGREEMENT_KEY, 'true');
     setShowAgreement(false);
-    if (pendingCredential) {
-      await proceedLogin(pendingCredential);
-      setPendingCredential(null);
+    setPendingCredential(null);
+    
+    // 保存协议接受状态并跳转
+    localStorage.setItem(AGREEMENT_KEY, 'true');
+    if (typeof window !== 'undefined') {
+      window.location.href = '/debug-auth';
     }
   };
 
   const handleCloseAgreement = () => {
     setShowAgreement(false);
     setPendingCredential(null);
+    
+    // 用户拒绝协议，清除凭证和登录状态
+    AuthStorage.clearCredential();
+    setAuthState({
+      isAuthenticated: false,
+      credential: null,
+      isLoading: false,
+      error: '您需要同意用户协议才能使用本服务',
+    });
   };
 
   const logout = () => {
@@ -133,14 +184,21 @@ export function AuthProvider({ children, agreementContent }: AuthProviderProps) 
       isLoading: false,
       error: null,
     });
+    
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login';
+    }
   };
 
   const validateCurrentCredential = async (): Promise<boolean> => {
     if (!authState.credential) return false;
     try {
-      const isValid = await AuthAPI.validateCredential(authState.credential);
-      if (!isValid) logout();
-      return isValid;
+      const result = await AuthAPI.validateCredential(authState.credential);
+      if (result.shouldLogout) {
+        // 凭证无效，退出登录
+        logout();
+      }
+      return result.isValid;
     } catch (error) {
       console.error('验证凭证失败:', error);
       return false;

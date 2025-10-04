@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { AuthMethod } from '../lib/types/auth';
 import { QRCodeLogin } from './components/QRCodeLogin';
 import { ManualLogin } from './components/ManualLogin';
@@ -73,50 +74,56 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-950 text-gray-900 dark:text-gray-50">
       {/* Header */}
       <header className="relative z-10 px-4 lg:px-6 h-16 flex items-center justify-between backdrop-blur-sm bg-white/30 dark:bg-gray-900/30 border-b border-gray-200/50 dark:border-gray-700/50">
-        <a className="flex items-center justify-center" href="/">
+        <Link href="/" className="flex items-center justify-center">
           <span className="text-xl font-bold">Phigros 查询</span>
-        </a>
+        </Link>
         <div className="flex items-center gap-4">
-          <a
+          <Link
+            href="/about"
+            className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
+          >
+            关于
+          </Link>
+          <Link
             href="/debug-auth"
             className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
           >
             调试页面
-          </a>
+          </Link>
           <ThemeToggle />
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="relative z-10 flex-1 flex items-center justify-center p-4 min-h-[calc(100vh-8rem)]">
+      <main className="relative z-10 flex-1 flex items-center justify-center p-4 sm:p-6 min-h-[calc(100vh-8rem)]">
         <div className="w-full max-w-5xl mx-auto">
-          <div className="text-center mb-10">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4 tracking-tight">
+          <div className="text-center mb-6 sm:mb-8 lg:mb-10">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold mb-3 sm:mb-4 tracking-tight">
               登录 Phigros 查询服务
             </h1>
-            <p className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+            <p className="text-base sm:text-lg lg:text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto px-2">
               选择登录方式，开始查询您的 Phigros 成绩
             </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8">
             {/* 登录方式选择 */}
             <div className="lg:col-span-4">
-              <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-2xl p-6 shadow-lg border border-gray-200/50 dark:border-gray-700/50">
-                <h2 className="text-xl font-bold mb-6">选择登录方式</h2>
-                <div className="space-y-3">
+              <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-2xl p-4 sm:p-6 shadow-lg border border-gray-200/50 dark:border-gray-700/50">
+                <h2 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6">选择登录方式</h2>
+                <div className="space-y-2 sm:space-y-3">
                   {loginMethods.map((method) => (
                     <button
                       key={method.id}
                       onClick={() => setActiveMethod(method.id)}
-                      className={`w-full text-left p-4 rounded-xl transition-all duration-300 transform hover:scale-105 ${
+                      className={`w-full text-left p-3 sm:p-4 rounded-xl transition-all duration-300 transform hover:scale-105 ${
                         activeMethod === method.id
                           ? 'bg-blue-500 text-white shadow-lg'
                           : 'bg-gray-100 dark:bg-gray-700/50 border-2 border-transparent hover:bg-gray-200 dark:hover:bg-gray-700'
                       }`}
                     >
-                      <div className="flex items-center space-x-3">
-                        <div className={`p-2 rounded-lg ${
+                      <div className="flex items-center space-x-2 sm:space-x-3">
+                        <div className={`p-1.5 sm:p-2 rounded-lg ${
                           activeMethod === method.id
                             ? 'bg-white/20'
                             : 'bg-gray-200 dark:bg-gray-600'
@@ -124,10 +131,10 @@ export default function LoginPage() {
                           {method.icon}
                         </div>
                         <div className="flex-1">
-                          <div className={`font-semibold ${activeMethod === method.id ? 'text-white' : 'text-gray-900 dark:text-gray-100'}`}>
+                          <div className={`text-sm sm:text-base font-semibold ${activeMethod === method.id ? 'text-white' : 'text-gray-900 dark:text-gray-100'}`}>
                             {method.name}
                           </div>
-                          <div className={`text-sm mt-1 ${activeMethod === method.id ? 'text-white/80' : 'text-gray-600 dark:text-gray-400'}`}>
+                          <div className={`text-xs sm:text-sm mt-0.5 sm:mt-1 ${activeMethod === method.id ? 'text-white/80' : 'text-gray-600 dark:text-gray-400'}`}>
                             {method.description}
                           </div>
                         </div>
@@ -140,14 +147,14 @@ export default function LoginPage() {
 
             {/* 登录表单 */}
             <div className="lg:col-span-8">
-              <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-2xl p-8 shadow-lg border border-gray-200/50 dark:border-gray-700/50">
+              <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-2xl p-4 sm:p-6 lg:p-8 shadow-lg border border-gray-200/50 dark:border-gray-700/50">
                 {renderLoginForm()}
               </div>
             </div>
           </div>
 
-          <div className="text-center mt-8">
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+          <div className="text-center mt-6 sm:mt-8">
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 px-2">
               登录即表示您同意我们的
               <a href="/agreement" target="_blank" rel="noopener noreferrer" className="font-medium text-blue-600 hover:underline dark:text-blue-400">
                 用户协议

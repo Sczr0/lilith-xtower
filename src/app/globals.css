@@ -1,8 +1,11 @@
 @import "tailwindcss";
+/* Tailwind v4: make dark: use the `.dark` class instead of media query */
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  color-scheme: light;
 }
 
 @theme inline {
@@ -19,8 +22,31 @@
   }
 }
 
+html.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  color-scheme: dark;
+}
+
+/* Ensure our theme variables win over any external stylesheet defaults */
+html, body {
+  background: var(--background) !important;
+  color: var(--foreground) !important;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Song Update markdown tweaks inspired by test.html */
+.song-update-md ul ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  padding-left: 0;
+  margin: 0;
+}
+
+.song-update-md ul ul li {
+  margin: 0;
 }
