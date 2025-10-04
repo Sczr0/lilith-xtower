@@ -5,7 +5,7 @@ import { useTheme } from 'next-themes';
 import { useAuth } from '../../contexts/AuthContext';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import Link from 'next/link';
-import { THEME_NAME_MOBILE } from '../../lib/constants/themeNames';
+import { THEME_NAME_MOBILE, THEME_NAME_DESKTOP } from '../../lib/constants/themeNames';
 
 export type TabId = 'best-n' | 'single-query' | 'rks-list' | 'song-updates' | 'player-score-render' | 'stats';
 
@@ -128,7 +128,7 @@ export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobile
       <aside
         className={`${
           isCollapsed ? 'w-20' : 'w-64'
-        } bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 flex flex-col
+        } bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 flex flex-col transform-gpu will-change-transform
         ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
         lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-50 lg:z-auto`}
       >
@@ -221,8 +221,10 @@ export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobile
 
               <div className="flex items-center px-3 py-2">
                 <span className="text-sm text-gray-700 dark:text-gray-300">主题</span>
-                <span className="ml-2 text-xs text-gray-500 dark:text-gray-400 select-none" aria-hidden="true">
-                  {effectiveTheme ? THEME_NAME_MOBILE[effectiveTheme] : ''}
+                <span className="ml-2 min-w-0 text-xs text-gray-500 dark:text-gray-400 select-none" aria-hidden="true">
+                  {/* 宽度>=360px 显示完整标题；>=320且<360显示短标题；<320不展示 */}
+                  <span className="hidden min-[360px]:inline">{effectiveTheme ? THEME_NAME_DESKTOP[effectiveTheme] : ''}</span>
+                  <span className="hidden min-[320px]:inline min-[360px]:hidden">{effectiveTheme ? THEME_NAME_MOBILE[effectiveTheme] : ''}</span>
                 </span>
                 <div className="ml-auto">
                   <ThemeToggle />

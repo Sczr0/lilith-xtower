@@ -32,11 +32,11 @@ export function MaintenanceNotice() {
   };
 
   return (
-    <div className="fixed right-3 top-3 lg:top-auto lg:bottom-3 z-[60]">
+    <div className="fixed right-3 bottom-20 sm:bottom-3 z-[60] pointer-events-none">
       {/* Badge */}
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 px-3 py-2 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 rounded-lg border border-yellow-300 dark:border-yellow-700 shadow-sm"
+        className="flex items-center gap-2 px-3 py-2 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 rounded-lg border border-yellow-300 dark:border-yellow-700 shadow-sm pointer-events-auto"
         aria-expanded={open}
         aria-label="维护预告"
       >
@@ -47,7 +47,7 @@ export function MaintenanceNotice() {
 
       {/* Desktop/Tablet Popover */}
       {open && (
-        <div className="hidden sm:block fixed right-3 top-14 lg:top-auto lg:bottom-14 w-[22rem] max-w-[90vw] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl overflow-hidden">
+        <div className="hidden sm:block fixed right-3 bottom-14 w-[22rem] max-w-[90vw] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl overflow-hidden pointer-events-auto">
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-2 text-yellow-700 dark:text-yellow-300">
               <AlertTriangle className="w-4 h-4" />
@@ -73,7 +73,7 @@ export function MaintenanceNotice() {
 
       {/* Mobile Bottom Sheet */}
       {open && (
-        <div className="sm:hidden">
+        <div className="sm:hidden pointer-events-auto">
           <div
             className="fixed inset-0 bg-black/40 z-[59]"
             onClick={() => setOpen(false)}

@@ -5,6 +5,7 @@ import { AuthState, AuthCredential } from '../lib/types/auth';
 import { AuthStorage } from '../lib/storage/auth';
 import { AuthAPI } from '../lib/api/auth';
 import { AgreementModal } from '../components/AgreementModal';
+import { useServiceReachability } from '../hooks/useServiceReachability';
 
 const AGREEMENT_KEY = 'phigros_agreement_accepted';
 
@@ -30,6 +31,13 @@ export function AuthProvider({ children, agreementContent }: AuthProviderProps) 
   });
   const [showAgreement, setShowAgreement] = useState(false);
   const setPendingCredential = useState<AuthCredential | null>(null)[1];
+
+  // 当出现“服务器暂时无法访问/网络错误”时，轮询健康端点，恢复后移除横幅
+  const shouldPollStatus = !!authState.error && (/服务器暂时无法访问/.test(authState.error) || /网络错误/.test(authState.error));
+  useServiceReachability({
+    shouldPoll: shouldPollStatus,
+    onReachable: () => setAuthState(prev => ({ ...prev, error: null })),
+  });
 
   // 初始化时检查本地存储中的凭证
   useEffect(() => {

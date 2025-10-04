@@ -24,30 +24,25 @@ export const maintenanceConfig: MaintenanceConfig = {
 
   // 维护开始时间（ISO 8601 格式：YYYY-MM-DDTHH:mm:ss）
   // 示例：'2025-01-20T09:00:00' 表示 2025年1月20日 09:00
-  startTime: '2025-10-04T15:55:15',
+  startTime: '2025-10-10T17:00:00',
 
   // 维护结束时间（ISO 8601 格式）
-  endTime: '2025-10-04T16:55:15',
+  endTime: '2025-10-10T19:00:00',
 
   // 提前多少天显示维护预告横幅（例如：3 表示提前3天显示）
-  preNoticeDays: 999,
+  preNoticeDays: 7,
 
   // 维护期间显示的标题
-  title: '测试维护通知',
+  title: '更新维护通知',
 
   // 维护期间显示的消息内容（支持 HTML）
   message: `
-测试维护消息（此测试不会真正进入维护）
+受Phigros更新影响，本服务将于<strong>2025年10月10日 17:00（UTC+8）</strong>开始例行维护。<br>预计恢复时间：<strong>2025年10月10日 19:00（UTC+8）</strong>，<br>若遇Phigros延迟更新情况，维护恢复时间将顺延。
   `,
 
   // 维护预告横幅消息（支持 HTML）
   bannerMessage: `
-
-    <strong>🧪 测试横幅：</strong>
-    这是预告横幅的测试效果。<br/>
-    在正式维护前，此橙色横幅会显示在页面顶部。<br/>
-    用户可以点击右侧 <strong>✕</strong> 关闭，关闭后不再显示。
-  
+受Phigros更新影响，本服务将于<strong>2025年10月10日 17:00（UTC+8）</strong>开始例行维护。<br>预计恢复时间：<strong>2025年10月10日 19:00（UTC+8）</strong>，<br>若遇Phigros延迟更新情况，维护恢复时间将顺延。
   `,
 };
 

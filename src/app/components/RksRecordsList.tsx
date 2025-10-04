@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { ScoreAPI } from '../lib/api/score';
 import { RksRecord } from '../lib/types/score';
 import { DIFFICULTY_BG, DIFFICULTY_TEXT } from '../lib/constants/difficultyColors';
+import { ScoreCard } from './ScoreCard';
 
-export function RksRecordsList() {
+function RksRecordsListInner() {
   const { credential } = useAuth();
   const [records, setRecords] = useState<RksRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -42,22 +43,16 @@ export function RksRecordsList() {
     }
   };
 
-  const filteredRecords = records
-    .filter((record) => {
-      if (filterDifficulty !== 'all' && record.difficulty !== filterDifficulty) {
-        return false;
-      }
-      if (searchQuery.trim() && !record.song_name.toLowerCase().includes(searchQuery.toLowerCase())) {
-        return false;
-      }
+  const filteredRecords = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    const arr = records.filter((record) => {
+      if (filterDifficulty !== 'all' && record.difficulty !== filterDifficulty) return false;
+      if (q && !record.song_name.toLowerCase().includes(q)) return false;
       return true;
-    })
-    .sort((a, b) => {
-      if (sortBy === 'rks') {
-        return b.rks - a.rks;
-      }
-      return b.acc - a.acc;
     });
+    const sorted = [...arr].sort((a, b) => (sortBy === 'rks' ? b.rks - a.rks : b.acc - a.acc));
+    return sorted;
+  }, [records, filterDifficulty, searchQuery, sortBy]);
 
   return (
     <section className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md border border-gray-200/60 dark:border-gray-700/60 rounded-2xl p-6 shadow-lg w-full max-w-6xl mx-auto">
@@ -130,7 +125,21 @@ export function RksRecordsList() {
           <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
             共 {filteredRecords.length} 条记录
           </div>
-          <div className="overflow-x-auto">
+
+          {/* Mobile: Card list */}
+          <div className="grid grid-cols-1 gap-3 md:hidden">
+            {filteredRecords.map((record, index) => (
+              <ScoreCard
+                key={`${record.song_name}-${record.difficulty}-${index}`}
+                record={record}
+                rank={index + 1}
+                nameMaxLines={2}
+              />
+            ))}
+          </div>
+
+          {/* Desktop: Table */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full border-collapse">
               <thead>
                 <tr className="border-b border-gray-200 dark:border-gray-700">
@@ -150,7 +159,7 @@ export function RksRecordsList() {
                     准确率
                   </th>
                   <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    RKS
+                    单曲RKS
                   </th>
                 </tr>
               </thead>
@@ -196,3 +205,6 @@ export function RksRecordsList() {
     </section>
   );
 }
+
+// 避免无关状态（如移动端菜单开关）导致重渲染
+export const RksRecordsList = React.memo(RksRecordsListInner);
