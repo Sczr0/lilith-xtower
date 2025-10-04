@@ -57,9 +57,9 @@ export function AuthProvider({ children, agreementContent }: AuthProviderProps) 
               error: result.error || '登录凭证已过期，请重新登录',
             });
           } else {
-            // 5xx 或网络错误：保留凭证，但标记为未认证状态
+            // 5xx 或网络错误：保留凭证和认证状态，让用户留在当前页面
             setAuthState({
-              isAuthenticated: false,
+              isAuthenticated: true,
               credential,
               isLoading: false,
               error: result.error || '服务器暂时无法访问，请稍后再试',

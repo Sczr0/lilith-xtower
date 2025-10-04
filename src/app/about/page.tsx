@@ -3,8 +3,10 @@
 import Link from 'next/link';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { ServiceStats } from '../components/ServiceStats';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function AboutPage() {
+  const { isAuthenticated } = useAuth();
   const features = [
     {
       title: 'Best N 成绩图片',
@@ -130,12 +132,14 @@ export default function AboutPage() {
           <span className="text-xl font-bold">Phigros 查询</span>
         </Link>
         <nav className="ml-auto flex gap-4 sm:gap-6 items-center">
-          <Link
-            href="/login"
-            className="text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
-          >
-            登录
-          </Link>
+          {!isAuthenticated && (
+            <Link
+              href="/login"
+              className="text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+            >
+              登录
+            </Link>
+          )}
           <Link
             href="/dashboard"
             className="text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"

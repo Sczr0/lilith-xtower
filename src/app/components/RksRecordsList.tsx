@@ -4,20 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { ScoreAPI } from '../lib/api/score';
 import { RksRecord } from '../lib/types/score';
-
-const DIFFICULTY_COLORS = {
-  EZ: 'text-green-600 dark:text-green-400',
-  HD: 'text-blue-600 dark:text-blue-400',
-  IN: 'text-yellow-600 dark:text-yellow-400',
-  AT: 'text-red-600 dark:text-red-400',
-};
-
-const DIFFICULTY_BG = {
-  EZ: 'bg-green-100 dark:bg-green-900/30',
-  HD: 'bg-blue-100 dark:bg-blue-900/30',
-  IN: 'bg-yellow-100 dark:bg-yellow-900/30',
-  AT: 'bg-red-100 dark:bg-red-900/30',
-};
+import { DIFFICULTY_BG, DIFFICULTY_TEXT } from '../lib/constants/difficultyColors';
 
 export function RksRecordsList() {
   const { credential } = useAuth();
@@ -181,7 +168,7 @@ export function RksRecordsList() {
                     </td>
                     <td className="py-3 px-4 text-center">
                       <span
-                        className={`inline-block px-2 py-1 rounded text-xs font-semibold ${DIFFICULTY_BG[record.difficulty]} ${DIFFICULTY_COLORS[record.difficulty]}`}
+                        className={`inline-block px-2 py-1 rounded text-xs font-semibold ${DIFFICULTY_BG[record.difficulty]} ${DIFFICULTY_TEXT[record.difficulty]}`}
                       >
                         {record.difficulty}
                       </span>

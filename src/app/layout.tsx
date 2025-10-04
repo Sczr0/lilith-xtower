@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "./components/ThemeProvider";
 import { AuthProvider } from "./contexts/AuthContext";
 import { MaintenanceProvider } from "./components/MaintenanceProvider";
+import { MaintenanceNotice } from "./components/MaintenanceNotice";
 import fs from 'fs';
 import path from 'path';
 
@@ -50,6 +51,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
+          <MaintenanceNotice />
           <AuthProvider agreementContent={agreementContent}>
             <MaintenanceProvider>
               {children}

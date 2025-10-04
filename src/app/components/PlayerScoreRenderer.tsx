@@ -9,12 +9,7 @@ interface ScoreEntry {
   difficulty: 'EZ' | 'HD' | 'IN' | 'AT';
 }
 
-const DIFFICULTY_COLORS = {
-  EZ: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-  HD: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  IN: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
-  AT: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-};
+import { DIFFICULTY_BADGE } from '../lib/constants/difficultyColors';
 
 const MAX_SCORES = 36;
 
@@ -323,9 +318,7 @@ export function PlayerScoreRenderer() {
                           {score.song_name}
                         </span>
                         <span
-                          className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                            DIFFICULTY_COLORS[score.difficulty]
-                          }`}
+                          className={`px-2 py-0.5 rounded text-xs font-semibold ${DIFFICULTY_BADGE[score.difficulty]}`}
                         >
                           {score.difficulty}
                         </span>

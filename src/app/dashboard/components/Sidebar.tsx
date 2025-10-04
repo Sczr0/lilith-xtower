@@ -1,9 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import { useTheme } from 'next-themes';
 import { useAuth } from '../../contexts/AuthContext';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import Link from 'next/link';
+import { THEME_NAME_MOBILE } from '../../lib/constants/themeNames';
 
 export type TabId = 'best-n' | 'single-query' | 'rks-list' | 'song-updates' | 'player-score-render' | 'stats';
 
@@ -24,6 +26,8 @@ interface SidebarProps {
 export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobileClose }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { logout, credential } = useAuth();
+  const { theme, resolvedTheme } = useTheme();
+  const effectiveTheme = (theme === 'system' ? resolvedTheme : theme) as 'light' | 'dark' | undefined;
 
   const getCredentialDisplay = () => {
     if (!credential) return '未知用户';
@@ -179,8 +183,8 @@ export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobile
         ))}
       </nav>
 
-      {/* User Info & Actions */}
-      <div className="border-t border-gray-200 dark:border-gray-700">
+      {/* User Info & Actions - only on mobile (desktop见Header) */}
+      <div className="border-t border-gray-200 dark:border-gray-700 lg:hidden">
         {!isCollapsed ? (
           <div className="p-3 space-y-2">
             {/* User Status */}
@@ -215,9 +219,14 @@ export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobile
                 调试页面
               </Link>
 
-              <div className="flex items-center justify-between px-3 py-2">
+              <div className="flex items-center px-3 py-2">
                 <span className="text-sm text-gray-700 dark:text-gray-300">主题</span>
-                <ThemeToggle />
+                <span className="ml-2 text-xs text-gray-500 dark:text-gray-400 select-none" aria-hidden="true">
+                  {effectiveTheme ? THEME_NAME_MOBILE[effectiveTheme] : ''}
+                </span>
+                <div className="ml-auto">
+                  <ThemeToggle />
+                </div>
               </div>
 
               <button

@@ -192,86 +192,37 @@ async function addSongUpdate() {
     return;
   }
 
+  // 选择录入方式
+  const { importMode } = await prompts({
+    type: 'select',
+    name: 'importMode',
+    message: '选择曲目录入方式:',
+    choices: [
+      { title: '📥 CSV 逐行导入', value: 'csv' },
+      { title: '✍️  手动逐首录入', value: 'manual' }
+    ],
+    initial: 0
+  });
+
   // 添加曲目
   const songs = [];
   let addMore = true;
 
-  console.log('\n📝 开始添加曲目信息...\n');
-
-  while (addMore) {
-    console.log(`\n--- 第 ${songs.length + 1} 首曲目 ---\n`);
-
-    const song = await prompts([
-      {
-        type: 'text',
-        name: 'name',
-        message: '曲名:',
-        validate: v => v.length > 0 || '曲名不能为空'
-      },
-      {
-        type: 'text',
-        name: 'artist',
-        message: '艺术家:',
-        validate: v => v.length > 0 || '艺术家不能为空'
-      }
-    ]);
-
-    if (!song.name || !song.artist) {
-      console.log('❌ 跳过此曲目');
-      break;
-    }
-
-    // 添加难度信息
-    const charts = [];
-    const difficulties = ['EZ', 'HD', 'IN', 'AT'];
-
-    for (const diff of difficulties) {
-      const { addDiff } = await prompts({
-        type: 'confirm',
-        name: 'addDiff',
-        message: `添加 ${diff} 难度?`,
-        initial: true
-      });
-
-      if (addDiff) {
-        const chartInfo = await prompts({
-          type: 'text',
-          name: 'constant',
-          message: `${diff} 定数 (支持小数，如 3.2, 14.5, 15.8):`,
-          validate: v => {
-            const num = parseFloat(v);
-            if (isNaN(num)) return '请输入有效的数字';
-            if (num < 1.0 || num > 20.0) return '定数应在 1.0-20.0 之间';
-            return true;
-          }
-        });
-
-        if (chartInfo.constant) {
-          // 转换定数为数字类型
-          const constant = parseFloat(chartInfo.constant);
-          // 自动计算等级（向下取整）
-          const level = Math.floor(constant);
-          charts.push({ diff, level, constant });
-        }
-      }
-    }
-
-    const { note } = await prompts({
-      type: 'text',
-      name: 'note',
-      message: '备注 (可选，直接回车跳过):'
-    });
-
-    songs.push({ ...song, charts, note });
-
-    const { more } = await prompts({
+  if (importMode === 'csv') {
+    await csvImportInteractive(songs);
+    // 导入完成后允许继续切换为手动补充
+    const { switchToManual } = await prompts({
       type: 'confirm',
-      name: 'more',
-      message: '继续添加曲目?',
-      initial: true
+      name: 'switchToManual',
+      message: '是否切换到手动继续添加/补充? (已导入的会保留)',
+      initial: false
     });
+    addMore = switchToManual || songs.length === 0; // 若没有导入任何歌曲则进入手动
+  }
 
-    addMore = more;
+  if (addMore) {
+    console.log('\n📝 开始添加曲目信息...\n');
+    await manualAddInteractive(songs);
   }
 
   if (songs.length === 0) {
@@ -279,7 +230,7 @@ async function addSongUpdate() {
     return;
   }
 
-  // 生成Markdown文件
+  // 生成Markdown文件前的预览与确认，可回到 CSV/手动继续编辑
   const date = basicInfo.updateDate.toISOString().split('T')[0];
   const filename = `${date}-update-${basicInfo.version}.md`;
   const filepath = path.join(CONTENT_DIR, 'song-updates', filename);
@@ -305,6 +256,46 @@ async function addSongUpdate() {
     enabled: true
   };
 
+  // 预览与确认循环
+  while (true) {
+    if (songs.length === 0) {
+      console.log('\n📭 暂无曲目，无法生成。');
+      const { nextAction } = await prompts({
+        type: 'select', name: 'nextAction', message: '选择操作:',
+        choices: [
+          { title: '📥 返回 CSV 逐行导入', value: 'csv' },
+          { title: '✍️  切换到手动输入', value: 'manual' },
+          { title: '❌ 取消', value: 'cancel' }
+        ]
+      });
+      if (nextAction === 'cancel' || !nextAction) return;
+      if (nextAction === 'csv') { await csvImportInteractive(songs); continue; }
+      if (nextAction === 'manual') { await manualAddInteractive(songs); continue; }
+    }
+
+    console.log(`\n📋 将要生成 ${songs.length} 首曲目:`);
+    songs.forEach((s, i) => {
+      const diffs = s.charts.map(c => `${c.diff}:${typeof c.constant === 'number' ? c.constant.toFixed(1) : c.constant}`).join(', ');
+      console.log(`${i + 1}. ${s.name} — ${s.artist}${s.illustrator ? `（曲绘: ${s.illustrator}）` : ''} | ${diffs}`);
+    });
+
+    const { confirmGenerate } = await prompts({ type: 'confirm', name: 'confirmGenerate', message: '确认生成该新曲速递内容?', initial: true });
+    if (confirmGenerate) break;
+
+    const { next } = await prompts({
+      type: 'select', name: 'next', message: '继续编辑方式:',
+      choices: [
+        { title: '📥 返回 CSV 逐行导入', value: 'csv' },
+        { title: '✍️  切换到手动输入', value: 'manual' },
+        { title: '❌  取消本次操作', value: 'cancel' }
+      ]
+    });
+
+    if (next === 'cancel' || !next) return;
+    if (next === 'csv') { await csvImportInteractive(songs); continue; }
+    if (next === 'manual') { await manualAddInteractive(songs); continue; }
+  }
+
   let markdown = `---
 ${yaml.dump(frontMatter, { lineWidth: -1 })}---
 
@@ -317,6 +308,9 @@ ${yaml.dump(frontMatter, { lineWidth: -1 })}---
   songs.forEach(song => {
     markdown += `### ${song.name}\n\n`;
     markdown += `- **艺术家**: ${song.artist}\n`;
+    if (song.illustrator) {
+      markdown += `- **曲绘**: ${song.illustrator}\n`;
+    }
     markdown += `- **定数**:\n`;
     
     song.charts.forEach(chart => {
@@ -349,6 +343,252 @@ ${yaml.dump(frontMatter, { lineWidth: -1 })}---
   console.log(`\n✅ 新曲速递已创建: ${filename}\n`);
   console.log(`📁 文件路径: ${filepath}\n`);
   console.log(`📊 共添加 ${songs.length} 首曲目\n`);
+}
+
+// CSV 逐行导入
+async function csvImportInteractive(songs) {
+  console.log('\n📥 CSV 逐行导入模式');
+  console.log('示例:');
+  console.log('id,song,composer,illustrator,EZ,HD,IN,AT');
+  console.log('StardustRAY.kanonevsBlackY,Stardust:RAY,kanone vs. BlackY,SEGA (V17AMax modified),6.0,12.5,16.5,17.2');
+  console.log('说明: id 将被忽略；illustrator 映射为曲绘；缺失的 AT 表示无该难度；支持 UTF-8 中文。\n');
+
+  let done = false;
+  while (!done) {
+    const { action } = await prompts({
+      type: 'select',
+      name: 'action',
+      message: 'CSV 导入操作:',
+      choices: [
+        { title: '➡️ 输入/粘贴一行 CSV', value: 'input' },
+        { title: '👀 查看已添加', value: 'view' },
+        { title: '↩️ 撤销上一条', value: 'undo' },
+        { title: '✅ 完成导入', value: 'finish' },
+        { title: '✍️ 切换到手动输入', value: 'switch' },
+        { title: '❌ 取消', value: 'cancel' }
+      ]
+    });
+
+    if (!action || action === 'cancel') break;
+    if (action === 'finish' || action === 'switch') break;
+
+    if (action === 'view') {
+      if (songs.length === 0) {
+        console.log('\n📭 暂无已添加曲目\n');
+      } else {
+        console.log(`\n📋 已添加 ${songs.length} 首:`);
+        songs.forEach((s, i) => {
+          const diffs = s.charts.map(c => c.diff).join(', ');
+          console.log(`${i + 1}. ${s.name} — ${s.artist}${s.illustrator ? `（曲绘: ${s.illustrator}）` : ''} [${diffs}]`);
+        });
+        console.log('');
+      }
+      continue;
+    }
+
+    if (action === 'undo') {
+      if (songs.length === 0) {
+        console.log('⚠️ 无可撤销的曲目');
+      } else {
+        const last = songs[songs.length - 1];
+        const { confirm } = await prompts({
+          type: 'confirm',
+          name: 'confirm',
+          message: `撤销: ${last.name} — ${last.artist}?`,
+          initial: true
+        });
+        if (confirm) {
+          songs.pop();
+          console.log('✅ 已撤销上一条');
+        }
+      }
+      continue;
+    }
+
+    if (action === 'input') {
+      // 使用原生 readline 简化输入，避免 Windows 终端重复渲染
+      const line = await readRawLine('粘贴一行 CSV: ');
+      if (!line || !String(line).trim()) continue;
+
+      if (/\b(song|composer|illustrator|ez|hd|in|at)\b/i.test(line)) {
+        const { skip } = await prompts({ type: 'confirm', name: 'skip', message: '检测到表头/说明行，是否跳过?', initial: true });
+        if (skip) continue;
+      }
+
+      const parsed = buildSongFromCsvLine(line);
+      if (parsed.error) {
+        console.log(`❌ 解析失败: ${parsed.error}`);
+        const { retry } = await prompts({ type: 'confirm', name: 'retry', message: '是否重新输入?', initial: true });
+        if (retry) continue; else continue;
+      }
+
+      const s = parsed.song;
+      console.log('\n预览:');
+      console.log(`- 曲名: ${s.name}`);
+      console.log(`- 曲师: ${s.artist}`);
+      if (s.illustrator) console.log(`- 曲绘: ${s.illustrator}`);
+      if (s.charts.length) {
+        console.log('- 定数:');
+        s.charts.forEach(c => console.log(`  - ${c.diff}: ${typeof c.constant === 'number' ? c.constant.toFixed(1) : c.constant}`));
+      } else {
+        console.log('- 定数: 无');
+      }
+
+      const { decide } = await prompts({
+        type: 'select',
+        name: 'decide',
+        message: '确认添加该曲目?',
+        choices: [
+          { title: '✅ 添加', value: 'add' },
+          { title: '✏️ 重输', value: 'retry' },
+          { title: '⏭️ 跳过', value: 'skip' }
+        ]
+      });
+
+      if (decide === 'add') {
+        songs.push(s);
+        console.log('✅ 已添加');
+      } else if (decide === 'retry') {
+        continue;
+      } else {
+        // skip
+      }
+
+      continue;
+    }
+  }
+
+  // 返回时，由上层决定是否切换到手动
+}
+
+// 手动录入
+async function manualAddInteractive(songs) {
+  let addMore = true;
+  while (addMore) {
+    console.log(`\n--- 第 ${songs.length + 1} 首曲目 ---\n`);
+
+    const song = await prompts([
+      { type: 'text', name: 'name', message: '曲名:', validate: v => v.length > 0 || '曲名不能为空' },
+      { type: 'text', name: 'artist', message: '艺术家:', validate: v => v.length > 0 || '艺术家不能为空' },
+      { type: 'text', name: 'illustrator', message: '曲绘 (可选，支持 UTF-8 中文):' }
+    ]);
+
+    if (!song.name || !song.artist) {
+      console.log('❌ 跳过此曲目');
+      const { more } = await prompts({ type: 'confirm', name: 'more', message: '继续添加曲目?', initial: true });
+      addMore = more; continue;
+    }
+
+    const charts = [];
+    for (const diff of ['EZ','HD','IN','AT']) {
+      const { addDiff } = await prompts({ type: 'confirm', name: 'addDiff', message: `添加 ${diff} 难度?`, initial: true });
+      if (addDiff) {
+        const chartInfo = await prompts({
+          type: 'text', name: 'constant',
+          message: `${diff} 定数 (支持小数，如 3.2, 14.5, 15.8):`,
+          validate: v => {
+            const num = parseFloat(v);
+            if (isNaN(num)) return '请输入有效的数字';
+            if (num < 1.0 || num > 20.0) return '定数应在 1.0-20.0 之间';
+            return true;
+          }
+        });
+        if (chartInfo.constant) {
+          const constant = parseFloat(chartInfo.constant);
+          const level = Math.floor(constant);
+          charts.push({ diff, level, constant });
+        }
+      }
+    }
+
+    const { note } = await prompts({ type: 'text', name: 'note', message: '备注 (可选，直接回车跳过):' });
+    songs.push({ ...song, charts, note });
+
+    const { more } = await prompts({ type: 'confirm', name: 'more', message: '继续添加曲目?', initial: true });
+    addMore = more;
+  }
+}
+
+// 简化的单行输入，避免 prompts 在某些 Windows 终端的多行重绘问题
+function readRawLine(question) {
+  return new Promise((resolve) => {
+    const readline = require('readline');
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    if (process.stdin.setEncoding) process.stdin.setEncoding('utf8');
+    rl.question(question, (answer) => {
+      rl.close();
+      resolve(answer);
+    });
+  });
+}
+
+function buildSongFromCsvLine(line) {
+  try {
+    const cols = parseCsvLine(line);
+    const get = (i) => (cols[i] || '').trim();
+
+    const name = get(1);
+    const artist = get(2);
+    const illustrator = get(3);
+
+    if (!name || !artist) {
+      return { error: '曲名或曲师缺失' };
+    }
+
+    const diffs = [
+      { diff: 'EZ', v: get(4) },
+      { diff: 'HD', v: get(5) },
+      { diff: 'IN', v: get(6) },
+      { diff: 'AT', v: get(7) }
+    ];
+
+    const charts = [];
+    for (const d of diffs) {
+      if (d.v === undefined || d.v === null || d.v === '') continue;
+      const num = parseConstant(d.v);
+      if (Number.isNaN(num)) {
+        return { error: `${d.diff} 定数无效: "${d.v}"` };
+      }
+      if (num < 1.0 || num > 20.0) {
+        return { error: `${d.diff} 定数超出范围: ${num}` };
+      }
+      charts.push({ diff: d.diff, level: Math.floor(num), constant: num });
+    }
+
+    if (charts.length === 0) {
+      return { error: '缺少任何难度定数 (EZ/HD/IN/AT 均为空)' };
+    }
+
+    return { song: { name, artist, illustrator, charts } };
+  } catch (e) {
+    return { error: e.message || '未知错误' };
+  }
+}
+
+function parseConstant(v) {
+  const t = String(v).trim();
+  const num = parseFloat(t);
+  return num;
+}
+
+function parseCsvLine(line) {
+  const out = [];
+  let cur = '';
+  let inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') {
+      if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
+      else inQ = !inQ;
+    } else if (c === ',' && !inQ) {
+      out.push(cur);
+      cur = '';
+    } else {
+      cur += c;
+    }
+  }
+  out.push(cur);
+  return out.map(s => s.trim());
 }
 
 // 列出所有公告

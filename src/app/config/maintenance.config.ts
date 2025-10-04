@@ -24,10 +24,10 @@ export const maintenanceConfig: MaintenanceConfig = {
 
   // 维护开始时间（ISO 8601 格式：YYYY-MM-DDTHH:mm:ss）
   // 示例：'2025-01-20T09:00:00' 表示 2025年1月20日 09:00
-  startTime: '2025-10-04T13:29:29',
+  startTime: '2025-10-04T15:55:15',
 
   // 维护结束时间（ISO 8601 格式）
-  endTime: '2025-10-04T14:29:29',
+  endTime: '2025-10-04T16:55:15',
 
   // 提前多少天显示维护预告横幅（例如：3 表示提前3天显示）
   preNoticeDays: 999,

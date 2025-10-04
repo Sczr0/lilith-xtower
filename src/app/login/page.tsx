@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AuthMethod } from '../lib/types/auth';
 import { QRCodeLogin } from './components/QRCodeLogin';
@@ -8,9 +8,19 @@ import { ManualLogin } from './components/ManualLogin';
 import { APILogin } from './components/APILogin';
 import { PlatformLogin } from './components/PlatformLogin';
 import { ThemeToggle } from '../components/ThemeToggle';
+import { useAuth } from '../contexts/AuthContext';
+import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
   const [activeMethod, setActiveMethod] = useState<AuthMethod>('qrcode');
+  const { isAuthenticated, isLoading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      router.replace('/dashboard');
+    }
+  }, [isAuthenticated, isLoading, router]);
 
   const loginMethods = [
     {
