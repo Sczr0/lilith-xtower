@@ -45,7 +45,8 @@ export function BnImageGenerator() {
     setError(null);
 
     try {
-      const blob = await ImageAPI.generateBestNImage(parsed, credential, theme);
+      // 强制使用 PNG
+      const blob = await ImageAPI.generateBestNImage(parsed, credential, theme, 'png');
       const url = URL.createObjectURL(blob);
       setImageUrl((prev) => {
         if (prev) {
@@ -81,7 +82,7 @@ export function BnImageGenerator() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <div className="space-y-2">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             N 值

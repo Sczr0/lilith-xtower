@@ -21,9 +21,10 @@ interface SidebarProps {
   onTabChange: (tabId: TabId) => void;
   isMobileOpen?: boolean;
   onMobileClose?: () => void;
+  onOpenAnnouncements?: () => void;
 }
 
-export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobileClose }: SidebarProps) {
+export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobileClose, onOpenAnnouncements }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { logout, credential } = useAuth();
   const { theme, resolvedTheme } = useTheme();
@@ -199,6 +200,15 @@ export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobile
 
             {/* Action Links */}
             <div className="space-y-1">
+              <button
+                onClick={() => { onOpenAnnouncements?.(); onMobileClose?.(); }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5l8-2v18l-8-2M3 10h5v4H3z" />
+                </svg>
+                公告
+              </button>
               <Link
                 href="/about"
                 className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
@@ -253,6 +263,15 @@ export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobile
         ) : (
           <div className="p-2 space-y-2">
             {/* Collapsed - Only show icons */}
+            <button
+              onClick={() => { onOpenAnnouncements?.(); onMobileClose?.(); }}
+              className="flex items-center justify-center p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              title="公告"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5l8-2v18l-8-2M3 10h5v4H3z" />
+              </svg>
+            </button>
             <Link
               href="/about"
               className="flex items-center justify-center p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"

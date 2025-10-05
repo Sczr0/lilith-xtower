@@ -19,6 +19,7 @@ export default function Dashboard() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [songUpdates, setSongUpdates] = useState<SongUpdate[]>([]);
   const [showAnnouncements, setShowAnnouncements] = useState(false);
+  const [showAllAnnouncements, setShowAllAnnouncements] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // 加载公告和新曲速递数据
@@ -37,6 +38,7 @@ export default function Dashboard() {
           const unread = data.filter((a: Announcement) => !dismissed.has(a.id));
           
           if (unread.length > 0) {
+            setShowAllAnnouncements(false);
             setShowAnnouncements(true);
           }
         }
@@ -169,6 +171,7 @@ export default function Dashboard() {
       {showAnnouncements && announcements.length > 0 && (
         <AnnouncementModal
           announcements={announcements}
+          showAll={showAllAnnouncements}
           onClose={() => setShowAnnouncements(false)}
         />
       )}
@@ -180,6 +183,7 @@ export default function Dashboard() {
           onTabChange={setActiveTab}
           isMobileOpen={isMobileMenuOpen}
           onMobileClose={() => setIsMobileMenuOpen(false)}
+          onOpenAnnouncements={() => { setShowAllAnnouncements(true); setShowAnnouncements(true); }}
         />
 
       {/* Main Content Area */}
@@ -196,7 +200,7 @@ export default function Dashboard() {
         </button>
 
         {/* Header */}
-        <DashboardHeader />
+        <DashboardHeader onOpenAnnouncements={() => { setShowAllAnnouncements(true); setShowAnnouncements(true); }} />
 
         {/* Error Banner */}
         {error && (

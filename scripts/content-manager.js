@@ -25,8 +25,11 @@ async function main() {
     choices: [
       { title: '📢 添加公告', value: 'add-announcement' },
       { title: '🎵 添加新曲速递', value: 'add-song-update' },
+      { title: '❓ 添加常见问题', value: 'add-qa' },
       { title: '📋 查看所有公告', value: 'list-announcements' },
       { title: '📋 查看所有新曲速递', value: 'list-updates' },
+      { title: '📋 查看所有常见问题', value: 'list-qa' },
+      { title: '🗑️  删除常见问题', value: 'delete-qa' },
       { title: '⚙️  维护配置管理', value: 'maintenance-config' },
       { title: '✏️  编辑内容', value: 'edit' },
       { title: '❌ 退出', value: 'exit' }
@@ -45,11 +48,20 @@ async function main() {
     case 'add-song-update':
       await addSongUpdate();
       break;
+    case 'add-qa':
+      await addQA();
+      break;
     case 'list-announcements':
       await listAnnouncements();
       break;
     case 'list-updates':
       await listSongUpdates();
+      break;
+    case 'list-qa':
+      await listQA();
+      break;
+    case 'delete-qa':
+      await deleteQA();
       break;
     case 'maintenance-config':
       await maintenanceConfigMenu();
@@ -642,6 +654,194 @@ async function listSongUpdates() {
     console.log(`   日期: ${new Date(data.updateDate).toLocaleString('zh-CN')}`);
     console.log('');
   });
+}
+
+// 添加常见问题
+async function addQA() {
+  console.log('\n❓ 添加常见问题\n');
+
+  const response = await prompts([
+    {
+      type: 'text',
+      name: 'question',
+      message: '问题:',
+      validate: v => v.length > 0 || '问题不能为空'
+    },
+    {
+      type: 'select',
+      name: 'category',
+      message: '分类:',
+      choices: [
+        { title: '🔐 登录相关 (login)', value: 'login' },
+        { title: '📖 使用指南 (usage)', value: 'usage' },
+        { title: '🔧 技术问题 (technical)', value: 'technical' },
+        { title: '🔒 安全隐私 (security)', value: 'security' }
+      ]
+    },
+    {
+      type: 'number',
+      name: 'priority',
+      message: '优先级 (数字越小越靠前):',
+      initial: 999,
+      min: 1,
+      max: 9999
+    },
+    {
+      type: 'text',
+      name: 'answer',
+      message: '答案内容 (支持Markdown格式):',
+      validate: v => v.length > 0 || '答案不能为空'
+    }
+  ]);
+
+  if (!response.question || !response.answer) {
+    console.log('❌ 操作已取消');
+    return;
+  }
+
+  const now = new Date();
+  const timestamp = now.getTime();
+  const slug = slugify(response.question);
+  const filename = `${slug}-${timestamp}.md`;
+  const filepath = path.join(CONTENT_DIR, 'qa', filename);
+
+  // 检查文件是否已存在
+  if (fs.existsSync(filepath)) {
+    const { overwrite } = await prompts({
+      type: 'confirm',
+      name: 'overwrite',
+      message: `文件 ${filename} 已存在，是否覆盖?`,
+      initial: false
+    });
+    
+    if (!overwrite) {
+      console.log('❌ 操作已取消');
+      return;
+    }
+  }
+
+  const frontMatter = {
+    id: `qa-${timestamp}`,
+    question: response.question,
+    category: response.category,
+    priority: response.priority,
+    enabled: true,
+    createdAt: now.toISOString()
+  };
+
+  const content = `---
+${yaml.dump(frontMatter, { lineWidth: -1 })}---
+
+${response.answer}
+`;
+
+  fs.writeFileSync(filepath, content, 'utf-8');
+  console.log(`\n✅ 常见问题已创建: ${filename}\n`);
+  console.log(`📁 文件路径: ${filepath}\n`);
+}
+
+// 列出所有常见问题
+async function listQA() {
+  const dir = path.join(CONTENT_DIR, 'qa');
+  
+  if (!fs.existsSync(dir)) {
+    console.log('\n📭 暂无常见问题\n');
+    return;
+  }
+  
+  const files = fs.readdirSync(dir).filter(f => f.endsWith('.md'));
+
+  if (files.length === 0) {
+    console.log('\n📭 暂无常见问题\n');
+    return;
+  }
+
+  console.log(`\n❓ 共有 ${files.length} 个常见问题:\n`);
+
+  const categoryNames = {
+    login: '🔐 登录相关',
+    usage: '📖 使用指南',
+    technical: '🔧 技术问题',
+    security: '🔒 安全隐私'
+  };
+
+  files.forEach((file, index) => {
+    const filepath = path.join(dir, file);
+    const content = fs.readFileSync(filepath, 'utf-8');
+    const { data } = require('gray-matter')(content);
+    
+    const statusIcon = data.enabled ? '✅' : '❌';
+    const categoryIcon = categoryNames[data.category] || data.category;
+    
+    console.log(`${index + 1}. ${statusIcon} ${categoryIcon} - ${data.question}`);
+    console.log(`   ID: ${data.id}`);
+    console.log(`   文件: ${file}`);
+    console.log(`   优先级: ${data.priority || 999}`);
+    console.log('');
+  });
+}
+
+// 删除常见问题
+async function deleteQA() {
+  const dir = path.join(CONTENT_DIR, 'qa');
+  
+  if (!fs.existsSync(dir)) {
+    console.log('\n📭 暂无常见问题\n');
+    return;
+  }
+  
+  const files = fs.readdirSync(dir).filter(f => f.endsWith('.md'));
+
+  if (files.length === 0) {
+    console.log('\n📭 暂无常见问题\n');
+    return;
+  }
+
+  // 读取所有问题
+  const qaItems = files.map(file => {
+    const filepath = path.join(dir, file);
+    const content = fs.readFileSync(filepath, 'utf-8');
+    const { data } = require('gray-matter')(content);
+    return {
+      file,
+      question: data.question,
+      category: data.category,
+      id: data.id
+    };
+  });
+
+  // 选择要删除的问题
+  const { selectedFile } = await prompts({
+    type: 'select',
+    name: 'selectedFile',
+    message: '选择要删除的问题:',
+    choices: qaItems.map((item, index) => ({
+      title: `${index + 1}. ${item.question} (${item.category})`,
+      value: item.file
+    }))
+  });
+
+  if (!selectedFile) {
+    console.log('❌ 操作已取消');
+    return;
+  }
+
+  // 确认删除
+  const { confirm } = await prompts({
+    type: 'confirm',
+    name: 'confirm',
+    message: `确认删除 "${qaItems.find(i => i.file === selectedFile)?.question}"?`,
+    initial: false
+  });
+
+  if (!confirm) {
+    console.log('❌ 操作已取消');
+    return;
+  }
+
+  const filepath = path.join(dir, selectedFile);
+  fs.unlinkSync(filepath);
+  console.log(`\n✅ 常见问题已删除: ${selectedFile}\n`);
 }
 
 // 维护配置管理菜单

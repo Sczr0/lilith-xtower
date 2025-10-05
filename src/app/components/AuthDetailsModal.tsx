@@ -1,10 +1,34 @@
 'use client';
 
-import { useAuth } from '../contexts/AuthContext';
-import { ThemeToggle } from '../components/ThemeToggle';
+import { useEffect } from 'react';
+import { Credential } from '../lib/types/auth';
 
-export default function DebugAuthPage() {
-  const { isAuthenticated, credential, isLoading, logout } = useAuth();
+interface AuthDetailsModalProps {
+  credential: Credential;
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export function AuthDetailsModal({ credential, isOpen, onClose }: AuthDetailsModalProps) {
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
 
   const formatTimestamp = (timestamp: number) => {
     return new Date(timestamp).toLocaleString('zh-CN', {
@@ -17,17 +41,7 @@ export default function DebugAuthPage() {
     });
   };
 
-  const renderCredentialInfo = () => {
-    if (!credential) {
-      return (
-        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-          <p className="text-yellow-700 dark:text-yellow-400">
-            当前未登录，没有可显示的凭证信息。
-          </p>
-        </div>
-      );
-    }
-
+  const renderCredentialDetails = () => {
     switch (credential.type) {
       case 'session':
         return (
@@ -49,7 +63,7 @@ export default function DebugAuthPage() {
             </div>
             <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
               <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-2">SessionToken</h4>
-              <code className="block bg-gray-100 dark:bg-gray-900 p-3 rounded text-sm break-all">
+              <code className="block bg-gray-100 dark:bg-gray-900 p-3 rounded text-xs break-all text-gray-800 dark:text-gray-200">
                 {credential.token}
               </code>
             </div>
@@ -79,14 +93,14 @@ export default function DebugAuthPage() {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-400">用户 ID:</span>
-                  <code className="bg-gray-100 dark:bg-gray-900 px-2 py-1 rounded">
+                  <code className="bg-gray-100 dark:bg-gray-900 px-2 py-1 rounded text-xs text-gray-800 dark:text-gray-200">
                     {credential.api_user_id}
                   </code>
                 </div>
                 {credential.api_token && (
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">API Token:</span>
-                    <code className="bg-gray-100 dark:bg-gray-900 px-2 py-1 rounded">
+                    <code className="bg-gray-100 dark:bg-gray-900 px-2 py-1 rounded text-xs text-gray-800 dark:text-gray-200 break-all">
                       {credential.api_token}
                     </code>
                   </div>
@@ -119,13 +133,13 @@ export default function DebugAuthPage() {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-400">平台:</span>
-                  <code className="bg-gray-100 dark:bg-gray-900 px-2 py-1 rounded">
+                  <code className="bg-gray-100 dark:bg-gray-900 px-2 py-1 rounded text-xs text-gray-800 dark:text-gray-200">
                     {credential.platform}
                   </code>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-400">平台用户 ID:</span>
-                  <code className="bg-gray-100 dark:bg-gray-900 px-2 py-1 rounded">
+                  <code className="bg-gray-100 dark:bg-gray-900 px-2 py-1 rounded text-xs text-gray-800 dark:text-gray-200">
                     {credential.platform_id}
                   </code>
                 </div>
@@ -145,99 +159,55 @@ export default function DebugAuthPage() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-950 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-950">
-      {/* Header */}
-      <header className="px-4 lg:px-6 h-14 flex items-center justify-between backdrop-blur-sm bg-white/30 dark:bg-gray-900/30">
-        <div className="flex items-center space-x-4">
-          <a className="flex items-center justify-center" href="/">
-            <span className="text-lg font-semibold">Phigros 查询</span>
-          </a>
-          <a 
-            href="/qa" 
-            className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
-          >
-            常见问题
-          </a>
-          <a 
-            href="/login" 
-            className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
-          >
-            登录页面
-          </a>
-        </div>
-        <ThemeToggle />
-      </header>
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 transition-opacity"
+        onClick={onClose}
+      />
 
-      {/* Main Content */}
-      <main className="flex-1 flex items-center justify-center p-4">
-        <div className="w-full max-w-2xl mx-auto">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl mb-4">
-              认证调试页面
-            </h1>
-            <p className="text-gray-500 md:text-xl dark:text-gray-400">
-              查看当前登录状态和凭证信息
-            </p>
+      {/* Modal */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div
+          className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+              认证凭证详情
+            </h2>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              <svg className="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
 
-          <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-gray-200/50 dark:border-gray-700/50">
-            {/* 认证状态 */}
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold mb-4">认证状态</h2>
-              <div className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${
-                isAuthenticated 
-                  ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' 
-                  : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-              }`}>
-                <div className={`w-2 h-2 rounded-full mr-2 ${
-                  isAuthenticated ? 'bg-green-500' : 'bg-red-500'
-                }`}></div>
-                {isAuthenticated ? '已登录' : '未登录'}
-              </div>
-            </div>
+          {/* Content */}
+          <div className="px-6 py-4">
+            {renderCredentialDetails()}
+          </div>
 
-            {/* 凭证信息 */}
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold mb-4">凭证信息</h2>
-              {renderCredentialInfo()}
-            </div>
-
-            {/* 操作按钮 */}
-            <div className="flex space-x-4">
-              <button
-                onClick={() => window.location.href = '/'}
-                className="flex-1 py-2 px-4 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors"
-              >
-                返回主页
-              </button>
-              {isAuthenticated && (
-                <button
-                  onClick={logout}
-                  className="flex-1 py-2 px-4 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors"
-                >
-                  退出登录
-                </button>
-              )}
+          {/* Footer */}
+          <div className="sticky bottom-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-6 py-4">
+            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+              <h3 className="font-medium text-blue-800 dark:text-blue-300 mb-2 text-sm">
+                安全提示
+              </h3>
+              <ul className="text-xs text-blue-700 dark:text-blue-400 space-y-1">
+                <li>• 您的凭证安全存储在浏览器本地存储中</li>
+                <li>• 请勿将凭证信息分享给他人</li>
+                <li>• 如有安全疑虑，请及时退出登录并重新登录</li>
+              </ul>
             </div>
           </div>
         </div>
-      </main>
-
-      {/* Footer */}
-      <footer className="flex items-center justify-center h-16 backdrop-blur-sm bg-white/30 dark:bg-gray-900/30">
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          © 2024 Phigros Query. All Rights Reserved.
-        </p>
-      </footer>
-    </div>
+      </div>
+    </>
   );
 }

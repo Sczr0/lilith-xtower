@@ -8,16 +8,17 @@ import { Announcement } from '../lib/types/content';
 interface AnnouncementModalProps {
   announcements: Announcement[];
   onClose?: () => void;
+  showAll?: boolean;
 }
 
-export function AnnouncementModal({ announcements, onClose }: AnnouncementModalProps) {
+export function AnnouncementModal({ announcements, onClose, showAll = false }: AnnouncementModalProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
 
   const currentAnnouncement = announcements[currentIndex];
 
   useEffect(() => {
-    // 从localStorage读取已关闭的公告ID
+    if (showAll) return;
     const dismissed = localStorage.getItem('dismissed_announcements');
     if (dismissed) {
       try {
@@ -26,10 +27,10 @@ export function AnnouncementModal({ announcements, onClose }: AnnouncementModalP
         console.error('解析已关闭公告列表失败:', e);
       }
     }
-  }, []);
+  }, [showAll]);
 
   const handleClose = (dontShowAgain: boolean) => {
-    if (dontShowAgain && currentAnnouncement.dismissible) {
+    if (!showAll && dontShowAgain && currentAnnouncement.dismissible) {
       const newDismissed = new Set(dismissedIds);
       newDismissed.add(currentAnnouncement.id);
       setDismissedIds(newDismissed);
@@ -46,7 +47,7 @@ export function AnnouncementModal({ announcements, onClose }: AnnouncementModalP
   };
 
   // 过滤掉已关闭的公告
-  const unreadAnnouncements = announcements.filter(a => !dismissedIds.has(a.id));
+  const unreadAnnouncements = showAll ? announcements : announcements.filter(a => !dismissedIds.has(a.id));
 
   if (unreadAnnouncements.length === 0 || !currentAnnouncement) {
     return null;

@@ -6,6 +6,7 @@ import { ScoreAPI } from '../lib/api/score';
 import { RksRecord } from '../lib/types/score';
 import { DIFFICULTY_BG, DIFFICULTY_TEXT } from '../lib/constants/difficultyColors';
 import { ScoreCard } from './ScoreCard';
+import type { AuthCredential } from '../lib/types/auth';
 
 function RksRecordsListInner() {
   const { credential } = useAuth();
@@ -15,11 +16,53 @@ function RksRecordsListInner() {
   const [sortBy, setSortBy] = useState<'rks' | 'acc'>('rks');
   const [filterDifficulty, setFilterDifficulty] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const CACHE_KEY = 'cache_rks_records_v2';
+  const CACHE_TTL_MS = 30 * 60 * 1000; // 30分钟
+
+  const hash = (input: string) => {
+    let h = 0;
+    for (let i = 0; i < input.length; i++) {
+      h = (h << 5) - h + input.charCodeAt(i);
+      h |= 0;
+    }
+    return `h${(h >>> 0).toString(16)}`;
+  };
+
+  const getOwnerKey = (cred: AuthCredential | null) => {
+    if (!cred) return null;
+    switch (cred.type) {
+      case 'session':
+        return `session:${hash(cred.token)}`;
+      case 'api':
+        return `api:${hash(`${cred.api_user_id}:${cred.api_token || ''}`)}`;
+      case 'platform':
+        return `platform:${hash(`${cred.platform}:${cred.platform_id}`)}`;
+      default:
+        return null;
+    }
+  };
 
   useEffect(() => {
-    if (credential) {
-      loadRecords();
-    }
+    // 先读缓存渲染（按用户隔离）
+    try {
+      const ownerKey = getOwnerKey(credential);
+      const cached = localStorage.getItem(CACHE_KEY);
+      let shouldFetch = true;
+      if (ownerKey && cached) {
+        const map = JSON.parse(cached) as Record<string, { records: RksRecord[]; ts?: number }>;
+        const entry = map?.[ownerKey];
+        if (entry && Array.isArray(entry.records)) {
+          setRecords(entry.records);
+          const fresh = typeof entry.ts === 'number' && Date.now() - entry.ts < CACHE_TTL_MS;
+          if (fresh) shouldFetch = false;
+        }
+      }
+
+      if (credential && shouldFetch) {
+        loadRecords();
+      }
+    } catch {}
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [credential]);
 
@@ -29,12 +72,22 @@ function RksRecordsListInner() {
       return;
     }
 
-    setIsLoading(true);
+    setIsLoading(records.length === 0);
     setError(null);
 
     try {
       const response = await ScoreAPI.getRksList(credential);
-      setRecords(response.data.records);
+      const newRecords = response.data.records || [];
+      setRecords(newRecords);
+      try {
+        const ownerKey = getOwnerKey(credential);
+        if (ownerKey) {
+          const cached = localStorage.getItem(CACHE_KEY);
+          const map = (cached ? JSON.parse(cached) : {}) as Record<string, { records: RksRecord[]; ts: number }>;
+          map[ownerKey] = { records: newRecords, ts: Date.now() };
+          localStorage.setItem(CACHE_KEY, JSON.stringify(map));
+        }
+      } catch {}
     } catch (error) {
       const message = error instanceof Error ? error.message : '加载失败';
       setError(message);

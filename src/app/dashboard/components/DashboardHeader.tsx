@@ -3,7 +3,11 @@
 import { useAuth } from '../../contexts/AuthContext';
 import { ThemeToggle } from '../../components/ThemeToggle';
 
-export function DashboardHeader() {
+interface DashboardHeaderProps {
+  onOpenAnnouncements?: () => void;
+}
+
+export function DashboardHeader({ onOpenAnnouncements }: DashboardHeaderProps) {
   const { logout, credential } = useAuth();
 
   const getCredentialDisplay = () => {
@@ -44,6 +48,13 @@ export function DashboardHeader() {
           </span>
         </div>
         
+        <button
+          onClick={onOpenAnnouncements}
+          className="hidden lg:block text-sm text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 transition-colors"
+        >
+          公告
+        </button>
+
         <a
           href="/about"
           className="hidden lg:block text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"

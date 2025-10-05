@@ -8,18 +8,39 @@ export function ServiceStats() {
   const [stats, setStats] = useState<ServiceStatsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const CACHE_KEY = 'cache_service_stats_v2';
+  const CACHE_TTL_MS = 5 * 60 * 1000; // 5分钟
 
   useEffect(() => {
+    // 先读缓存
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached) as { stats: ServiceStatsResponse; ts?: number };
+        if (parsed?.stats) setStats(parsed.stats);
+        const isFresh = typeof parsed?.ts === 'number' && Date.now() - parsed.ts < CACHE_TTL_MS;
+        if (!isFresh) {
+          loadStats();
+        }
+        return;
+      }
+    } catch {}
+
+    // 无缓存则加载
     loadStats();
   }, []);
 
   const loadStats = async () => {
+    // 始终置为 true 以在点击“刷新”时提供按钮反馈，但不会遮挡已有内容
     setIsLoading(true);
     setError(null);
 
     try {
       const data = await ScoreAPI.getServiceStats();
       setStats(data);
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ stats: data, ts: Date.now() }));
+      } catch {}
     } catch (error) {
       const message = error instanceof Error ? error.message : '加载统计数据失败';
       setError(message);

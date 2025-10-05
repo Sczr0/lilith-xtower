@@ -8,12 +8,15 @@ import { ManualLogin } from './components/ManualLogin';
 import { APILogin } from './components/APILogin';
 import { PlatformLogin } from './components/PlatformLogin';
 import { ThemeToggle } from '../components/ThemeToggle';
+import { AuthStatusBanner } from '../components/AuthStatusBanner';
+import { AuthDetailsModal } from '../components/AuthDetailsModal';
 import { useAuth } from '../contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
   const [activeMethod, setActiveMethod] = useState<AuthMethod>('qrcode');
-  const { isAuthenticated, isLoading } = useAuth();
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const { isAuthenticated, isLoading, credential, logout } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -89,16 +92,16 @@ export default function LoginPage() {
         </Link>
         <div className="flex items-center gap-4">
           <Link
+            href="/qa"
+            className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
+          >
+            常见问题
+          </Link>
+          <Link
             href="/about"
             className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
           >
             关于
-          </Link>
-          <Link
-            href="/debug-auth"
-            className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
-          >
-            调试页面
           </Link>
           <ThemeToggle />
         </div>
@@ -158,6 +161,13 @@ export default function LoginPage() {
             {/* 登录表单 */}
             <div className="lg:col-span-8">
               <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-2xl p-4 sm:p-6 lg:p-8 shadow-lg border border-gray-200/50 dark:border-gray-700/50">
+                {isAuthenticated && credential && (
+                  <AuthStatusBanner
+                    credential={credential}
+                    onShowDetails={() => setShowDetailsModal(true)}
+                    onLogout={logout}
+                  />
+                )}
                 {renderLoginForm()}
               </div>
             </div>
@@ -181,6 +191,15 @@ export default function LoginPage() {
           © 2024 Phigros Query. All Rights Reserved.
         </p>
       </footer>
+
+      {/* Auth Details Modal */}
+      {isAuthenticated && credential && (
+        <AuthDetailsModal
+          credential={credential}
+          isOpen={showDetailsModal}
+          onClose={() => setShowDetailsModal(false)}
+        />
+      )}
     </div>
   );
 }

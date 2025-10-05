@@ -186,6 +186,11 @@ export function AuthProvider({ children, agreementContent }: AuthProviderProps) 
   const logout = () => {
     AuthStorage.clearCredential();
     localStorage.removeItem(AGREEMENT_KEY);
+    // 清除与用户相关的缓存
+    try {
+      localStorage.removeItem('cache_rks_records_v1');
+      localStorage.removeItem('cache_rks_records_v2');
+    } catch {}
     setAuthState({
       isAuthenticated: false,
       credential: null,

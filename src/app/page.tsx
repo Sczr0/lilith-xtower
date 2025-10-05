@@ -35,6 +35,12 @@ export default function Home() {
         </Link>
         <nav className="ml-auto flex gap-4 sm:gap-6 items-center">
           <Link
+            href="/qa"
+            className="text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
+          >
+            常见问题
+          </Link>
+          <Link
             href="/about"
             className="text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
           >
