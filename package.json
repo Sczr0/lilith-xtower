@@ -12,6 +12,7 @@
     "content:song": "node scripts/content-manager.js"
   },
   "dependencies": {
+    "@vercel/analytics": "^1.5.0",
     "gray-matter": "^4.0.3",
     "js-yaml": "^4.1.0",
     "lucide-react": "^0.544.0",

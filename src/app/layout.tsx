@@ -5,6 +5,7 @@ import { ThemeProvider } from "./components/ThemeProvider";
 import { AuthProvider } from "./contexts/AuthContext";
 import { MaintenanceProvider } from "./components/MaintenanceProvider";
 import { MaintenanceNotice } from "./components/MaintenanceNotice";
+import { Analytics } from "@vercel/analytics/next";
 import fs from 'fs';
 import path from 'path';
 
@@ -40,6 +41,7 @@ export default function RootLayout({
           rel="stylesheet"
           href="https://ik.imagekit.io/Sczr/Source%20Han%20Sans%20&%20Saira%20Hybrid-Regular%20(1)/result.css?updatedAt=1733583831964"
         />
+        <script defer src="https://cloud.umami.is/script.js" data-website-id="fcb3f5e6-8b71-4abe-bf83-684c3690b476"></script>
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
@@ -58,6 +60,7 @@ export default function RootLayout({
             </MaintenanceProvider>
           </AuthProvider>
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   );
