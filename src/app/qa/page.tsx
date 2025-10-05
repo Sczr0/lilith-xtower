@@ -262,7 +262,17 @@ export default function QAPage() {
             <p className="text-blue-700 dark:text-blue-300 mb-4">
               如果您的问题没有在这里找到答案，欢迎通过以下方式联系我们：
             </p>
+          <div className="mb-4 text-sm">
+          </div>
             <div className="flex flex-col sm:flex-row gap-3">
+            <a
+              href="https://qm.qq.com/q/pbbOzU72aA"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+            >
+              加入官方群聊 空间站「索终」
+            </a>
               <Link
                 href="/about"
                 className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
@@ -283,7 +293,7 @@ export default function QAPage() {
       {/* Footer */}
       <footer className="relative z-10 flex items-center justify-center h-16 backdrop-blur-sm bg-white/30 dark:bg-gray-900/30 border-t border-gray-200/50 dark:border-gray-700/50 mt-8">
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          © 2024 Phigros Query. All Rights Reserved.
+          © 2025 Phigros Query. All Rights Reserved.
         </p>
       </footer>
     </div>
