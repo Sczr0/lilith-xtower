@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect } from 'react';
-import { Credential } from '../lib/types/auth';
+import { AuthCredential } from '../lib/types/auth';
 
 interface AuthDetailsModalProps {
-  credential: Credential;
+  credential: AuthCredential;
   isOpen: boolean;
   onClose: () => void;
 }

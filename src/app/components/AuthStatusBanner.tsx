@@ -1,9 +1,9 @@
 'use client';
 
-import { Credential } from '../lib/types/auth';
+import { AuthCredential } from '../lib/types/auth';
 
 interface AuthStatusBannerProps {
-  credential: Credential;
+  credential: AuthCredential;
   onShowDetails: () => void;
   onLogout: () => void;
 }
