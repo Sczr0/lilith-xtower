@@ -134,7 +134,7 @@ export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobile
         lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-50 lg:z-auto`}
       >
       {/* Sidebar Header */}
-      <div className="h-16 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4">
+      <div className={`h-16 border-b border-gray-200 dark:border-gray-700 flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} px-4`}>
         {!isCollapsed && (
           <span className="font-semibold text-lg">功能菜单</span>
         )}
@@ -160,7 +160,7 @@ export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobile
           <button
             key={tab.id}
             onClick={() => handleTabChange(tab.id)}
-            className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all ${
+            className={`w-full flex items-center ${isCollapsed ? 'justify-center' : ''} gap-3 px-3 py-3 rounded-lg transition-all ${
               activeTab === tab.id
                 ? 'bg-blue-600 text-white shadow-lg'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -261,11 +261,11 @@ export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobile
             </div>
           </div>
         ) : (
-          <div className="p-2 space-y-2">
+          <div className="p-3 space-y-2">
             {/* Collapsed - Only show icons */}
             <button
               onClick={() => { onOpenAnnouncements?.(); onMobileClose?.(); }}
-              className="flex items-center justify-center p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              className="w-full flex items-center justify-center px-3 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               title="公告"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -274,7 +274,7 @@ export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobile
             </button>
             <Link
               href="/about"
-              className="flex items-center justify-center p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              className="w-full flex items-center justify-center px-3 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               title="关于"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -284,7 +284,7 @@ export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobile
             
             <button
               onClick={logout}
-              className="w-full flex items-center justify-center p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+              className="w-full flex items-center justify-center px-3 py-3 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
               title="退出登录"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

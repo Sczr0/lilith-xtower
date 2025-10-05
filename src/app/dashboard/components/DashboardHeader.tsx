@@ -5,9 +5,10 @@ import { ThemeToggle } from '../../components/ThemeToggle';
 
 interface DashboardHeaderProps {
   onOpenAnnouncements?: () => void;
+  onOpenMenu?: () => void;
 }
 
-export function DashboardHeader({ onOpenAnnouncements }: DashboardHeaderProps) {
+export function DashboardHeader({ onOpenAnnouncements, onOpenMenu }: DashboardHeaderProps) {
   const { logout, credential } = useAuth();
 
   const getCredentialDisplay = () => {
@@ -29,9 +30,20 @@ export function DashboardHeader({ onOpenAnnouncements }: DashboardHeaderProps) {
 
   return (
     <header className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 lg:px-6">
-      {/* Left Side - Title (Hidden on mobile, shown on desktop - mobile has hamburger menu) */}
-      <div className="flex items-center gap-4">
-        <h1 className="text-lg lg:text-xl font-bold text-gray-900 dark:text-gray-100 ml-12 lg:ml-0">
+      {/* Left Side - Title with mobile menu button */}
+      <div className="flex items-center gap-3">
+        {/* Mobile Menu Button - Integrated into header */}
+        <button
+          onClick={onOpenMenu}
+          className="lg:hidden p-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          aria-label="打开菜单"
+          title="菜单"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+        <h1 className="text-lg lg:text-xl font-bold text-gray-900 dark:text-gray-100">
           Phigros 查询工具
         </h1>
       </div>

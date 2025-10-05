@@ -11,6 +11,7 @@ import { ServiceStats } from '../components/ServiceStats';
 import { AnnouncementModal } from '../components/AnnouncementModal';
 import { SongUpdateList } from '../components/SongUpdateCard';
 import { PlayerScoreRenderer } from '../components/PlayerScoreRenderer';
+import { MenuGuide } from './components/MenuGuide';
 import type { Announcement, SongUpdate } from '../lib/types/content';
 
 export default function Dashboard() {
@@ -21,6 +22,7 @@ export default function Dashboard() {
   const [showAnnouncements, setShowAnnouncements] = useState(false);
   const [showAllAnnouncements, setShowAllAnnouncements] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showMenuGuide, setShowMenuGuide] = useState(true);
 
   // 加载公告和新曲速递数据
   useEffect(() => {
@@ -188,19 +190,14 @@ export default function Dashboard() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Mobile Menu Button */}
-        <button
-          onClick={() => setIsMobileMenuOpen(true)}
-          className="lg:hidden fixed top-4 left-4 z-30 p-2 rounded-lg bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700"
-          aria-label="打开菜单"
-        >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
+        {/* First-time Menu Guide - Only show when announcements are not visible */}
+        {!showAnnouncements && showMenuGuide && <MenuGuide onDismiss={() => setShowMenuGuide(false)} />}
 
-        {/* Header */}
-        <DashboardHeader onOpenAnnouncements={() => { setShowAllAnnouncements(true); setShowAnnouncements(true); }} />
+        {/* Header with integrated menu button */}
+        <DashboardHeader 
+          onOpenAnnouncements={() => { setShowAllAnnouncements(true); setShowAnnouncements(true); }}
+          onOpenMenu={() => setIsMobileMenuOpen(true)}
+        />
 
         {/* Error Banner */}
         {error && (
