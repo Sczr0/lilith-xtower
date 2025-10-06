@@ -11,6 +11,9 @@ export function QRCodeLogin() {
   const [qrId, setQrId] = useState<string>('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'scanning' | 'success' | 'error'>('idle');
   const [error, setError] = useState<string>('');
+  // 移动端深链：用于在移动端直接跳转 TapTap 确认登录
+  const [taptapDeepLink, setTaptapDeepLink] = useState<string>('');
+  const [isMobile, setIsMobile] = useState<boolean>(false);
 
   // 获取二维码
   const getQRCode = async () => {
@@ -21,6 +24,25 @@ export function QRCodeLogin() {
       const response = await AuthAPI.getQRCode();
       setQrCodeImage(response.qrCodeImage);
       setQrId(response.qrId);
+      // 生成 TapTap 深链（仅当后端返回 qrcodeUrl 时）
+      if (response.qrcodeUrl) {
+        try {
+          const url = new URL(response.qrcodeUrl);
+          const userCode = url.searchParams.get('user_code');
+          if (userCode) {
+            // 将 user_code 拼接到 TapTap 深链模板中（与产品方提供的格式保持一致）
+            const encoded = encodeURIComponent(`https://accounts.taptap.cn/device?qrcode=1&user_code=${userCode}`);
+            const deepLink = `taptap://taptap.com/login-auth?url=${encoded}`;
+            setTaptapDeepLink(deepLink);
+          } else {
+            setTaptapDeepLink('');
+          }
+        } catch {
+          setTaptapDeepLink('');
+        }
+      } else {
+        setTaptapDeepLink('');
+      }
       setStatus('scanning');
       
       // 开始轮询扫码状态
@@ -54,6 +76,12 @@ export function QRCodeLogin() {
 
   // 组件挂载时自动获取二维码
   useEffect(() => {
+    // 粗略判断是否为移动端，仅用于控制 UI 显示
+    if (typeof window !== 'undefined') {
+      const ua = navigator.userAgent || '';
+      const mobile = /Mobile|Android|iP(hone|od|ad)|HarmonyOS|Huawei/i.test(ua);
+      setIsMobile(mobile);
+    }
     getQRCode();
   }, []);
 
@@ -97,6 +125,26 @@ export function QRCodeLogin() {
               <span className="text-sm">等待扫码...</span>
             </div>
           </div>
+
+          {/* 移动端下属登录方式：直接跳转 TapTap 确认登录（桌面端隐藏） */}
+          {isMobile && taptapDeepLink && (
+            <div className="w-full max-w-sm pt-2 md:hidden">
+              <div className="relative flex items-center py-2">
+                <div className="flex-grow border-t border-gray-200 dark:border-gray-700"></div>
+                <span className="mx-3 text-xs text-gray-500 dark:text-gray-400">或</span>
+                <div className="flex-grow border-t border-gray-200 dark:border-gray-700"></div>
+              </div>
+              <a
+                href={taptapDeepLink}
+                className="mt-3 block w-full text-center px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                在 TapTap 中确认登录
+              </a>
+              <p className="mt-2 text-xs text-center text-gray-600 dark:text-gray-400">
+                确认后请返回浏览器阅读并同意「用户协议」，然后回到本页等待完成登录。
+              </p>
+            </div>
+          )}
         </div>
       )}
 

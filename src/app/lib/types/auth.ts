@@ -5,6 +5,11 @@ export type AuthMethod = 'qrcode' | 'manual' | 'api' | 'platform';
 export interface QRCodeResponse {
   qrCodeImage: string;
   qrId: string;
+  /**
+   * 新增字段：TapTap 登录链接，形如：https://accounts.taptap.cn/device?qrcode=1&user_code=xxxxx
+   * 用于在移动端通过深链拉起 TapTap 直接确认登录
+   */
+  qrcodeUrl?: string;
 }
 
 export interface QRCodeStatusResponse {
