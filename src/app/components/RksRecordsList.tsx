@@ -7,6 +7,7 @@ import { RksRecord } from '../lib/types/score';
 import { DIFFICULTY_BG, DIFFICULTY_TEXT } from '../lib/constants/difficultyColors';
 import { ScoreCard } from './ScoreCard';
 import type { AuthCredential } from '../lib/types/auth';
+import { getOwnerKey } from '../lib/utils/cache';
 
 function RksRecordsListInner() {
   const { credential } = useAuth();
@@ -17,35 +18,15 @@ function RksRecordsListInner() {
   const [filterDifficulty, setFilterDifficulty] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const CACHE_KEY = 'cache_rks_records_v2';
-  const CACHE_TTL_MS = 30 * 60 * 1000; // 30分钟
+  const CACHE_TTL_MS = 2 * 60 * 1000; // 2分钟TTL
+  const [nextUpdateAt, setNextUpdateAt] = useState<number | null>(null); // 下次可更新时间
 
-  const hash = (input: string) => {
-    let h = 0;
-    for (let i = 0; i < input.length; i++) {
-      h = (h << 5) - h + input.charCodeAt(i);
-      h |= 0;
-    }
-    return `h${(h >>> 0).toString(16)}`;
-  };
-
-  const getOwnerKey = (cred: AuthCredential | null) => {
-    if (!cred) return null;
-    switch (cred.type) {
-      case 'session':
-        return `session:${hash(cred.token)}`;
-      case 'api':
-        return `api:${hash(`${cred.api_user_id}:${cred.api_token || ''}`)}`;
-      case 'platform':
-        return `platform:${hash(`${cred.platform}:${cred.platform_id}`)}`;
-      default:
-        return null;
-    }
-  };
+  // getOwnerKey 复用工具，按用户隔离缓存
 
   useEffect(() => {
     // 先读缓存渲染（按用户隔离）
     try {
-      const ownerKey = getOwnerKey(credential);
+      const ownerKey = getOwnerKey(credential as AuthCredential);
       const cached = localStorage.getItem(CACHE_KEY);
       let shouldFetch = true;
       if (ownerKey && cached) {
@@ -53,6 +34,9 @@ function RksRecordsListInner() {
         const entry = map?.[ownerKey];
         if (entry && Array.isArray(entry.records)) {
           setRecords(entry.records);
+          if (typeof entry.ts === 'number') {
+            setNextUpdateAt(entry.ts + CACHE_TTL_MS);
+          }
           const fresh = typeof entry.ts === 'number' && Date.now() - entry.ts < CACHE_TTL_MS;
           if (fresh) shouldFetch = false;
         }
@@ -80,12 +64,14 @@ function RksRecordsListInner() {
       const newRecords = response.data.records || [];
       setRecords(newRecords);
       try {
-        const ownerKey = getOwnerKey(credential);
+        const ownerKey = getOwnerKey(credential as AuthCredential);
         if (ownerKey) {
           const cached = localStorage.getItem(CACHE_KEY);
           const map = (cached ? JSON.parse(cached) : {}) as Record<string, { records: RksRecord[]; ts: number }>;
-          map[ownerKey] = { records: newRecords, ts: Date.now() };
+          const now = Date.now();
+          map[ownerKey] = { records: newRecords, ts: now };
           localStorage.setItem(CACHE_KEY, JSON.stringify(map));
+          setNextUpdateAt(now + CACHE_TTL_MS);
         }
       } catch {}
     } catch (error) {
@@ -116,6 +102,11 @@ function RksRecordsListInner() {
         <p className="text-sm text-gray-600 dark:text-gray-400">
           查看所有歌曲的详细成绩和 RKS 计算值。
         </p>
+        {nextUpdateAt && (
+          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+            使用缓存数据，{new Date(nextUpdateAt).toLocaleTimeString()} 后可刷新
+          </p>
+        )}
       </div>
 
       {/* Filters and Search */}

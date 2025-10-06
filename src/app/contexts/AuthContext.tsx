@@ -190,6 +190,8 @@ export function AuthProvider({ children, agreementContent }: AuthProviderProps) 
     try {
       localStorage.removeItem('cache_rks_records_v1');
       localStorage.removeItem('cache_rks_records_v2');
+      localStorage.removeItem('cache_bestn_meta_v1');
+      localStorage.removeItem('cache_song_image_meta_v1');
     } catch {}
     setAuthState({
       isAuthenticated: false,

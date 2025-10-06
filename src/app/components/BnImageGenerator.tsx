@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { ImageAPI, BestNTheme } from '../lib/api/image';
 import { useGenerationBusy, useGenerationManager, useGenerationResult } from '../contexts/GenerationContext';
+import { getOwnerKey } from '../lib/utils/cache';
 
 const DEFAULT_N = 27;
 
@@ -12,6 +13,8 @@ export function BnImageGenerator() {
   const [nInput, setNInput] = useState(`${DEFAULT_N}`);
   const [generatedN, setGeneratedN] = useState(DEFAULT_N);
   const [theme, setTheme] = useState<BestNTheme>('dark');
+  const BESTN_TTL_MS = 5 * 60 * 1000; // 5分钟TTL，仅在成功展示后开始计时
+  const BESTN_META_KEY = 'cache_bestn_meta_v1'; // { [ownerKey]: { [paramKey]: ts } }
   // 全局生成占用：同一类别（best-n）未返回前，占用按钮并提示“生成中”
   const { startTask, clearResult } = useGenerationManager();
   const isLoading = useGenerationBusy('best-n');
@@ -19,6 +22,7 @@ export function BnImageGenerator() {
   const resultBlob = useGenerationResult<Blob>('best-n');
   const imageUrl = useMemo(() => (resultBlob ? URL.createObjectURL(resultBlob) : null), [resultBlob]);
   const [error, setError] = useState<string | null>(null);
+  const [nextUpdateAt, setNextUpdateAt] = useState<number | null>(null);
 
   useEffect(() => {
     return () => {
@@ -48,12 +52,43 @@ export function BnImageGenerator() {
 
     setError(null);
 
+    // 组合参数键，区分不同 N/主题/格式
+    const ownerKey = getOwnerKey(credential);
+    const paramKey = `n:${parsed}|theme:${theme}|fmt:png`;
+    try {
+      if (ownerKey) {
+        const metaRaw = localStorage.getItem(BESTN_META_KEY);
+        const meta = (metaRaw ? JSON.parse(metaRaw) : {}) as Record<string, Record<string, number>>;
+        const ts = meta?.[ownerKey]?.[paramKey];
+        if (typeof ts === 'number') {
+          const remain = ts + BESTN_TTL_MS - Date.now();
+          if (remain > 0) {
+            setNextUpdateAt(ts + BESTN_TTL_MS);
+            setError(`冷却中，${new Date(ts + BESTN_TTL_MS).toLocaleTimeString()} 后可再次生成`);
+            return;
+          }
+        }
+      }
+    } catch {}
+
     try {
       // 使用全局任务管理，避免页面切换中断并阻止同类重复请求；结果由上下文保存
       await startTask('best-n', () =>
         ImageAPI.generateBestNImage(parsed, credential, theme, 'png')
       );
       setGeneratedN(parsed);
+
+      // 成功展示结果后再开始冷却计时
+      try {
+        if (ownerKey) {
+          const metaRaw = localStorage.getItem(BESTN_META_KEY);
+          const meta = (metaRaw ? JSON.parse(metaRaw) : {}) as Record<string, Record<string, number>>;
+          const now = Date.now();
+          meta[ownerKey] = { ...(meta[ownerKey] || {}), [paramKey]: now };
+          localStorage.setItem(BESTN_META_KEY, JSON.stringify(meta));
+          setNextUpdateAt(now + BESTN_TTL_MS);
+        }
+      } catch {}
     } catch (error) {
       const message = error instanceof Error ? error.message : '生成失败';
       setError(message);
@@ -77,6 +112,11 @@ export function BnImageGenerator() {
         <p className="text-sm text-gray-600 dark:text-gray-400">
           选择生成的歌曲数量和主题，点击生成即可获取图片。
         </p>
+        {nextUpdateAt && (
+          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+            {`下次可生成时间：${new Date(nextUpdateAt).toLocaleTimeString()}`}
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
