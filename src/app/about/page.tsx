@@ -1,88 +1,17 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { ServiceStats } from '../components/ServiceStats';
+import MarkdownBlock from '../components/MarkdownBlock';
+import SponsorsList from '../components/SponsorsList';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function AboutPage() {
   const { isAuthenticated } = useAuth();
-  const features = [
-    {
-      title: 'Best N 成绩图片',
-      description: '生成您的最佳 N 首歌曲成绩汇总图片，支持深色和白色主题，轻松分享您的游戏成就',
-      icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-        </svg>
-      ),
-      color: 'from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200 dark:border-blue-800',
-      iconColor: 'text-blue-600 dark:text-blue-400'
-    },
-    {
-      title: '单曲成绩查询',
-      description: '查询特定歌曲的详细成绩信息，包括准确率、连击数、评级等完整数据',
-      icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-        </svg>
-      ),
-      color: 'from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border-green-200 dark:border-green-800',
-      iconColor: 'text-green-600 dark:text-green-400'
-    },
-    {
-      title: 'RKS 成绩列表',
-      description: '查看所有歌曲的 RKS 计算详情，深入了解您的游戏水平和进步空间',
-      icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-        </svg>
-      ),
-      color: 'from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 border-purple-200 dark:border-purple-800',
-      iconColor: 'text-purple-600 dark:text-purple-400'
-    },
-    {
-      title: '新曲速递',
-      description: '及时获取最新曲目更新信息，了解新增歌曲的难度定数和谱面特性',
-      icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-        </svg>
-      ),
-      color: 'from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 border-orange-200 dark:border-orange-800',
-      iconColor: 'text-orange-600 dark:text-orange-400'
-    },
-    {
-      title: '玩家成绩渲染',
-      description: '手动添加成绩并生成自定义 Best N 图片，适用于特殊场景下的成绩展示',
-      icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-        </svg>
-      ),
-      color: 'from-pink-50 to-pink-100 dark:from-pink-900/20 dark:to-pink-800/20 border-pink-200 dark:border-pink-800',
-      iconColor: 'text-pink-600 dark:text-pink-400'
-    },
-    {
-      title: 'RKS 计算器',
-      description: '根据谱面定数和准确率计算单曲 RKS 值，帮助预估成绩提升空间',
-      icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-        </svg>
-      ),
-      color: 'from-cyan-50 to-cyan-100 dark:from-cyan-900/20 dark:to-cyan-800/20 border-cyan-200 dark:border-cyan-800',
-      iconColor: 'text-cyan-600 dark:text-cyan-400'
-    }
-  ];
-
-  const techStack = [
-    { name: 'Next.js', icon: '⚡' },
-    { name: 'React', icon: '⚛️' },
-    { name: 'TypeScript', icon: '📘' },
-    { name: 'Tailwind CSS', icon: '🎨' },
-    { name: 'Vercel', icon: '▲' }
-  ];
+  // 头像图片放置于 public/about/avatar.png；裁剪通过 objectPosition 或 Tailwind 的 object-[x_y] 调整
+  const AVATAR_SRC = '/about/avatar.png';
 
   const supportLinks = [
     {
@@ -125,137 +54,61 @@ export default function AboutPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-950 text-gray-900 dark:text-gray-50">
-      {/* Header */}
-      <header className="sticky top-0 z-50 px-4 lg:px-6 h-16 flex items-center backdrop-blur-sm bg-white/30 dark:bg-gray-900/30 border-b border-gray-200/50 dark:border-gray-700/50">
-        <Link href="/" className="flex items-center justify-center">
-          <span className="text-xl font-bold">Phigros 查询</span>
-        </Link>
-        <nav className="ml-auto flex gap-4 sm:gap-6 items-center">
-          <Link
-            href="/qa"
-            className="text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
-          >
-            常见问题
-          </Link>
+    <div className="min-h-screen bg-white dark:bg-neutral-950 text-gray-900 dark:text-gray-50">
+      {/* Header（保持极简） */}
+      <header className="sticky top-0 z-40 h-14 border-b border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 px-4 lg:px-6 flex items-center">
+        <Link href="/" className="text-base font-semibold">Phigros 查询</Link>
+        <nav className="ml-auto flex items-center gap-4">
+          <Link href="/qa" className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">常见问题</Link>
           {!isAuthenticated && (
-            <Link
-              href="/login"
-              className="text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
-            >
-              登录
-            </Link>
+            <Link href="/login" className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">登录</Link>
           )}
-          <Link
-            href="/dashboard"
-            className="text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
-          >
-            控制台
-          </Link>
+          <Link href="/dashboard" className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">控制台</Link>
           <ThemeToggle />
         </nav>
       </header>
 
-      {/* Main Content */}
-      <main className="px-4 py-16">
-        <div className="max-w-6xl mx-auto space-y-16">
-          {/* Hero Section */}
-          <section className="text-center space-y-6">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight">
-              <span className="block bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">
-                关于 Phigros 查询工具
-              </span>
-            </h1>
-            <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto leading-relaxed">
-              一站式 Phigros 游戏数据查询与可视化平台
-              <br />
-              为玩家提供专业、便捷、美观的成绩分析服务
-            </p>
-          </section>
-
-          {/* Features Grid */}
-          <section className="space-y-8">
-            <div className="text-center">
-              <h2 className="text-3xl font-bold mb-4">核心功能</h2>
-              <p className="text-gray-600 dark:text-gray-400">
-                丰富的功能模块，满足您的各种查询需求
-              </p>
+      {/* Main */}
+      <main className="px-4 py-10 sm:py-14">
+        <div className="mx-auto max-w-4xl space-y-10">
+          {/* 顶部：头像 + 昵称（聊天软件风格） */}
+          <section className="flex items-center gap-4">
+            <div className="h-16 w-16 rounded-full overflow-hidden bg-gray-100 dark:bg-neutral-800">
+              <Image
+                src={AVATAR_SRC}
+                alt="头像"
+                width={64}
+                height={64}
+                className="h-16 w-16 rounded-full object-cover object-center"
+                priority
+              />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {features.map((feature, index) => (
-                <div
-                  key={index}
-                  className={`bg-gradient-to-br ${feature.color} rounded-2xl p-6 border shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105`}
-                >
-                  <div className="flex items-center mb-4">
-                    <div className={`p-3 rounded-xl bg-white/50 dark:bg-gray-900/30 ${feature.iconColor} mr-3`}>
-                      {feature.icon}
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                      {feature.title}
-                    </h3>
-                  </div>
-                  <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                    {feature.description}
-                  </p>
-                </div>
-              ))}
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">弦塔</h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Phigros 查询 · 主要（现在是唯一）维护者</p>
             </div>
           </section>
 
-          {/* Service Stats */}
-          <section className="space-y-8">
-            <div className="text-center">
-              <h2 className="text-3xl font-bold mb-4">服务统计</h2>
-              <p className="text-gray-600 dark:text-gray-400">
-                实时更新的服务使用数据
-              </p>
-            </div>
-            <ServiceStats />
+          {/* 可自填区域：从 public/about/custom.md 读取并渲染 */}
+          <section className="border border-gray-200 dark:border-neutral-800 rounded-xl p-4 sm:p-5">
+            <MarkdownBlock src="/about/custom.md" />
           </section>
 
-          {/* Tech Stack */}
-          <section className="space-y-8">
-            <div className="text-center">
-              <h2 className="text-3xl font-bold mb-4">技术栈</h2>
-              <p className="text-gray-600 dark:text-gray-400">
-                基于现代化前端技术构建
-              </p>
-            </div>
-            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-2xl p-8 shadow-lg border border-gray-200/50 dark:border-gray-700/50">
-              <div className="flex flex-wrap gap-4 justify-center">
-                {techStack.map((tech, index) => (
-                  <div
-                    key={index}
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 hover:scale-110 font-medium"
-                  >
-                    <span className="text-xl">{tech.icon}</span>
-                    <span>{tech.name}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+          {/* 服务统计（极简配色） */}
+          <section className="space-y-3">
+            <h2 className="text-xl font-semibold">服务统计</h2>
+            <ServiceStats variant="mono" />
           </section>
 
-          {/* Support Links */}
-          <section className="space-y-8">
-            <div className="text-center">
-              <h2 className="text-3xl font-bold mb-4">服务支持</h2>
-              <p className="text-gray-600 dark:text-gray-400">
-                获取帮助与了解更多信息
-              </p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* 服务支持（黑白灰蓝） */}
+          <section className="space-y-3">
+            <h2 className="text-xl font-semibold">服务支持</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {supportLinks.map((section, index) => (
-                <div
-                  key={index}
-                  className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-2xl p-6 shadow-lg border border-gray-200/50 dark:border-gray-700/50 hover:shadow-xl transition-all duration-300"
-                >
-                  <div className="flex items-center mb-4">
-                    <div className="p-3 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 text-blue-600 dark:text-blue-400 mr-3">
-                      {section.icon}
-                    </div>
-                    <h3 className="text-lg font-semibold">{section.title}</h3>
+                <div key={index} className="border border-gray-200 dark:border-neutral-800 rounded-xl p-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <span className="text-gray-500 dark:text-gray-400">{section.icon}</span>
+                    <h3 className="text-base font-medium">{section.title}</h3>
                   </div>
                   <ul className="space-y-2">
                     {section.links.map((link, linkIndex) => (
@@ -264,14 +117,9 @@ export default function AboutPage() {
                           href={link.url}
                           target={link.external ? '_blank' : undefined}
                           rel={link.external ? 'noopener noreferrer' : undefined}
-                          className="inline-flex items-center text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                          className="text-sm text-blue-600 hover:underline dark:text-blue-400"
                         >
                           {link.name}
-                          {link.external && (
-                            <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                            </svg>
-                          )}
                         </a>
                       </li>
                     ))}
@@ -281,21 +129,16 @@ export default function AboutPage() {
             </div>
           </section>
 
-          {/* Footer Info */}
-          <section className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-2xl p-8 shadow-lg border border-gray-200/50 dark:border-gray-700/50 text-center">
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
-              由 <a href="https://github.com/Sczr0" target="_blank" rel="noopener noreferrer" className="font-medium text-blue-600 hover:underline dark:text-blue-400">弦塔</a> 提供技术支持
-            </p>
-            <div className="flex flex-wrap gap-4 justify-center items-center text-sm text-gray-500 dark:text-gray-400">
-              <span>© 2024 Phigros Query</span>
-              <span>·</span>
-              <Link href="/agreement" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                用户协议
-              </Link>
-              <span>·</span>
-              <span>All Rights Reserved</span>
-            </div>
+          {/* 赞助者模块 */}
+          <section className="space-y-3">
+            <h2 className="text-xl font-semibold">赞助者</h2>
+            <SponsorsList initialPerPage={12} />
           </section>
+
+          {/* 简短页脚 */}
+          <footer className="pt-4 border-t border-gray-200 dark:border-neutral-800 text-sm text-gray-500 dark:text-gray-400">
+            © 2025 Phigros Query · <Link href="/agreement" className="hover:text-blue-600 dark:hover:text-blue-400">用户协议</Link>
+          </footer>
         </div>
       </main>
     </div>
