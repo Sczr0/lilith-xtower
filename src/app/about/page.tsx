@@ -59,6 +59,7 @@ export default function AboutPage() {
       <header className="sticky top-0 z-40 h-14 border-b border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 px-4 lg:px-6 flex items-center">
         <Link href="/" className="text-base font-semibold">Phigros 查询</Link>
         <nav className="ml-auto flex items-center gap-4">
+          <Link href="/sponsors" className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">赞助者</Link>
           <Link href="/qa" className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">常见问题</Link>
           {!isAuthenticated && (
             <Link href="/login" className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">登录</Link>
@@ -127,12 +128,6 @@ export default function AboutPage() {
                 </div>
               ))}
             </div>
-          </section>
-
-          {/* 赞助者模块 */}
-          <section className="space-y-3">
-            <h2 className="text-xl font-semibold">赞助者</h2>
-            <SponsorsList initialPerPage={12} />
           </section>
 
           {/* 简短页脚 */}

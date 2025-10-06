@@ -2,9 +2,13 @@
 
 import { useAuth } from '../contexts/AuthContext';
 import { ThemeToggle } from '../components/ThemeToggle';
+import Link from 'next/link';
+import { useState } from 'react';
 
 export default function DebugAuthPage() {
-  const { isAuthenticated, credential, isLoading, logout } = useAuth();
+  const { isAuthenticated, credential, isLoading, logout, validateCurrentCredential } = useAuth();
+  const [verifying, setVerifying] = useState(false);
+  const [verifyResult, setVerifyResult] = useState<null | 'valid' | 'invalid'>(null);
 
   const formatTimestamp = (timestamp: number) => {
     return new Date(timestamp).toLocaleString('zh-CN', {
@@ -145,6 +149,33 @@ export default function DebugAuthPage() {
     }
   };
 
+  // 触发重新验证当前凭证
+  const handleRevalidate = async () => {
+    setVerifying(true);
+    setVerifyResult(null);
+    try {
+      const ok = await validateCurrentCredential();
+      setVerifyResult(ok ? 'valid' : 'invalid');
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  // 屏蔽敏感字段后输出 JSON（仅用于“更多详情”折叠内容）
+  const mask = (s: string) => {
+    if (!s) return '';
+    if (s.length <= 8) return '••••';
+    return `${s.slice(0, 6)}…${s.slice(-4)}`;
+  };
+  const sanitizedCredential = credential
+    ? (() => {
+        const base: Record<string, unknown> = { ...(credential as unknown as Record<string, unknown>) };
+        if (typeof base['token'] === 'string') base['token'] = mask(base['token'] as string);
+        if (typeof base['api_token'] === 'string') base['api_token'] = mask(base['api_token'] as string);
+        return base;
+      })()
+    : null;
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-950 flex items-center justify-center">
@@ -158,83 +189,136 @@ export default function DebugAuthPage() {
       {/* Header */}
       <header className="px-4 lg:px-6 h-14 flex items-center justify-between backdrop-blur-sm bg-white/30 dark:bg-gray-900/30">
         <div className="flex items-center space-x-4">
-          <a className="flex items-center justify-center" href="/">
+          <Link className="flex items-center justify-center" href="/">
             <span className="text-lg font-semibold">Phigros 查询</span>
-          </a>
-          <a 
+          </Link>
+          <Link 
             href="/qa" 
             className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
           >
             常见问题
-          </a>
-          <a 
+          </Link>
+          <Link 
             href="/login" 
             className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
           >
             登录页面
-          </a>
+          </Link>
         </div>
         <ThemeToggle />
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex items-center justify-center p-4">
-        <div className="w-full max-w-2xl mx-auto">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl mb-4">
-              认证调试页面
-            </h1>
-            <p className="text-gray-500 md:text-xl dark:text-gray-400">
-              查看当前登录状态和凭证信息
-            </p>
-          </div>
-
-          <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-gray-200/50 dark:border-gray-700/50">
-            {/* 认证状态 */}
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold mb-4">认证状态</h2>
-              <div className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${
-                isAuthenticated 
-                  ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' 
-                  : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-              }`}>
-                <div className={`w-2 h-2 rounded-full mr-2 ${
-                  isAuthenticated ? 'bg-green-500' : 'bg-red-500'
-                }`}></div>
-                {isAuthenticated ? '已登录' : '未登录'}
-              </div>
+      <main className="flex-1 p-4">
+        <div className="w-full max-w-5xl mx-auto space-y-6">
+          {/* 极简页头：小号 overline + 简述 + 右侧操作 */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <div className="text-[11px] uppercase tracking-widest text-gray-500 dark:text-gray-400">调试</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">认证状态与凭证</div>
             </div>
-
-            {/* 凭证信息 */}
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold mb-4">凭证信息</h2>
-              {renderCredentialInfo()}
-            </div>
-
-            {/* 操作按钮 */}
-            <div className="flex space-x-4">
-              <button
-                onClick={() => window.location.href = '/'}
-                className="flex-1 py-2 px-4 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors"
+            <div className="flex items-center gap-2">
+              <Link
+                href="/"
+                className="px-3 py-1.5 rounded-lg border border-gray-200/60 bg-white/60 hover:bg-white/80 text-gray-700 shadow-sm transition dark:border-gray-700/60 dark:bg-gray-800/50 dark:text-gray-200"
               >
-                返回主页
-              </button>
+                返回
+              </Link>
               {isAuthenticated && (
                 <button
                   onClick={logout}
-                  className="flex-1 py-2 px-4 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors"
+                  className="px-3 py-1.5 rounded-lg border border-red-200/60 text-red-700 bg-red-50/60 hover:bg-red-50/90 shadow-sm transition dark:border-red-800/60 dark:text-red-300 dark:bg-red-900/20"
                 >
-                  退出登录
+                  退出
                 </button>
               )}
+            </div>
+          </div>
+
+          {/* 网格布局：上方双卡片，下方信息区，缓解页面下部留白 */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* 认证状态卡片 */}
+            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-gray-200/50 dark:border-gray-700/50">
+              <div className="text-xs font-medium tracking-wider uppercase text-gray-500 dark:text-gray-400 mb-3">认证状态</div>
+              <div
+                className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                  isAuthenticated
+                    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                    : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                }`}
+              >
+                <span
+                  className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full ${
+                    isAuthenticated ? 'bg-green-500' : 'bg-red-500'
+                  }`}
+                />
+                {isAuthenticated ? '已登录' : '未登录'}
+              </div>
+              {credential && (
+                <div className="mt-3 text-xs text-gray-600 dark:text-gray-400">
+                  最近登录：{formatTimestamp(credential.timestamp)}
+                </div>
+              )}
+            </div>
+
+            {/* 快速操作卡片 */}
+            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-gray-200/50 dark:border-gray-700/50">
+              <div className="text-xs font-medium tracking-wider uppercase text-gray-500 dark:text-gray-400 mb-3">快速操作</div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={handleRevalidate}
+                  disabled={verifying}
+                  className="px-3 py-1.5 rounded-lg border border-blue-200/60 bg-blue-50/60 hover:bg-blue-50/90 text-blue-700 shadow-sm transition disabled:opacity-60 dark:border-blue-800/60 dark:bg-blue-900/20 dark:text-blue-300"
+                >
+                  {verifying ? '验证中…' : '重新验证凭证'}
+                </button>
+                {isAuthenticated ? (
+                  <Link
+                    href="/dashboard"
+                    className="px-3 py-1.5 rounded-lg border border-gray-200/60 bg-white/60 hover:bg-white/80 text-gray-700 shadow-sm transition dark:border-gray-700/60 dark:bg-gray-800/50 dark:text-gray-200"
+                  >
+                    前往仪表板
+                  </Link>
+                ) : (
+                  <Link
+                    href="/login"
+                    className="px-3 py-1.5 rounded-lg border border-gray-200/60 bg-white/60 hover:bg-white/80 text-gray-700 shadow-sm transition dark:border-gray-700/60 dark:bg-gray-800/50 dark:text-gray-200"
+                  >
+                    去登录
+                  </Link>
+                )}
+                <Link
+                  href="/qa"
+                  className="px-3 py-1.5 rounded-lg border border-gray-200/60 bg-white/60 hover:bg-white/80 text-gray-700 shadow-sm transition dark:border-gray-700/60 dark:bg-gray-800/50 dark:text-gray-200"
+                >
+                  常见问题
+                </Link>
+              </div>
+              {verifyResult && (
+                <div className={`mt-3 text-xs ${verifyResult === 'valid' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                  {verifyResult === 'valid' ? '凭证有效' : '凭证无效或验证失败'}
+                </div>
+              )}
+            </div>
+
+            {/* 凭证信息区（占满两列） */}
+            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-gray-200/50 dark:border-gray-700/50 lg:col-span-2">
+              <div className="text-xs font-medium tracking-wider uppercase text-gray-500 dark:text-gray-400 mb-3">凭证信息</div>
+              {renderCredentialInfo()}
+
+              {/* 更多详情（折叠） */}
+              <details className="mt-6 group">
+                <summary className="text-xs cursor-pointer select-none text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">更多详情（原始凭证 JSON，敏感字段已屏蔽）</summary>
+                <pre className="mt-3 p-3 rounded bg-gray-100/70 dark:bg-gray-900/50 overflow-x-auto text-xs text-gray-700 dark:text-gray-300"><code>{JSON.stringify(sanitizedCredential, null, 2)}</code></pre>
+              </details>
             </div>
           </div>
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="flex items-center justify-center h-16 backdrop-blur-sm bg-white/30 dark:bg-gray-900/30">
-        <p className="text-sm text-gray-500 dark:text-gray-400">
+      <footer className="flex items-center justify-center h-16 backdrop-blur-sm bg-white/20 dark:bg-gray-900/20">
+        <p className="text-sm text-gray-700/80 dark:text-gray-300/80">
           © 2024 Phigros Query. All Rights Reserved.
         </p>
       </footer>
