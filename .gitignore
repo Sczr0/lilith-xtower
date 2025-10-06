@@ -40,4 +40,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-API.md
+# 文档
+项目文档.md
+CLAUDE.md
+
+# 参考
+test.html
