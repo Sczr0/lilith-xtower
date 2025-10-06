@@ -98,7 +98,7 @@ export class ImageAPI {
         if (data?.message) {
           message = data.message;
         }
-      } catch (error) {
+      } catch {
         // ignore
       }
       throw new Error(message);

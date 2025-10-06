@@ -88,7 +88,6 @@ export default function QAPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [qaData, setQaData] = useState<QAItem[]>(defaultQAData);
-  const [loading, setLoading] = useState(true);
   const { isAuthenticated, isLoading } = useAuth();
 
   useEffect(() => {
@@ -104,9 +103,7 @@ export default function QAPage() {
         console.error('Failed to load QA data:', err);
         // 使用默认数据
       })
-      .finally(() => {
-        setLoading(false);
-      });
+      .finally(() => {});
   }, []);
 
   const filteredQA = selectedCategory
@@ -184,7 +181,7 @@ export default function QAPage() {
               >
                 全部
               </button>
-              {Object.entries(categories).map(([key, { name, color }]) => (
+              {Object.entries(categories).map(([key, { name }]) => (
                 <button
                   key={key}
                   onClick={() => setSelectedCategory(key)}

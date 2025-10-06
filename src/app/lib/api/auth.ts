@@ -148,7 +148,7 @@ export class AuthAPI {
   /**
    * 获取用户云存档数据（用于验证凭证和获取用户信息）
    */
-  static async getCloudSaves(credential: AuthCredential): Promise<any> {
+  static async getCloudSaves(credential: AuthCredential): Promise<unknown> {
     try {
       const requestBody = buildAuthRequestBody(credential);
 
@@ -168,7 +168,7 @@ export class AuthAPI {
       }
 
       const data = await response.json();
-      return data;
+      return data as unknown;
     } catch (error) {
       console.error('获取用户数据失败:', error);
       throw error instanceof Error ? error : new Error('网络错误，请检查网络连接');

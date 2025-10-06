@@ -82,7 +82,7 @@ export class AuthStorage {
   private static decrypt(encryptedData: string): string {
     try {
       return decodeURIComponent(escape(atob(encryptedData)));
-    } catch (error) {
+    } catch {
       throw new Error('凭证数据损坏');
     }
   }
@@ -90,27 +90,38 @@ export class AuthStorage {
   /**
    * 验证凭证格式是否有效
    */
-  private static isValidCredential(credential: any): credential is AuthCredential {
+  private static isValidCredential(credential: unknown): credential is AuthCredential {
     if (!credential || typeof credential !== 'object') {
       return false;
     }
 
-    if (!credential.type || !credential.timestamp) {
+    // 通过类型收窄后再访问属性
+    const c = credential as Partial<AuthCredential> & { type?: string; timestamp?: number };
+    if (!c.type || !c.timestamp) {
       return false;
     }
 
-    switch (credential.type) {
+    switch (c.type) {
       case 'session':
-        return typeof credential.token === 'string' && credential.token.length > 0;
+        {
+          const s = c as { token?: string };
+          return typeof s.token === 'string' && s.token.length > 0;
+        }
       
       case 'api':
-        return typeof credential.api_user_id === 'string' && credential.api_user_id.length > 0;
+        {
+          const a = c as { api_user_id?: string };
+          return typeof a.api_user_id === 'string' && a.api_user_id.length > 0;
+        }
       
       case 'platform':
-        return typeof credential.platform === 'string' && 
-               typeof credential.platform_id === 'string' &&
-               credential.platform.length > 0 &&
-               credential.platform_id.length > 0;
+        {
+          const p = c as { platform?: string; platform_id?: string };
+          return typeof p.platform === 'string' && 
+                 typeof p.platform_id === 'string' &&
+                 p.platform.length > 0 &&
+                 p.platform_id.length > 0;
+        }
       
       default:
         return false;

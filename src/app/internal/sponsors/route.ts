@@ -25,7 +25,7 @@ export async function GET(request: Request) {
   }
 
   const ts = Math.floor(Date.now() / 1000);
-  const paramsObj: Record<string, any> = { page, per_page: perPage };
+  const paramsObj: Record<string, unknown> = { page, per_page: perPage };
   if (filterUserIds) paramsObj.user_id = filterUserIds;
   const paramsStr = JSON.stringify(paramsObj);
 
@@ -42,7 +42,6 @@ export async function GET(request: Request) {
         ts,
         sign,
       }),
-      // @ts-ignore — 允许外部调用
       cache: 'no-store',
     });
 

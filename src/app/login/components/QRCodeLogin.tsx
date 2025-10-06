@@ -1,6 +1,7 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import { useAuth } from '../../contexts/AuthContext';
 import { AuthAPI, poll } from '../../lib/api/auth';
 import { SessionCredential } from '../../lib/types/auth';
@@ -8,7 +9,6 @@ import { SessionCredential } from '../../lib/types/auth';
 export function QRCodeLogin() {
   const { login } = useAuth();
   const [qrCodeImage, setQrCodeImage] = useState<string>('');
-  const [qrId, setQrId] = useState<string>('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'scanning' | 'success' | 'error'>('idle');
   const [error, setError] = useState<string>('');
   // 移动端深链：用于在移动端直接跳转 TapTap 确认登录
@@ -16,14 +16,13 @@ export function QRCodeLogin() {
   const [isMobile, setIsMobile] = useState<boolean>(false);
 
   // 获取二维码
-  const getQRCode = async () => {
+  const getQRCode = useCallback(async () => {
     try {
       setStatus('loading');
       setError('');
       
       const response = await AuthAPI.getQRCode();
       setQrCodeImage(response.qrCodeImage);
-      setQrId(response.qrId);
       // 生成 TapTap 深链（仅当后端返回 qrcodeUrl 时）
       if (response.qrcodeUrl) {
         try {
@@ -72,7 +71,7 @@ export function QRCodeLogin() {
       setStatus('error');
       setError(error instanceof Error ? error.message : '扫码登录失败');
     }
-  };
+  }, [login]);
 
   // 组件挂载时自动获取二维码
   useEffect(() => {
@@ -83,7 +82,7 @@ export function QRCodeLogin() {
       setIsMobile(mobile);
     }
     getQRCode();
-  }, []);
+  }, [getQRCode]);
 
   const handleRetry = () => {
     getQRCode();
@@ -110,10 +109,14 @@ export function QRCodeLogin() {
       {status === 'scanning' && qrCodeImage && (
         <div className="flex flex-col items-center space-y-4">
           <div className="bg-white p-4 rounded-lg shadow-lg">
-            <img
+            <Image
               src={qrCodeImage}
               alt="登录二维码"
-              className="w-64 h-64"
+              width={256}
+              height={256}
+              className="w-64 h-64 object-contain"
+              unoptimized
+              priority
             />
           </div>
           <div className="text-center space-y-2">
