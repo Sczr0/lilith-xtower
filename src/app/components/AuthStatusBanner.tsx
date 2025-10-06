@@ -56,8 +56,9 @@ export function AuthStatusBanner({ credential, onShowDetails, onLogout }: AuthSt
 
   return (
     <div className="mb-6 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start gap-3 flex-1">
+      {/* 在小屏改为上下布局，避免图标与文本/按钮拥挤错位 */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-start justify-start sm:justify-between gap-3 sm:gap-4">
+        <div className="flex items-start gap-3 flex-1 min-w-0">
           <div className="p-2 bg-green-100 dark:bg-green-800/30 rounded-lg text-green-600 dark:text-green-400">
             {getCredentialIcon()}
           </div>
@@ -75,7 +76,7 @@ export function AuthStatusBanner({ credential, onShowDetails, onLogout }: AuthSt
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-2 flex-shrink-0 sm:justify-end sm:self-start">
           <button
             onClick={onShowDetails}
             className="px-3 py-1.5 text-sm font-medium text-green-700 hover:text-green-900 dark:text-green-300 dark:hover:text-green-100 hover:bg-green-100 dark:hover:bg-green-800/50 rounded-lg transition-colors"
