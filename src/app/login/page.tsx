@@ -197,7 +197,7 @@ export default function LoginPage() {
       {/* Footer */}
       <footer className="relative z-10 flex items-center justify-center h-16 backdrop-blur-sm bg-white/30 dark:bg-gray-900/30 border-t border-gray-200/50 dark:border-gray-700/50">
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          © 2024 Phigros Query. All Rights Reserved.
+          © 2025 Phigros Query. All Rights Reserved.
         </p>
       </footer>
 

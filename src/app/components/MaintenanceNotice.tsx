@@ -18,8 +18,8 @@ export function MaintenanceNotice() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // 在认证调试页面不显示维护预告
-  if (pathname?.startsWith('/debug-auth')) return null;
+  // 在认证调试页面与登录页面不显示维护预告
+  if (pathname?.startsWith('/debug-auth') || pathname?.startsWith('/login')) return null;
   if (!shouldShowBanner || isInMaintenance) return null;
 
   const formatMaintenanceTime = () => {
