@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "./components/ThemeProvider";
 import { AuthProvider } from "./contexts/AuthContext";
 import { MaintenanceProvider } from "./components/MaintenanceProvider";
+import { GenerationProvider } from "./contexts/GenerationContext";
 import { MaintenanceNotice } from "./components/MaintenanceNotice";
 import { Analytics } from "@vercel/analytics/next";
 import fs from 'fs';
@@ -56,7 +57,9 @@ export default function RootLayout({
           <MaintenanceNotice />
           <AuthProvider agreementContent={agreementContent}>
             <MaintenanceProvider>
-              {children}
+              <GenerationProvider>
+                {children}
+              </GenerationProvider>
             </MaintenanceProvider>
           </AuthProvider>
         </ThemeProvider>

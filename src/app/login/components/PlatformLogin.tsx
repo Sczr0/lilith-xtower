@@ -86,11 +86,7 @@ export function PlatformLogin() {
             disabled={isSubmitting || isLoading}
           >
             <option value="OneBotv11">OneBotv11</option>
-            <option value="QQ">QQ</option>
-            <option value="WeChat">微信</option>
-            <option value="Discord">Discord</option>
-            <option value="Telegram">Telegram</option>
-            <option value="other">其他平台</option>
+            <option value="QQBot">QQBot</option>
           </select>
         </div>
 
@@ -152,7 +148,6 @@ export function PlatformLogin() {
         <ul className="text-sm text-blue-700 dark:text-blue-400 space-y-1">
           <li>• <strong>OneBotv11:</strong> 基于 OneBotv11 协议的机器人平台</li>
           <li>• <strong>QQBot:</strong> QQ 群官方机器人服务</li>
-          <li>• <strong>其他:</strong> 支持联合查分标准的其他平台</li>
         </ul>
       </div>
     </div>

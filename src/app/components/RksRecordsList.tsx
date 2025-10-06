@@ -129,7 +129,7 @@ function RksRecordsListInner() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="输入歌曲名称..."
-            className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
         <div className="space-y-2">
@@ -139,7 +139,7 @@ function RksRecordsListInner() {
           <select
             value={filterDifficulty}
             onChange={(e) => setFilterDifficulty(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="all">全部难度</option>
             <option value="EZ">EZ</option>
@@ -155,7 +155,7 @@ function RksRecordsListInner() {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as 'rks' | 'acc')}
-            className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="rks">按 RKS 排序</option>
             <option value="acc">按准确率排序</option>

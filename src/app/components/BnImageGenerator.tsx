@@ -1,18 +1,23 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { ImageAPI, BestNTheme } from '../lib/api/image';
+import { useGenerationBusy, useGenerationManager, useGenerationResult } from '../contexts/GenerationContext';
 
-const DEFAULT_N = 19;
+const DEFAULT_N = 27;
 
 export function BnImageGenerator() {
   const { credential } = useAuth();
   const [nInput, setNInput] = useState(`${DEFAULT_N}`);
   const [generatedN, setGeneratedN] = useState(DEFAULT_N);
   const [theme, setTheme] = useState<BestNTheme>('dark');
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  // 全局生成占用：同一类别（best-n）未返回前，占用按钮并提示“生成中”
+  const { startTask, clearResult } = useGenerationManager();
+  const isLoading = useGenerationBusy('best-n');
+  // 跨页面读取最近一次生成结果（Blob）并转为 URL 展示
+  const resultBlob = useGenerationResult<Blob>('best-n');
+  const imageUrl = useMemo(() => (resultBlob ? URL.createObjectURL(resultBlob) : null), [resultBlob]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -41,25 +46,17 @@ export function BnImageGenerator() {
       return;
     }
 
-    setIsLoading(true);
     setError(null);
 
     try {
-      // 强制使用 PNG
-      const blob = await ImageAPI.generateBestNImage(parsed, credential, theme, 'png');
-      const url = URL.createObjectURL(blob);
-      setImageUrl((prev) => {
-        if (prev) {
-          URL.revokeObjectURL(prev);
-        }
-        return url;
-      });
+      // 使用全局任务管理，避免页面切换中断并阻止同类重复请求；结果由上下文保存
+      await startTask('best-n', () =>
+        ImageAPI.generateBestNImage(parsed, credential, theme, 'png')
+      );
       setGeneratedN(parsed);
     } catch (error) {
       const message = error instanceof Error ? error.message : '生成失败';
       setError(message);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -92,7 +89,7 @@ export function BnImageGenerator() {
             min={1}
             value={nInput}
             onChange={(event) => handleNChange(event.target.value)}
-            className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
         <div className="space-y-2">
@@ -102,7 +99,7 @@ export function BnImageGenerator() {
           <select
             value={theme}
             onChange={(event) => handleThemeChange(event.target.value)}
-            className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="dark">深色主题</option>
             <option value="white">白色主题</option>
@@ -143,12 +140,9 @@ export function BnImageGenerator() {
               下载图片
             </a>
             <button
-              onClick={() => setImageUrl((prev) => {
-                if (prev) {
-                  URL.revokeObjectURL(prev);
-                }
-                return null;
-              })}
+              onClick={() => {
+                clearResult('best-n');
+              }}
               className="inline-flex items-center justify-center rounded-lg border border-gray-400 px-4 py-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
             >
               清除结果

@@ -1,14 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { ImageAPI } from '../lib/api/image';
+import { useGenerationBusy, useGenerationManager, useGenerationResult } from '../contexts/GenerationContext';
 
 export function SongSearchGenerator() {
   const { credential } = useAuth();
   const [songQuery, setSongQuery] = useState('');
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const { startTask, clearResult } = useGenerationManager();
+  const isLoading = useGenerationBusy('song');
+  const resultBlob = useGenerationResult<Blob>('song');
+  const imageUrl = useMemo(() => (resultBlob ? URL.createObjectURL(resultBlob) : null), [resultBlob]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -30,23 +33,15 @@ export function SongSearchGenerator() {
       return;
     }
 
-    setIsLoading(true);
     setError(null);
 
     try {
-      const blob = await ImageAPI.generateSongImage(songQuery, credential);
-      const url = URL.createObjectURL(blob);
-      setImageUrl((prev) => {
-        if (prev) {
-          URL.revokeObjectURL(prev);
-        }
-        return url;
-      });
+      await startTask('song', () =>
+        ImageAPI.generateSongImage(songQuery, credential)
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : '查询失败';
       setError(message);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -110,12 +105,9 @@ export function SongSearchGenerator() {
               下载图片
             </a>
             <button
-              onClick={() => setImageUrl((prev) => {
-                if (prev) {
-                  URL.revokeObjectURL(prev);
-                }
-                return null;
-              })}
+              onClick={() => {
+                clearResult('song');
+              }}
               className="inline-flex items-center justify-center rounded-lg border border-gray-400 px-4 py-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
             >
               清除结果
