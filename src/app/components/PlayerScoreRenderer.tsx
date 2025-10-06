@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { StyledSelect } from './ui/Select';
 
 interface ScoreEntry {
   song_name: string;
@@ -253,16 +254,17 @@ export function PlayerScoreRenderer() {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 难度
               </label>
-              <select
+              <StyledSelect
+                options={[
+                  { label: 'EZ', value: 'EZ' },
+                  { label: 'HD', value: 'HD' },
+                  { label: 'IN', value: 'IN' },
+                  { label: 'AT', value: 'AT' },
+                ]}
                 value={songDifficulty}
-                onChange={(e) => setSongDifficulty(e.target.value as 'EZ' | 'HD' | 'IN' | 'AT')}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="EZ">EZ</option>
-                <option value="HD">HD</option>
-                <option value="IN">IN</option>
-                <option value="AT">AT</option>
-              </select>
+                onValueChange={(v) => setSongDifficulty(v as 'EZ' | 'HD' | 'IN' | 'AT')}
+                placeholder="选择难度"
+              />
             </div>
 
             <button

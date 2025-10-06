@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { SVGRenderer, RenderOptions, RenderProgress } from '../utils/svgRenderer';
+import { StyledSelect } from './ui/Select';
 
 interface BNImageProps {
   svgContent: string;
@@ -101,33 +102,35 @@ export function BNImage({ svgContent, n, onClear }: BNImageProps) {
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             下载格式
           </label>
-          <select
+          <StyledSelect
+            options={[
+              { label: 'PNG (推荐)', value: 'png' },
+              { label: 'JPG', value: 'jpg' },
+              { label: 'WebP', value: 'webp' },
+            ]}
             value={downloadFormat}
-            onChange={(e) => setDownloadFormat(e.target.value as 'png' | 'jpg' | 'webp')}
+            onValueChange={(v) => setDownloadFormat(v as 'png' | 'jpg' | 'webp')}
+            placeholder="选择格式"
             disabled={isDownloading}
-            className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-          >
-            <option value="png">PNG (推荐)</option>
-            <option value="jpg">JPG</option>
-            <option value="webp">WebP</option>
-          </select>
+          />
         </div>
 
         <div className="space-y-2">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             分辨率
           </label>
-          <select
-            value={downloadScale}
-            onChange={(e) => setDownloadScale(Number(e.target.value))}
+          <StyledSelect
+            options={[
+              { label: '1x (标准)', value: '1' },
+              { label: '2x (高清)', value: '2' },
+              { label: '3x (超高清)', value: '3' },
+              { label: '4x (极致)', value: '4' },
+            ]}
+            value={String(downloadScale) as any}
+            onValueChange={(v) => setDownloadScale(Number(v))}
+            placeholder="选择分辨率"
             disabled={isDownloading}
-            className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-          >
-            <option value="1">1x (标准)</option>
-            <option value="2">2x (高清)</option>
-            <option value="3">3x (超高清)</option>
-            <option value="4">4x (极致)</option>
-          </select>
+          />
         </div>
       </div>
 

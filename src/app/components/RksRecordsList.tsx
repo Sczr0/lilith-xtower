@@ -8,6 +8,7 @@ import { DIFFICULTY_BG, DIFFICULTY_TEXT } from '../lib/constants/difficultyColor
 import { ScoreCard } from './ScoreCard';
 import type { AuthCredential } from '../lib/types/auth';
 import { getOwnerKey } from '../lib/utils/cache';
+import { StyledSelect } from './ui/Select';
 
 function RksRecordsListInner() {
   const { credential } = useAuth();
@@ -127,30 +128,32 @@ function RksRecordsListInner() {
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             难度筛选
           </label>
-          <select
-            value={filterDifficulty}
-            onChange={(e) => setFilterDifficulty(e.target.value)}
-            className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="all">全部难度</option>
-            <option value="EZ">EZ</option>
-            <option value="HD">HD</option>
-            <option value="IN">IN</option>
-            <option value="AT">AT</option>
-          </select>
+          <StyledSelect
+            options={[
+              { label: '全部难度', value: 'all' },
+              { label: 'EZ', value: 'EZ' },
+              { label: 'HD', value: 'HD' },
+              { label: 'IN', value: 'IN' },
+              { label: 'AT', value: 'AT' },
+            ]}
+            value={filterDifficulty as any}
+            onValueChange={(v) => setFilterDifficulty(v)}
+            placeholder="选择难度"
+          />
         </div>
         <div className="space-y-2">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             排序方式
           </label>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as 'rks' | 'acc')}
-            className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="rks">按 RKS 排序</option>
-            <option value="acc">按准确率排序</option>
-          </select>
+          <StyledSelect
+            options={[
+              { label: '按 RKS 排序', value: 'rks' },
+              { label: '按准确率排序', value: 'acc' },
+            ]}
+            value={sortBy as any}
+            onValueChange={(v) => setSortBy(v as 'rks' | 'acc')}
+            placeholder="选择排序方式"
+          />
         </div>
       </div>
 

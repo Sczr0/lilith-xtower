@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { ImageAPI, BestNTheme } from '../lib/api/image';
 import { useGenerationBusy, useGenerationManager, useGenerationResult } from '../contexts/GenerationContext';
 import { getOwnerKey } from '../lib/utils/cache';
+import { StyledSelect } from './ui/Select';
 
 const DEFAULT_N = 27;
 
@@ -136,14 +137,15 @@ export function BnImageGenerator() {
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             主题
           </label>
-          <select
-            value={theme}
-            onChange={(event) => handleThemeChange(event.target.value)}
-            className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="dark">深色主题</option>
-            <option value="white">白色主题</option>
-          </select>
+          <StyledSelect
+            options={[
+              { label: '深色主题', value: 'dark' },
+              { label: '白色主题', value: 'white' },
+            ]}
+            value={theme as BestNTheme}
+            onValueChange={(v) => handleThemeChange(v)}
+            placeholder="选择主题"
+          />
         </div>
         <div className="flex items-end">
           <button

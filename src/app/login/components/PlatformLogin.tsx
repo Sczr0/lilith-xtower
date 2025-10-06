@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { PlatformCredential, PlatformLoginForm } from '../../lib/types/auth';
+import { StyledSelect } from '../../components/ui/Select';
 
 export function PlatformLogin() {
   const { login, isLoading, error: authError } = useAuth();
@@ -77,17 +78,19 @@ export function PlatformLogin() {
           <label htmlFor="platform" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             平台 *
           </label>
-          <select
-            id="platform"
-            name="platform"
-            value={formData.platform}
-            onChange={handleChange}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+          {/* 使用统一风格下拉，完全自定义选项面板样式 */}
+          <StyledSelect
+            options={[
+              { label: 'OneBotv11', value: 'OneBotv11' },
+              { label: 'QQBot', value: 'QQBot' },
+            ]}
+            value={formData.platform as any}
+            onValueChange={(v) =>
+              setFormData((prev) => ({ ...prev, platform: v }))
+            }
+            placeholder="选择平台"
             disabled={isSubmitting || isLoading}
-          >
-            <option value="OneBotv11">OneBotv11</option>
-            <option value="QQBot">QQBot</option>
-          </select>
+          />
         </div>
 
         <div>
