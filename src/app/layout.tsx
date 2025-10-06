@@ -20,9 +20,33 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://lilith.xtower.site";
+
 export const metadata: Metadata = {
-  title: "Phigros Query",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "Phigros Query",
+    template: "%s | Phigros Query",
+  },
   description: "Phigros 成绩查询与图片生成器",
+  keywords: ["Phigros", "成绩查询", "RKS", "Best N", "图片生成", "塔弦"],
+  openGraph: {
+    type: "website",
+    url: "/",
+    title: "Phigros Query",
+    description: "Phigros 成绩查询与图片生成器",
+    siteName: "Phigros Query",
+    images: [{ url: "/og", width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Phigros Query",
+    description: "Phigros 成绩查询与图片生成器",
+    images: ["/og"],
+  },
+  alternates: {
+    canonical: "/",
+  },
 };
 
 export default function RootLayout({

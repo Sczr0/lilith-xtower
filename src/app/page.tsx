@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Script from 'next/script';
 import { ThemeToggle } from './components/ThemeToggle';
 import { useAuth } from './contexts/AuthContext';
 import { useEffect } from 'react';
@@ -27,6 +28,27 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950 text-gray-900 dark:text-gray-50">
+      <Script
+        id="ld-json-home"
+        type="application/ld+json"
+        strategy="afterInteractive"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'WebSite',
+            name: 'Phigros Query',
+            url: process.env.NEXT_PUBLIC_SITE_URL ?? 'https://lilith.xtower.site',
+            potentialAction: {
+              '@type': 'SearchAction',
+              target: {
+                '@type': 'EntryPoint',
+                urlTemplate: (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://lilith.xtower.site') + '/qa?q={search_term_string}',
+              },
+              'query-input': 'required name=search_term_string',
+            },
+          }),
+        }}
+      />
       {/* 头部：对齐 About 页的极简导航 */}
       <header className="sticky top-0 z-40 h-14 border-b border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 px-4 lg:px-6 flex items-center">
         <Link href="/" className="text-base font-semibold">Phigros 查询</Link>
