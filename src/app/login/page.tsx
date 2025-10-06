@@ -18,12 +18,21 @@ export default function LoginPage() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const { isAuthenticated, isLoading, credential, logout } = useAuth();
   const router = useRouter();
+  const [agreementAccepted, setAgreementAccepted] = useState(false);
+
+  // 读取是否已同意用户协议，仅在同意后才自动跳转至仪表盘
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const accepted = localStorage.getItem('phigros_agreement_accepted') === 'true';
+      setAgreementAccepted(accepted);
+    }
+  }, []);
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated) {
+    if (!isLoading && isAuthenticated && agreementAccepted) {
       router.replace('/dashboard');
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [isAuthenticated, isLoading, router, agreementAccepted]);
 
   const loginMethods = [
     {

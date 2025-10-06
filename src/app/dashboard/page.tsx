@@ -22,7 +22,20 @@ export default function Dashboard() {
   const [showAnnouncements, setShowAnnouncements] = useState(false);
   const [showAllAnnouncements, setShowAllAnnouncements] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [showMenuGuide, setShowMenuGuide] = useState(true);
+  // 仅在用户已同意用户协议后，才显示首次使用提醒与公告，避免与协议弹窗叠加造成混乱
+  const [showMenuGuide, setShowMenuGuide] = useState(false);
+  const [agreementAccepted, setAgreementAccepted] = useState(false);
+
+  useEffect(() => {
+    // 与 AuthContext 中的 AGREEMENT_KEY 保持一致
+    const AGREEMENT_KEY = 'phigros_agreement_accepted';
+    try {
+      const accepted = typeof window !== 'undefined' && localStorage.getItem(AGREEMENT_KEY) === 'true';
+      setAgreementAccepted(!!accepted);
+      // 只有在已同意用户协议后，才允许显示首次使用提醒
+      setShowMenuGuide(!!accepted);
+    } catch {}
+  }, [isAuthenticated]);
 
   // 加载公告和新曲速递数据
   useEffect(() => {
@@ -39,7 +52,8 @@ export default function Dashboard() {
           const dismissed = dismissedStr ? new Set(JSON.parse(dismissedStr)) : new Set();
           const unread = data.filter((a: Announcement) => !dismissed.has(a.id));
           
-          if (unread.length > 0) {
+          // 仅当已同意用户协议时才展示公告，避免与协议弹窗叠加
+          if (agreementAccepted && unread.length > 0) {
             setShowAllAnnouncements(false);
             setShowAnnouncements(true);
           }
@@ -56,10 +70,11 @@ export default function Dashboard() {
       }
     };
 
-    if (isAuthenticated) {
+    // 仅在登录且已同意用户协议后加载并可能展示公告
+    if (isAuthenticated && agreementAccepted) {
       loadContent();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, agreementAccepted]);
 
   if (isLoading) {
     return (
