@@ -67,19 +67,20 @@ export function SongSearchGenerator() {
         </p>
       </div>
 
-      <div className="flex gap-3 mb-6">
+      {/* 自适应输入区：移动端纵向排列，避免按钮在小屏溢出 */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <input
           type="text"
           value={songQuery}
           onChange={(e) => setSongQuery(e.target.value)}
           onKeyPress={handleKeyPress}
           placeholder="例如：Spasmodic、Cthugha 等"
-          className="flex-1 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 min-w-0 w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <button
           disabled={isLoading}
           onClick={handleSearch}
-          className="inline-flex items-center justify-center rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-medium px-6 py-2 transition-colors"
+          className="inline-flex w-full sm:w-auto items-center justify-center rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-medium px-6 py-2 transition-colors"
         >
           {isLoading ? '查询中…' : '查询'}
         </button>

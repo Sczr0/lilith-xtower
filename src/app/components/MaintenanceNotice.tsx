@@ -3,10 +3,12 @@
 import { useState, useEffect } from "react";
 import { AlertTriangle, X } from "lucide-react";
 import { useMaintenanceStatus } from "../hooks/useMaintenanceStatus";
+import { usePathname } from "next/navigation";
 
 export function MaintenanceNotice() {
   const { isInMaintenance, shouldShowBanner, config } = useMaintenanceStatus();
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -16,6 +18,8 @@ export function MaintenanceNotice() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // 在认证调试页面不显示维护预告
+  if (pathname?.startsWith('/debug-auth')) return null;
   if (!shouldShowBanner || isInMaintenance) return null;
 
   const formatMaintenanceTime = () => {
@@ -32,7 +36,8 @@ export function MaintenanceNotice() {
   };
 
   return (
-    <div className="fixed right-3 bottom-20 sm:bottom-3 z-[60] pointer-events-none">
+    // 调整悬浮位置：统一提升与底部的距离，避免遮挡底部版权声明
+    <div className="fixed right-3 bottom-20 sm:bottom-16 lg:bottom-20 z-[60] pointer-events-none">
       {/* Badge */}
       <button
         onClick={() => setOpen((v) => !v)}
@@ -47,7 +52,8 @@ export function MaintenanceNotice() {
 
       {/* Desktop/Tablet Popover */}
       {open && (
-        <div className="hidden sm:block fixed right-3 bottom-14 w-[22rem] max-w-[90vw] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl overflow-hidden pointer-events-auto">
+        // 同步上移桌面端弹出层，确保不与底部版权区域重叠
+        <div className="hidden sm:block fixed right-3 bottom-28 lg:bottom-32 w-[22rem] max-w-[90vw] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl overflow-hidden pointer-events-auto">
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-2 text-yellow-700 dark:text-yellow-300">
               <AlertTriangle className="w-4 h-4" />
