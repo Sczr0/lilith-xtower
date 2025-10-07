@@ -20,7 +20,12 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://lilith.xtower.site";
+const rawSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+const SITE_URL = rawSiteUrl
+  ? (rawSiteUrl.startsWith('http://') || rawSiteUrl.startsWith('https://')
+      ? rawSiteUrl
+      : `https://${rawSiteUrl}`)
+  : "https://lilith.xtower.site";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

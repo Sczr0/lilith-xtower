@@ -37,12 +37,16 @@ export default function Home() {
             '@context': 'https://schema.org',
             '@type': 'WebSite',
             name: 'Phigros Query',
-            url: process.env.NEXT_PUBLIC_SITE_URL ?? 'https://lilith.xtower.site',
+            url: (process.env.NEXT_PUBLIC_SITE_URL && (process.env.NEXT_PUBLIC_SITE_URL.startsWith('http://') || process.env.NEXT_PUBLIC_SITE_URL.startsWith('https://')))
+              ? process.env.NEXT_PUBLIC_SITE_URL
+              : `https://${process.env.NEXT_PUBLIC_SITE_URL ?? 'lilith.xtower.site'}`,
             potentialAction: {
               '@type': 'SearchAction',
               target: {
                 '@type': 'EntryPoint',
-                urlTemplate: (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://lilith.xtower.site') + '/qa?q={search_term_string}',
+                urlTemplate: ((process.env.NEXT_PUBLIC_SITE_URL && (process.env.NEXT_PUBLIC_SITE_URL.startsWith('http://') || process.env.NEXT_PUBLIC_SITE_URL.startsWith('https://')))
+                  ? process.env.NEXT_PUBLIC_SITE_URL
+                  : `https://${process.env.NEXT_PUBLIC_SITE_URL ?? 'lilith.xtower.site'}`) + '/qa?q={search_term_string}',
               },
               'query-input': 'required name=search_term_string',
             },
