@@ -49,9 +49,6 @@ export const metadata: Metadata = {
     description: "Phigros 成绩查询与图片生成器",
     images: ["/og"],
   },
-  alternates: {
-    canonical: "/",
-  },
 };
 
 export default function RootLayout({
