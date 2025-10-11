@@ -19,11 +19,20 @@ export default function AboutPage() {
   const [isNetlify, setIsNetlify] = useState(false);
 
   useEffect(() => {
+    const hostname = window.location.hostname;
+    
+    // 优先判断 Netlify
+    const isNetlifyHost = hostname.includes('netlify.app') || hostname === 'startrip.xtower.site';
+    
+    setIsNetlify(isNetlifyHost);
+    
+    // Vercel：排除 Netlify 域名后再判断
     setIsVercel(
-      window.location.hostname.includes('vercel.app') || 
-      window.location.hostname.includes('xtower.site') // 匹配所有 xtower.site 相关域名
+      !isNetlifyHost && (
+        hostname.includes('vercel.app') || 
+        hostname.includes('xtower.site') // 匹配所有其他 xtower.site 相关域名
+      )
     );
-    setIsNetlify(window.location.hostname.includes('netlify.app'));
   }, []);
 
   const serviceProviders = [
