@@ -7,19 +7,24 @@ import { ServiceStats } from '../components/ServiceStats';
 import MarkdownBlock from '../components/MarkdownBlock';
 import SponsorsList from '../components/SponsorsList';
 import { useAuth } from '../contexts/AuthContext';
+import { useState, useEffect } from 'react';
 
 export default function AboutPage() {
   const { isAuthenticated } = useAuth();
   // 头像图片放置于 public/about/avatar.png；裁剪通过 objectPosition 或 Tailwind 的 object-[x_y] 调整
   const AVATAR_SRC = '/about/avatar.png';
 
-  // 检测部署平台
-  const isVercel = typeof window !== 'undefined' 
-    ? window.location.hostname.includes('vercel.app') 
-    : process.env.VERCEL === '1';
-  const isNetlify = typeof window !== 'undefined'
-    ? window.location.hostname.includes('netlify.app')
-    : process.env.NETLIFY === 'true';
+  // 检测部署平台（只在客户端判断，避免 hydration mismatch）
+  const [isVercel, setIsVercel] = useState(false);
+  const [isNetlify, setIsNetlify] = useState(false);
+
+  useEffect(() => {
+    setIsVercel(
+      window.location.hostname.includes('vercel.app') || 
+      window.location.hostname === 'lilith.xtower.site' // 如果是你的主域名且部署在Vercel
+    );
+    setIsNetlify(window.location.hostname.includes('netlify.app'));
+  }, []);
 
   const serviceProviders = [
     {
