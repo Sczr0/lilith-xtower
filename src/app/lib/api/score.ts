@@ -33,11 +33,16 @@ export class ScoreAPI {
 
     // 计算 RKS 的公式
     const calculateRks = (acc: number, constant: number): number => {
-      if (acc < 70) return 0;
       if (constant <= 0) return 0;
       
-      // 新的RKS计算公式: rks = ((100 × Acc - 55) / 45)² × level
-      const factor = Math.pow((100 * acc - 55) / 45, 2);
+      // acc 是百分数形式（如 96.00 表示 96%）
+      // 准确率未达到70%时，RKS为0
+      if (acc < 70) return 0;
+      
+      // RKS计算公式: rks = ((100 × Acc - 55) / 45)² × level（谱面定数）
+      // 其中 Acc 是小数形式（0.96），但传入的 acc 是百分数（96），所以需要先除以100
+      const accDecimal = acc / 100;
+      const factor = Math.pow((100 * accDecimal - 55) / 45, 2);
       return constant * factor;
     };
 
