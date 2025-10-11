@@ -36,23 +36,8 @@ export class ScoreAPI {
       if (acc < 70) return 0;
       if (constant <= 0) return 0;
       
-      let factor = 0;
-      if (acc >= 100) {
-        factor = 2.0;
-      } else if (acc >= 99) {
-        factor = 1.5 + (acc - 99) * 5;
-      } else if (acc >= 98) {
-        factor = 1.0 + (acc - 98) * 5;
-      } else if (acc >= 95) {
-        factor = 0.5 + (acc - 95) * (1.0 / 6);
-      } else if (acc >= 90) {
-        factor = 0.3 + (acc - 90) * 0.04;
-      } else if (acc >= 80) {
-        factor = 0.2 + (acc - 80) * 0.01;
-      } else {
-        factor = (acc - 70) * 0.02;
-      }
-      
+      // 新的RKS计算公式: rks = ((100 × Acc - 55) / 45)² × level
+      const factor = Math.pow((100 * acc - 55) / 45, 2);
       return constant * factor;
     };
 
