@@ -3,6 +3,7 @@ export interface RksRecord {
   difficulty: 'EZ' | 'HD' | 'IN' | 'AT';
   difficulty_value: number;
   acc: number;
+  score: number;
   rks: number;
 }
 

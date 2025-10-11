@@ -28,50 +28,70 @@ export class ScoreAPI {
     }
 
     const data = await response.json();
-    const charts: Array<{ song_id: string; difficulty: 'EZ' | 'HD' | 'IN' | 'AT'; rks: number }>
-      = data?.rks?.b30_charts || [];
     const save: any = data?.save ?? {};
     const gameRecord = save?.game_record ?? {};
 
-    const fetchSongInfo = async (songId: string) => {
-      try {
-        const params = new URLSearchParams({ q: songId, unique: 'true' });
-        const res = await fetch(`${BASE_URL}/songs/search?${params.toString()}`);
-        if (!res.ok) return null;
-        return await res.json();
-      } catch {
-        return null;
+    // 计算 RKS 的公式
+    const calculateRks = (acc: number, constant: number): number => {
+      if (acc < 70) return 0;
+      if (constant <= 0) return 0;
+      
+      let factor = 0;
+      if (acc >= 100) {
+        factor = 2.0;
+      } else if (acc >= 99) {
+        factor = 1.5 + (acc - 99) * 5;
+      } else if (acc >= 98) {
+        factor = 1.0 + (acc - 98) * 5;
+      } else if (acc >= 95) {
+        factor = 0.5 + (acc - 95) * (1.0 / 6);
+      } else if (acc >= 90) {
+        factor = 0.3 + (acc - 90) * 0.04;
+      } else if (acc >= 80) {
+        factor = 0.2 + (acc - 80) * 0.01;
+      } else {
+        factor = (acc - 70) * 0.02;
       }
+      
+      return constant * factor;
     };
 
-    const records = await Promise.all(
-      charts.map(async (c) => {
-        const info = await fetchSongInfo(c.song_id);
-        const name: string = info?.name ?? c.song_id;
-        const constants = info?.chart_constants ?? {};
-        const diffKey = c.difficulty.toLowerCase();
-        const difficulty_value: number = typeof constants?.[diffKey] === 'number' ? constants[diffKey] : 0;
+    // 从 game_record 中提取所有歌曲的成绩
+    const records: Array<{
+      song_name: string;
+      difficulty: 'EZ' | 'HD' | 'IN' | 'AT';
+      difficulty_value: number;
+      acc: number;
+      score: number;
+      rks: number;
+    }> = [];
 
-        // 尝试从 save.game_record 中提取 ACC（字段名未知，尽力匹配）
-        let acc = 0;
-        try {
-          const record = gameRecord?.[c.song_id];
-          if (record) {
-            const d = record[c.difficulty] || record[diffKey] || record[c.difficulty.toLowerCase()];
-            const maybeAcc = d?.acc ?? d?.accuracy ?? d?.ACC ?? d?.Accuracy;
-            if (typeof maybeAcc === 'number') acc = maybeAcc;
-          }
-        } catch {}
-
-        return {
-          song_name: name,
-          difficulty: c.difficulty,
-          difficulty_value,
-          acc,
-          rks: c.rks,
-        };
-      })
-    );
+    for (const [songKey, songRecords] of Object.entries(gameRecord)) {
+      if (!Array.isArray(songRecords)) continue;
+      
+      // songKey 格式为 "歌曲名.艺术家"，直接使用作为歌曲名
+      const songName = songKey;
+      
+      for (const record of songRecords as any[]) {
+        if (!record || typeof record !== 'object') continue;
+        
+        const difficulty = record.difficulty as 'EZ' | 'HD' | 'IN' | 'AT';
+        const accuracy = record.accuracy ?? record.acc ?? 0;
+        const score = record.score ?? 0;
+        const chart_constant = record.chart_constant ?? 0;
+        
+        if (difficulty && ['EZ', 'HD', 'IN', 'AT'].includes(difficulty)) {
+          records.push({
+            song_name: songName,
+            difficulty,
+            difficulty_value: chart_constant,
+            acc: accuracy,
+            score,
+            rks: calculateRks(accuracy, chart_constant),
+          });
+        }
+      }
+    }
 
     const result: RksResponse = {
       code: 200,

@@ -15,7 +15,8 @@ function RksRecordsListInner() {
   const [records, setRecords] = useState<RksRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<'rks' | 'acc'>('rks');
+  const [sortBy, setSortBy] = useState<'rks' | 'acc' | 'difficulty_value'>('rks');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [filterDifficulty, setFilterDifficulty] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const CACHE_KEY = 'cache_rks_records_v2';
@@ -90,9 +91,23 @@ function RksRecordsListInner() {
       if (q && !record.song_name.toLowerCase().includes(q)) return false;
       return true;
     });
-    const sorted = [...arr].sort((a, b) => (sortBy === 'rks' ? b.rks - a.rks : b.acc - a.acc));
+    
+    const sorted = [...arr].sort((a, b) => {
+      let comparison = 0;
+      
+      if (sortBy === 'rks') {
+        comparison = b.rks - a.rks;
+      } else if (sortBy === 'acc') {
+        comparison = b.acc - a.acc;
+      } else if (sortBy === 'difficulty_value') {
+        comparison = b.difficulty_value - a.difficulty_value;
+      }
+      
+      return sortOrder === 'desc' ? comparison : -comparison;
+    });
+    
     return sorted;
-  }, [records, filterDifficulty, searchQuery, sortBy]);
+  }, [records, filterDifficulty, searchQuery, sortBy, sortOrder]);
 
   return (
     <section className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md border border-gray-200/60 dark:border-gray-700/60 rounded-2xl p-6 shadow-lg w-full max-w-6xl mx-auto">
@@ -111,7 +126,7 @@ function RksRecordsListInner() {
       </div>
 
       {/* Filters and Search */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="space-y-2">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             搜索歌曲
@@ -143,16 +158,31 @@ function RksRecordsListInner() {
         </div>
         <div className="space-y-2">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            排序方式
+            排序字段
           </label>
           <StyledSelect
             options={[
-              { label: '按 RKS 排序', value: 'rks' },
-              { label: '按准确率排序', value: 'acc' },
+              { label: '单曲 RKS', value: 'rks' },
+              { label: '准确率', value: 'acc' },
+              { label: '谱面定数', value: 'difficulty_value' },
             ]}
             value={sortBy as any}
-            onValueChange={(v) => setSortBy(v as 'rks' | 'acc')}
-            placeholder="选择排序方式"
+            onValueChange={(v) => setSortBy(v as 'rks' | 'acc' | 'difficulty_value')}
+            placeholder="选择排序字段"
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            排序方向
+          </label>
+          <StyledSelect
+            options={[
+              { label: '降序 (高→低)', value: 'desc' },
+              { label: '升序 (低→高)', value: 'asc' },
+            ]}
+            value={sortOrder as any}
+            onValueChange={(v) => setSortOrder(v as 'asc' | 'desc')}
+            placeholder="选择排序方向"
           />
         </div>
       </div>

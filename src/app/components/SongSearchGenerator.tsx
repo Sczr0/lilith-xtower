@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { ImageAPI } from '../lib/api/image';
 import { useGenerationBusy, useGenerationManager, useGenerationResult } from '../contexts/GenerationContext';
-import { getOwnerKey, hash } from '../lib/utils/cache';
+import { getOwnerKey } from '../lib/utils/cache';
 import { searchSongId } from '../lib/api/song';
 
 export function SongSearchGenerator() {
@@ -40,14 +40,24 @@ export function SongSearchGenerator() {
 
     setError(null);
 
-    // 解析歌曲ID用于精确冷却（若失败，回退到query哈希）
-    const ownerKey = getOwnerKey(credential);
+    // 先通过搜索接口验证歌曲是否存在
     let songId: string | null = null;
     try {
       songId = await searchSongId(songQuery);
-    } catch {}
-    const idOrQuery = songId || `q:${hash(songQuery.trim().toLowerCase())}`;
-    const paramKey = `song:${idOrQuery}`;
+      if (!songId) {
+        setError('未找到匹配的歌曲，请检查输入的歌曲名称或尝试使用歌曲ID。');
+        return;
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '搜索歌曲失败';
+      setError(message);
+      return;
+    }
+
+    const ownerKey = getOwnerKey(credential);
+    const paramKey = `song:${songId}`;
+    
+    // 检查冷却时间
     try {
       if (ownerKey) {
         const metaRaw = localStorage.getItem(SONG_META_KEY);
@@ -65,8 +75,9 @@ export function SongSearchGenerator() {
     } catch {}
 
     try {
+      // 使用验证后的歌曲ID调用图片生成接口
       await startTask('song', () =>
-        ImageAPI.generateSongImage(songQuery, credential)
+        ImageAPI.generateSongImage(songId!, credential)
       );
       // 成功展示后开始冷却计时
       try {
