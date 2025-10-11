@@ -53,19 +53,21 @@ export interface SessionTokenRequest {
   token: string;
 }
 
-export interface APIRequest {
-  data_source: 'external';
-  api_user_id: string;
-  api_token?: string;
+// 统一请求体（适配新后端）
+export interface ExternalApiCredentials {
+  platform?: string | null;
+  platformId?: string | null;
+  apiUserId?: string | null;
+  apiToken?: string | null;
+  sessiontoken?: string | null;
 }
 
-export interface PlatformRequest {
-  data_source: 'external';
-  platform: string;
-  platform_id: string;
+export interface UnifiedSaveRequestBody {
+  sessionToken?: string | null;
+  externalCredentials?: ExternalApiCredentials | null;
 }
 
-export type AuthRequest = SessionTokenRequest | APIRequest | PlatformRequest;
+export type AuthRequest = UnifiedSaveRequestBody;
 
 // 登录表单数据类型
 export interface ManualLoginForm {

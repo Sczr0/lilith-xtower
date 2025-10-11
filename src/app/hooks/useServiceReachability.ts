@@ -8,7 +8,7 @@ interface Options {
   onReachable?: () => void;
 }
 
-const DEFAULT_URL = "https://evernight.xtower.site/status";
+const DEFAULT_URL = "https://seekend.xtower.site/health";
 
 export function useServiceReachability({ shouldPoll, url = DEFAULT_URL, onReachable }: Options) {
   const timerRef = useRef<number | null>(null);

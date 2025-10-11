@@ -15,32 +15,27 @@ export class ImageAPI {
     n: number,
     credential: AuthCredential,
     theme: BestNTheme = 'dark',
-    format: ImageFormat = 'png'
+    _format: ImageFormat = 'png'
   ): Promise<Blob> {
     if (!Number.isInteger(n) || n <= 0) {
       throw new Error('N 值必须为正整数');
     }
 
-    const requestBody = buildAuthRequestBody(credential);
-    const params = new URLSearchParams();
-
-    if (theme === 'white') {
-      params.set('theme', 'white');
-    }
-
-    if (format === 'svg') {
-      params.set('format', 'svg');
-    }
-
-    const query = params.toString();
+    const auth = buildAuthRequestBody(credential);
+    const body = {
+      ...auth,
+      n,
+      // 后端主题：white/black；兼容前端值
+      theme: theme === 'white' ? 'white' : 'black',
+    } as any;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
-    const response = await fetch(`${BASE_URL}/image/bn/${n}${query ? `?${query}` : ''}`, {
+    const response = await fetch(`${BASE_URL}/image/bn`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(requestBody),
+      body: JSON.stringify(body),
       signal: controller.signal,
     }).finally(() => clearTimeout(timeout));
 
@@ -60,66 +55,15 @@ export class ImageAPI {
     return response.blob();
   }
 
+  // 新后端暂不提供 SVG 渲染，保留占位实现以避免调用方崩溃
   static async generateBestNSVG(
     n: number,
     credential: AuthCredential,
     theme: BestNTheme = 'dark'
   ): Promise<string> {
-    if (!Number.isInteger(n) || n <= 0) {
-      throw new Error('N 值必须为正整数');
-    }
-
-    const requestBody = buildAuthRequestBody(credential);
-    const params = new URLSearchParams();
-
-    if (theme === 'white') {
-      params.set('theme', 'white');
-    }
-    params.set('format', 'svg');
-
-    const query = params.toString();
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
-    const response = await fetch(`${BASE_URL}/image/bn/${n}${query ? `?${query}` : ''}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'image/svg+xml,application/json;q=0.9,*/*;q=0.8',
-      },
-      body: JSON.stringify(requestBody),
-      signal: controller.signal,
-    }).finally(() => clearTimeout(timeout));
-
-    if (!response.ok) {
-      let message = '生成 Best N 图片失败';
-      try {
-        const data = await response.json();
-        if (data?.message) {
-          message = data.message;
-        }
-      } catch {
-        // ignore
-      }
-      throw new Error(message);
-    }
-
-    const contentType = response.headers.get('content-type') || '';
-    if (contentType.includes('image/svg')) {
-      return response.text();
-    }
-    // If backend mistakenly returns JSON, surface it for debugging
-    if (contentType.includes('application/json')) {
-      try {
-        const data = await response.json();
-        const msg = typeof data === 'string' ? data : (data?.message || JSON.stringify(data));
-        throw new Error(msg);
-      } catch {
-        throw new Error('后端返回了 JSON 而非 SVG');
-      }
-    }
-    // Fallback
-    return response.text();
+    const blob = await ImageAPI.generateBestNImage(n, credential, theme, 'png');
+    // 返回一个 data URL 作为占位
+    return URL.createObjectURL(blob);
   }
 
   static async generateSongImage(
@@ -130,16 +74,18 @@ export class ImageAPI {
       throw new Error('歌曲关键词不能为空');
     }
 
-    const requestBody = buildAuthRequestBody(credential);
-    const params = new URLSearchParams();
-    params.set('q', songQuery);
+    const auth = buildAuthRequestBody(credential);
+    const body = {
+      ...auth,
+      song: songQuery,
+    } as any;
 
-    const response = await fetch(`${BASE_URL}/image/song?${params.toString()}`, {
+    const response = await fetch(`${BASE_URL}/image/song`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(requestBody),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {

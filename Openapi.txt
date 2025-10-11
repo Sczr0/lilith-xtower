@@ -1,0 +1,1515 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Phi Backend API",
+    "description": "Phigros backend service (Axum)",
+    "license": {
+      "name": ""
+    },
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/auth/qrcode": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "生成登录二维码",
+        "description": "为设备申请 TapTap 设备码并返回可扫码的 SVG 二维码（base64）与校验 URL。客户端需保存返回的 qr_id 以轮询授权状态。",
+        "operationId": "get_qrcode",
+        "responses": {
+          "200": {
+            "description": "生成二维码成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QrCodeCreateResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/qrcode/{qr_id}/status": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "轮询二维码授权状态",
+        "description": "根据 qr_id 查询当前授权进度。若返回 Pending 且包含 retry_after，客户端应按该秒数后再发起轮询。",
+        "operationId": "get_qrcode_status",
+        "parameters": [
+          {
+            "name": "qr_id",
+            "in": "path",
+            "description": "二维码ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "状态返回",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QrCodeStatusResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "二维码不存在或已过期"
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "健康检查",
+        "description": "用于探活的健康检查端点，返回服务状态与版本信息。",
+        "operationId": "health_check",
+        "responses": {
+          "200": {
+            "description": "服务健康",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/image/bn": {
+      "post": {
+        "tags": [
+          "Image"
+        ],
+        "summary": "生成 BestN 汇总图片",
+        "description": "从官方/外部存档解析玩家成绩，按 RKS 值排序取前 N 条生成 BestN 概览（PNG）。可选内嵌封面与主题切换。",
+        "operationId": "render_bn",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenderBnRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "PNG bytes of BN image"
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Renderer error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/image/bn/user": {
+      "post": {
+        "tags": [
+          "Image"
+        ],
+        "summary": "生成用户自报成绩的 BestN 图片",
+        "description": "无需存档，直接提交若干条用户自报成绩，计算 RKS 排序并生成 BestN 图片；支持水印解除口令。",
+        "operationId": "render_bn_user",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenderUserBnRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "PNG bytes of user BN image"
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Renderer error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/image/song": {
+      "post": {
+        "tags": [
+          "Image"
+        ],
+        "summary": "生成单曲成绩图片",
+        "description": "从存档中定位指定歌曲（支持 ID/名称），展示四难度成绩、RKS、推分建议等信息（PNG）。",
+        "operationId": "render_song",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenderSongRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "PNG bytes of song image"
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Renderer error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/save": {
+      "post": {
+        "tags": [
+          "Save"
+        ],
+        "summary": "获取并解析玩家存档",
+        "description": "支持两种认证方式（官方 sessionToken / 外部凭证）。默认仅返回解析后的存档；当 `calculate_rks=true` 时同时返回玩家 RKS 概览。",
+        "operationId": "get_save_data",
+        "parameters": [
+          {
+            "name": "calculate_rks",
+            "in": "query",
+            "description": "是否计算玩家RKS（true=计算，默认不计算）",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnifiedSaveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "成功解析存档并计算RKS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaveAndRksResponseDoc"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/songs/search": {
+      "get": {
+        "tags": [
+          "Song"
+        ],
+        "summary": "歌曲检索（支持别名与模糊匹配）",
+        "description": "按 ID/官方名/别名进行模糊搜索。`unique=true` 时期望唯一命中，未命中返回 404，多命中返回 409。",
+        "operationId": "search_songs",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "查询字符串",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "unique",
+            "in": "query",
+            "description": "是否强制唯一匹配（可选）",
+            "required": true,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "查询成功（unique=true 时返回单个对象，否则为列表）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SongSearchResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求参数错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "未找到匹配项",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "结果不唯一（提供候选）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/stats/daily": {
+      "get": {
+        "tags": [
+          "Stats"
+        ],
+        "summary": "按日聚合的统计数据",
+        "description": "在在线 SQLite 明细上进行区间聚合，返回每天每功能/路由的调用与错误次数汇总。",
+        "operationId": "get_daily_stats",
+        "parameters": [
+          {
+            "name": "start",
+            "in": "query",
+            "description": "开始日期 YYYY-MM-DD",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "description": "结束日期 YYYY-MM-DD",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "feature",
+            "in": "query",
+            "description": "可选功能名",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DailyAggRow"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/stats/summary": {
+      "get": {
+        "tags": [
+          "Stats"
+        ],
+        "summary": "统计总览（唯一用户与功能使用）",
+        "description": "提供统计模块关键指标：全局首末事件时间、按功能的使用次数与最近时间、唯一用户总量及来源分布。",
+        "operationId": "get_stats_summary",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatsSummaryResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AppError": {
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "授权未完成（轮询等待用户确认）",
+            "required": [
+              "AuthPending"
+            ],
+            "properties": {
+              "AuthPending": {
+                "type": "string",
+                "description": "授权未完成（轮询等待用户确认）"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "网络请求错误",
+            "required": [
+              "Network"
+            ],
+            "properties": {
+              "Network": {
+                "type": "string",
+                "description": "网络请求错误"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "JSON 解析错误",
+            "required": [
+              "Json"
+            ],
+            "properties": {
+              "Json": {
+                "type": "string",
+                "description": "JSON 解析错误"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "认证失败 / 业务错误",
+            "required": [
+              "Auth"
+            ],
+            "properties": {
+              "Auth": {
+                "type": "string",
+                "description": "认证失败 / 业务错误"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "保存处理错误",
+            "required": [
+              "SaveHandlerError"
+            ],
+            "properties": {
+              "SaveHandlerError": {
+                "type": "string",
+                "description": "保存处理错误"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "图像渲染错误",
+            "required": [
+              "ImageRendererError"
+            ],
+            "properties": {
+              "ImageRendererError": {
+                "type": "string",
+                "description": "图像渲染错误"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "内部服务器错误",
+            "required": [
+              "Internal"
+            ],
+            "properties": {
+              "Internal": {
+                "type": "string",
+                "description": "内部服务器错误"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "存档提供器错误",
+            "required": [
+              "SaveProvider"
+            ],
+            "properties": {
+              "SaveProvider": {
+                "$ref": "#/components/schemas/SaveProviderError",
+                "description": "存档提供器错误"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "搜索错误",
+            "required": [
+              "Search"
+            ],
+            "properties": {
+              "Search": {
+                "$ref": "#/components/schemas/SearchError",
+                "description": "搜索错误"
+              }
+            }
+          }
+        ],
+        "description": "应用统一错误类型"
+      },
+      "ChartConstants": {
+        "type": "object",
+        "description": "单曲各难度定数",
+        "properties": {
+          "at": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "float",
+            "description": "AT 难度定数",
+            "example": 12.3
+          },
+          "ez": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "float",
+            "description": "EZ 难度定数",
+            "example": 4.5
+          },
+          "hd": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "float",
+            "description": "HD 难度定数",
+            "example": 7.9
+          },
+          "in": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "float",
+            "description": "IN 难度定数",
+            "example": 9.6
+          }
+        }
+      },
+      "ChartRankingScore": {
+        "type": "object",
+        "description": "单张谱面的 RKS 结果",
+        "required": [
+          "song_id",
+          "difficulty",
+          "rks"
+        ],
+        "properties": {
+          "difficulty": {
+            "$ref": "#/components/schemas/Difficulty"
+          },
+          "rks": {
+            "type": "number",
+            "format": "double",
+            "description": "谱面 RKS 值",
+            "example": 12.34
+          },
+          "song_id": {
+            "type": "string",
+            "description": "歌曲 ID",
+            "example": "97f9466b2e77"
+          }
+        }
+      },
+      "DailyAggRow": {
+        "type": "object",
+        "required": [
+          "date",
+          "count",
+          "err_count"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "调用次数"
+          },
+          "date": {
+            "type": "string",
+            "description": "日期（本地时区）YYYY-MM-DD"
+          },
+          "err_count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "错误次数（status \u003E= 400）"
+          },
+          "feature": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "业务功能名（bestn/single_query/save 等）"
+          },
+          "method": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "HTTP 方法（GET/POST 等）"
+          },
+          "route": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "路由模板（例如 /image/bn）"
+          }
+        }
+      },
+      "Difficulty": {
+        "type": "string",
+        "description": "难度枚举",
+        "enum": [
+          "EZ",
+          "HD",
+          "IN",
+          "AT"
+        ]
+      },
+      "ExternalApiCredentials": {
+        "type": "object",
+        "properties": {
+          "apiToken": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "外部 API 的访问令牌（如需）",
+            "example": "token-xyz"
+          },
+          "apiUserId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "外部 API 的用户 ID（直连方式之一）",
+            "example": "1008611"
+          },
+          "platform": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "外部平台标识，如 \"TapTap\"/\"Bilibili\"（与 platformId 配对）",
+            "example": "TapTap"
+          },
+          "platformId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "外部平台用户唯一标识（与 platform 配对）",
+            "example": "user_123456"
+          },
+          "sessiontoken": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "外部平台会话令牌（某些平台以此直连）",
+            "example": "ext-session-abcdef"
+          }
+        }
+      },
+      "FeatureUsageSummary": {
+        "type": "object",
+        "required": [
+          "feature",
+          "count"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "事件计数"
+          },
+          "feature": {
+            "type": "string",
+            "description": "功能名（如 bestn / single_query / save）"
+          },
+          "last_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "最近一次发生时间（本地时区 RFC3339）"
+          }
+        }
+      },
+      "ParsedSaveDoc": {
+        "type": "object",
+        "required": [
+          "game_record",
+          "game_progress",
+          "user",
+          "settings",
+          "game_key"
+        ],
+        "properties": {
+          "game_key": {
+            "description": "游戏密钥块"
+          },
+          "game_progress": {
+            "description": "进度信息（如金钱、拓展信息）"
+          },
+          "game_record": {
+            "description": "结构化成绩（歌曲ID -\u003E [四难度成绩]）"
+          },
+          "settings": {
+            "description": "客户端设置"
+          },
+          "summaryParsed": {
+            "description": "解析自 summary 的关键摘要（如段位、RKS 等）"
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "2025-09-20T04:10:44.188Z"
+          },
+          "user": {
+            "description": "用户基本信息"
+          }
+        }
+      },
+      "PlayerRksResult": {
+        "type": "object",
+        "description": "玩家 RKS 计算结果",
+        "required": [
+          "total_rks",
+          "b30_charts"
+        ],
+        "properties": {
+          "b30_charts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChartRankingScore"
+            }
+          },
+          "total_rks": {
+            "type": "number",
+            "format": "double",
+            "description": "玩家总 RKS （Best27 + AP3）/ 30",
+            "example": 14.56
+          }
+        }
+      },
+      "QrCodeCreateResponse": {
+        "type": "object",
+        "required": [
+          "qr_id",
+          "verification_url",
+          "qrcode_base64"
+        ],
+        "properties": {
+          "qr_id": {
+            "type": "string",
+            "description": "二维码标识，用于轮询状态",
+            "example": "8b8f2f8a-1a2b-4c3d-9e0f-112233445566"
+          },
+          "qrcode_base64": {
+            "type": "string",
+            "description": "SVG 二维码的 data URL（base64 编码）",
+            "example": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0uLi4="
+          },
+          "verification_url": {
+            "type": "string",
+            "description": "用户在浏览器中访问以确认授权的 URL",
+            "example": "https://www.taptap.com/account/device?code=abcd-efgh"
+          }
+        }
+      },
+      "QrCodeStatusResponse": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "message": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "可选的人类可读提示消息"
+          },
+          "retryAfter": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "若需延后轮询，返回建议的等待秒数",
+            "minimum": 0
+          },
+          "sessionToken": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "若 Confirmed，返回 LeanCloud Session Token"
+          },
+          "status": {
+            "type": "string",
+            "description": "当前状态：Pending/Scanned/Confirmed/Error/Expired",
+            "example": "Pending"
+          }
+        }
+      },
+      "RenderBnRequest": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/UnifiedSaveRequest",
+            "description": "认证方式（二选一）：sessionToken 或 externalCredentials"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "embed_images": {
+                "type": "boolean",
+                "description": "是否将封面等资源内嵌到 PNG（默认为 false）"
+              },
+              "n": {
+                "type": "integer",
+                "format": "int32",
+                "description": "取前 N 条 RKS 最高的成绩（默认 30）",
+                "example": 30,
+                "minimum": 0
+              },
+              "nickname": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "可选：用于显示的玩家昵称（若未提供且无法从服务端获取，将使用默认占位）"
+              },
+              "theme": {
+                "$ref": "#/components/schemas/Theme",
+                "description": "渲染主题：white/black（默认 black）"
+              }
+            }
+          }
+        ],
+        "description": "BN 渲染请求体"
+      },
+      "RenderSongRequest": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/UnifiedSaveRequest",
+            "description": "认证方式（二选一）：sessionToken 或 externalCredentials"
+          },
+          {
+            "type": "object",
+            "required": [
+              "song"
+            ],
+            "properties": {
+              "embed_images": {
+                "type": "boolean",
+                "description": "是否将封面等资源内嵌到 PNG（默认为 false）"
+              },
+              "nickname": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "可选：用于显示的玩家昵称"
+              },
+              "song": {
+                "type": "string",
+                "description": "歌曲 ID 或名称",
+                "example": "Arcahv"
+              }
+            }
+          }
+        ],
+        "description": "单曲渲染请求体"
+      },
+      "RenderUserBnRequest": {
+        "type": "object",
+        "description": "用户自定义 BN 渲染请求（未验证成绩）",
+        "required": [
+          "scores"
+        ],
+        "properties": {
+          "nickname": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "可选昵称（未提供时可从 users/me 获取）"
+          },
+          "scores": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserScoreItem"
+            },
+            "description": "成绩列表"
+          },
+          "theme": {
+            "$ref": "#/components/schemas/Theme",
+            "description": "主题（默认 black）"
+          },
+          "unlock_password": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "解除水印的口令（匹配配置或动态口令时，显式/隐式水印均关闭）"
+          }
+        }
+      },
+      "SaveAndRksResponse": {
+        "type": "object",
+        "required": [
+          "save",
+          "rks"
+        ],
+        "properties": {
+          "rks": {
+            "$ref": "#/components/schemas/PlayerRksResult",
+            "description": "计算得到的玩家 RKS 概览"
+          },
+          "save": {
+            "description": "解析后的存档对象（等价于 SaveResponse.data）"
+          }
+        }
+      },
+      "SaveAndRksResponseDoc": {
+        "type": "object",
+        "required": [
+          "save",
+          "rks"
+        ],
+        "properties": {
+          "rks": {
+            "$ref": "#/components/schemas/PlayerRksResult",
+            "description": "玩家 RKS 概览"
+          },
+          "save": {
+            "$ref": "#/components/schemas/ParsedSaveDoc",
+            "description": "解析后的存档对象"
+          }
+        }
+      },
+      "SaveProviderError": {
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "网络请求错误",
+            "required": [
+              "Network"
+            ],
+            "properties": {
+              "Network": {
+                "type": "string",
+                "description": "网络请求错误"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "认证失败",
+            "required": [
+              "Auth"
+            ],
+            "properties": {
+              "Auth": {
+                "type": "string",
+                "description": "认证失败"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "元数据解析错误",
+            "required": [
+              "Metadata"
+            ],
+            "properties": {
+              "Metadata": {
+                "type": "string",
+                "description": "元数据解析错误"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "缺少必需字段",
+            "required": [
+              "MissingField"
+            ],
+            "properties": {
+              "MissingField": {
+                "type": "string",
+                "description": "缺少必需字段"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "解密失败",
+            "required": [
+              "Decrypt"
+            ],
+            "properties": {
+              "Decrypt": {
+                "type": "string",
+                "description": "解密失败"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "完整性检查失败",
+            "required": [
+              "Integrity"
+            ],
+            "properties": {
+              "Integrity": {
+                "type": "string",
+                "description": "完整性检查失败"
+              }
+            }
+          },
+          {
+            "type": "string",
+            "description": "无效的填充",
+            "enum": [
+              "InvalidPadding"
+            ]
+          },
+          {
+            "type": "object",
+            "description": "ZIP 解析错误",
+            "required": [
+              "ZipError"
+            ],
+            "properties": {
+              "ZipError": {
+                "type": "string",
+                "description": "ZIP 解析错误"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "I/O 错误",
+            "required": [
+              "Io"
+            ],
+            "properties": {
+              "Io": {
+                "type": "string",
+                "description": "I/O 错误"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "JSON 解析错误",
+            "required": [
+              "Json"
+            ],
+            "properties": {
+              "Json": {
+                "type": "string",
+                "description": "JSON 解析错误"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "不支持的功能",
+            "required": [
+              "Unsupported"
+            ],
+            "properties": {
+              "Unsupported": {
+                "type": "string",
+                "description": "不支持的功能"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "无效的响应",
+            "required": [
+              "InvalidResponse"
+            ],
+            "properties": {
+              "InvalidResponse": {
+                "type": "string",
+                "description": "无效的响应"
+              }
+            }
+          },
+          {
+            "type": "string",
+            "description": "超时",
+            "enum": [
+              "Timeout"
+            ]
+          },
+          {
+            "type": "string",
+            "description": "无效的头部格式",
+            "enum": [
+              "InvalidHeader"
+            ]
+          },
+          {
+            "type": "string",
+            "description": "标签验证失败",
+            "enum": [
+              "TagVerification"
+            ]
+          },
+          {
+            "type": "object",
+            "description": "无效的凭据",
+            "required": [
+              "InvalidCredentials"
+            ],
+            "properties": {
+              "InvalidCredentials": {
+                "type": "string",
+                "description": "无效的凭据"
+              }
+            }
+          }
+        ],
+        "description": "存档提供器错误类型"
+      },
+      "SaveResponse": {
+        "type": "object",
+        "description": "存档响应结构",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "description": "存档数据"
+          }
+        }
+      },
+      "SaveResponseDoc": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ParsedSaveDoc",
+            "description": "解析后的存档对象"
+          }
+        }
+      },
+      "SearchError": {
+        "oneOf": [
+          {
+            "type": "string",
+            "description": "未找到匹配项",
+            "enum": [
+              "NotFound"
+            ]
+          },
+          {
+            "type": "object",
+            "description": "结果不唯一（返回所有候选项，以便提示歧义）",
+            "required": [
+              "NotUnique"
+            ],
+            "properties": {
+              "NotUnique": {
+                "type": "object",
+                "description": "结果不唯一（返回所有候选项，以便提示歧义）",
+                "required": [
+                  "candidates"
+                ],
+                "properties": {
+                  "candidates": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/SongInfo"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "description": "搜索错误类型"
+      },
+      "SessionData": {
+        "type": "object",
+        "required": [
+          "session_token"
+        ],
+        "properties": {
+          "session_token": {
+            "type": "string",
+            "description": "LeanCloud Session Token",
+            "example": "r:abcdefg.hijklmn-opqrstuvwxyz"
+          }
+        }
+      },
+      "SongInfo": {
+        "type": "object",
+        "description": "单曲信息（来源：info/info.csv）",
+        "required": [
+          "id",
+          "name",
+          "composer",
+          "illustrator",
+          "chart_constants"
+        ],
+        "properties": {
+          "chart_constants": {
+            "$ref": "#/components/schemas/ChartConstants",
+            "description": "四难度定数（可为空）"
+          },
+          "composer": {
+            "type": "string",
+            "description": "作曲者",
+            "example": "Feryquitous"
+          },
+          "id": {
+            "type": "string",
+            "description": "歌曲唯一 ID（与封面/定数等资源对应）",
+            "example": "97f9466b2e77"
+          },
+          "illustrator": {
+            "type": "string",
+            "description": "插画作者",
+            "example": "Catrong"
+          },
+          "name": {
+            "type": "string",
+            "description": "官方名称",
+            "example": "Arcahv"
+          }
+        }
+      },
+      "SongSearchResult": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/SongInfo"
+          },
+          {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SongInfo"
+            }
+          }
+        ],
+        "description": "oneOf 响应：单个 SongInfo 或 Vec\u003CSongInfo\u003E"
+      },
+      "StatsSummaryResponse": {
+        "type": "object",
+        "required": [
+          "timezone",
+          "features",
+          "unique_users"
+        ],
+        "properties": {
+          "config_start_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "配置中设置的统计起始时间（如有）"
+          },
+          "features": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FeatureUsageSummary"
+            },
+            "description": "各功能使用概览"
+          },
+          "first_event_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "全量事件中的最早时间（本地时区）"
+          },
+          "last_event_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "全量事件中的最晚时间（本地时区）"
+          },
+          "timezone": {
+            "type": "string",
+            "description": "展示使用的时区（IANA 名称）"
+          },
+          "unique_users": {
+            "$ref": "#/components/schemas/UniqueUsersSummary",
+            "description": "唯一用户统计"
+          }
+        }
+      },
+      "Theme": {
+        "type": "string",
+        "description": "渲染主题",
+        "enum": [
+          "white",
+          "black"
+        ]
+      },
+      "UnifiedSaveRequest": {
+        "type": "object",
+        "description": "统一的存档请求结构",
+        "properties": {
+          "externalCredentials": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ExternalApiCredentials",
+                "description": "外部 API 凭证\n三选一：platform+platformId / sessiontoken / apiUserId"
+              }
+            ]
+          },
+          "sessionToken": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "官方 LeanCloud 会话令牌",
+            "example": "r:abcdefg.hijklmn-opqrstuvwxyz"
+          }
+        }
+      },
+      "UniqueUsersSummary": {
+        "type": "object",
+        "required": [
+          "total",
+          "by_kind"
+        ],
+        "properties": {
+          "by_kind": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": false,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer",
+                  "format": "int64"
+                }
+              ]
+            },
+            "description": "按用户来源/凭证类型聚合的唯一用户数，例如 (\"official\", 123)"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "description": "去敏后唯一用户总数"
+          }
+        }
+      },
+      "UserScoreItem": {
+        "type": "object",
+        "required": [
+          "song",
+          "difficulty",
+          "acc"
+        ],
+        "properties": {
+          "acc": {
+            "type": "number",
+            "format": "double",
+            "description": "ACC 百分比（示例：98.50）"
+          },
+          "difficulty": {
+            "type": "string",
+            "description": "难度（EZ/HD/IN/AT）"
+          },
+          "score": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "分数（可选）",
+            "minimum": 0
+          },
+          "song": {
+            "type": "string",
+            "description": "歌曲 ID 或名称"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Save",
+      "description": "Save APIs"
+    },
+    {
+      "name": "Auth",
+      "description": "Auth APIs"
+    },
+    {
+      "name": "Song",
+      "description": "Song APIs"
+    },
+    {
+      "name": "Image",
+      "description": "Image APIs"
+    },
+    {
+      "name": "Stats",
+      "description": "Stats APIs"
+    },
+    {
+      "name": "Health",
+      "description": "Health APIs"
+    }
+  ]
+}

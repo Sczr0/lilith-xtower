@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'https://evernight.xtower.site/:path*',
+        destination: 'https://seekend.xtower.site/api/v1/:path*',
       },
     ];
   },

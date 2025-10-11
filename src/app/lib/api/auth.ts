@@ -1,8 +1,8 @@
-import { 
-  QRCodeResponse, 
-  QRCodeStatusResponse, 
+import {
+  QRCodeResponse,
+  QRCodeStatusResponse,
   AuthRequest,
-  AuthCredential 
+  AuthCredential,
 } from '../types/auth';
 
 const BASE_URL = '/api';
@@ -10,18 +10,20 @@ const BASE_URL = '/api';
 export const buildAuthRequestBody = (credential: AuthCredential): AuthRequest => {
   switch (credential.type) {
     case 'session':
-      return { token: credential.token };
+      return { sessionToken: credential.token };
     case 'api':
       return {
-        data_source: 'external',
-        api_user_id: credential.api_user_id,
-        ...(credential.api_token && { api_token: credential.api_token })
+        externalCredentials: {
+          apiUserId: credential.api_user_id,
+          apiToken: credential.api_token ?? null,
+        },
       };
     case 'platform':
       return {
-        data_source: 'external',
-        platform: credential.platform,
-        platform_id: credential.platform_id
+        externalCredentials: {
+          platform: credential.platform,
+          platformId: credential.platform_id,
+        },
       };
     default:
       throw new Error('不支持的凭证类型');
@@ -49,7 +51,14 @@ export class AuthAPI {
         throw new Error('获取二维码失败');
       }
 
-      return await response.json();
+      const data = await response.json();
+      // 适配：后端返回 { qr_id, qrcode_base64, verification_url }
+      const mapped: QRCodeResponse = {
+        qrId: data.qr_id,
+        qrCodeImage: data.qrcode_base64,
+        qrcodeUrl: data.verification_url,
+      };
+      return mapped;
     } catch (error) {
       console.error('获取二维码失败:', error);
       throw new Error('网络错误，请检查网络连接');
@@ -75,7 +84,13 @@ export class AuthAPI {
         throw new Error('查询扫码状态失败');
       }
 
-      return await response.json();
+      const data = await response.json();
+      // 适配：后端 status: Pending/Scanned/Confirmed/Error/Expired
+      let status: QRCodeStatusResponse['status'] = 'scanning';
+      if (data.status === 'Confirmed') status = 'success';
+      else if (data.status === 'Expired' || data.status === 'Error') status = 'expired';
+      else status = 'scanning';
+      return { status, sessionToken: data.sessionToken };
     } catch (error) {
       console.error('查询扫码状态失败:', error);
       throw error instanceof Error ? error : new Error('网络错误，请检查网络连接');
@@ -97,7 +112,7 @@ export class AuthAPI {
     try {
       const requestBody = buildAuthRequestBody(credential);
 
-      const response = await fetch(`${BASE_URL}/get/cloud/saves`, {
+      const response = await fetch(`${BASE_URL}/save`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -152,7 +167,7 @@ export class AuthAPI {
     try {
       const requestBody = buildAuthRequestBody(credential);
 
-      const response = await fetch(`${BASE_URL}/get/cloud/saves`, {
+      const response = await fetch(`${BASE_URL}/save`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
