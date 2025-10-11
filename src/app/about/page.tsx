@@ -21,7 +21,7 @@ export default function AboutPage() {
   useEffect(() => {
     setIsVercel(
       window.location.hostname.includes('vercel.app') || 
-      window.location.hostname === 'lilith.xtower.site' // 如果是你的主域名且部署在Vercel
+      window.location.hostname.includes('xtower.site') // 匹配所有 xtower.site 相关域名
     );
     setIsNetlify(window.location.hostname.includes('netlify.app'));
   }, []);
@@ -153,7 +153,7 @@ export default function AboutPage() {
           {/* 感谢服务提供商 */}
           <section className="space-y-3">
             <h2 className="text-xl font-semibold">感谢</h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400">感谢以下服务提供商为本站提供的优质服务</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">感谢以下服务提供商为本站提供的服务：</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               {serviceProviders.map((provider, index) => (
                 <a
