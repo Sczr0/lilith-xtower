@@ -10,7 +10,8 @@ import type { AuthCredential } from '../lib/types/auth';
 import { getOwnerKey } from '../lib/utils/cache';
 import { StyledSelect } from './ui/Select';
 
-function RksRecordsListInner() {
+// 支持通过 showDescription 隐藏组件内的描述，避免与外层重复
+function RksRecordsListInner({ showTitle = true, showDescription = true }: { showTitle?: boolean; showDescription?: boolean }) {
   const { credential } = useAuth();
   const [records, setRecords] = useState<RksRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -112,12 +113,16 @@ function RksRecordsListInner() {
   return (
     <section className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md border border-gray-200/60 dark:border-gray-700/60 rounded-2xl p-6 shadow-lg w-full max-w-6xl mx-auto">
       <div className="mb-6">
-        <h2 className="text-2xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
-          RKS 成绩列表
-        </h2>
+        {showTitle && (
+          <h2 className="text-2xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
+            RKS 成绩列表
+          </h2>
+        )}
+        {showDescription && (
         <p className="text-sm text-gray-600 dark:text-gray-400">
           查看所有歌曲的详细成绩和 RKS 计算值。
         </p>
+        )}
         {nextUpdateAt && (
           <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
             使用缓存数据，{new Date(nextUpdateAt).toLocaleTimeString()} 后可刷新

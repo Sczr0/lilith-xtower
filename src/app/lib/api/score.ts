@@ -106,20 +106,38 @@ export class ScoreAPI {
     const find = (name: string) => features.find((f) => f.feature === name);
     const bestn = find('bestn') || { count: 0, last_at: null } as any;
     const single = find('single_query') || find('song') || { count: 0, last_at: null } as any;
+    const save = find('save') || { count: 0, last_at: null } as any;
+    const bestnUser = find('bestn_user') || { count: 0, last_at: null } as any;
+    const songSearch = find('song_search') || { count: 0, last_at: null } as any;
 
     const fallbackDate = new Date(0).toISOString();
+
+    const statOf = (entry: any) => ({
+      count: entry?.count || 0,
+      last_updated: entry?.last_at || fallbackDate,
+    });
+
     const mapped: ServiceStatsResponse = {
-      bn: {
-        count: bestn.count || 0,
-        last_updated: bestn.last_at || fallbackDate,
+      bn: statOf(bestn),
+      // 仍保留 leaderboard 字段，按需展示（当前无数据时 count=0）
+      leaderboard: { count: 0, last_updated: fallbackDate },
+      // 兼容旧字段：song 代表单曲查询
+      song: statOf(single),
+      // 新增扩展字段
+      single_query: statOf(single),
+      save: statOf(save),
+      bestn_user: statOf(bestnUser),
+      song_search: statOf(songSearch),
+      // 附带时间与用户分布信息
+      time: {
+        timezone: data?.timezone ?? 'UTC',
+        config_start_at: data?.config_start_at ?? null,
+        first_event_at: data?.first_event_at ?? null,
+        last_event_at: data?.last_event_at ?? null,
       },
-      leaderboard: {
-        count: 0,
-        last_updated: fallbackDate,
-      },
-      song: {
-        count: single.count || 0,
-        last_updated: single.last_at || fallbackDate,
+      users: {
+        total: data?.unique_users?.total ?? 0,
+        by_kind: Array.isArray(data?.unique_users?.by_kind) ? data.unique_users.by_kind : [],
       },
     };
     return mapped;

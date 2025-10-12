@@ -5,7 +5,6 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
-  color-scheme: light;
 }
 
 @theme inline {
@@ -15,23 +14,14 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 html.dark {
   --background: #0a0a0a;
   --foreground: #ededed;
-  color-scheme: dark;
 }
 
 /* Ensure our theme variables win over any external stylesheet defaults */
 html, body {
-  background: var(--background) !important;
-  color: var(--foreground) !important;
+  background: var(--background);
 }
 
 body {

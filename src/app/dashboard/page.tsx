@@ -104,7 +104,7 @@ export default function Dashboard() {
                 生成您的最佳 N 首歌曲成绩汇总图片，支持自定义主题和数量。
               </p>
             </div>
-            <BnImageGenerator />
+            <BnImageGenerator showTitle={false} showDescription={false} />
           </div>
         );
       case 'single-query':
@@ -118,7 +118,7 @@ export default function Dashboard() {
                 查询特定歌曲的详细成绩信息。
               </p>
             </div>
-            <SongSearchGenerator />
+            <SongSearchGenerator showTitle={false} showDescription={false} />
           </div>
         );
       case 'rks-list':
@@ -132,7 +132,7 @@ export default function Dashboard() {
                 查看所有歌曲的 RKS 计算详情和排名。
               </p>
             </div>
-            <RksRecordsList />
+            <RksRecordsList showTitle={false} showDescription={false} />
           </div>
         );
       case 'song-updates':
@@ -174,7 +174,7 @@ export default function Dashboard() {
                 查看服务使用情况和统计数据。
               </p>
             </div>
-            <ServiceStats />
+            <ServiceStats showTitle={false} showDescription={false} />
           </div>
         );
       default:

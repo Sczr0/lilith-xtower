@@ -184,7 +184,7 @@ export default function AboutPage() {
           {/* 服务统计（极简配色） */}
           <section className="space-y-3">
             <h2 className="text-xl font-semibold">服务统计</h2>
-            <ServiceStats variant="mono" />
+            <ServiceStats variant="mono" showTitle={false} showDescription={false} />
           </section>
 
           {/* 服务支持（黑白灰蓝） */}

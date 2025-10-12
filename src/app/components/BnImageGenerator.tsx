@@ -9,7 +9,8 @@ import { StyledSelect } from './ui/Select';
 
 const DEFAULT_N = 27;
 
-export function BnImageGenerator() {
+// 支持通过 showDescription 隐藏组件内的描述，避免与外层重复
+export function BnImageGenerator({ showTitle = true, showDescription = true }: { showTitle?: boolean; showDescription?: boolean }) {
   const { credential } = useAuth();
   const [nInput, setNInput] = useState(`${DEFAULT_N}`);
   const [generatedN, setGeneratedN] = useState(DEFAULT_N);
@@ -107,12 +108,16 @@ export function BnImageGenerator() {
   return (
     <section className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md border border-gray-200/60 dark:border-gray-700/60 rounded-2xl p-6 shadow-lg w-full max-w-4xl mx-auto">
       <div className="mb-6">
-        <h2 className="text-2xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
-          Best N 图片生成
-        </h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
-          选择生成的歌曲数量和主题，点击生成即可获取图片。
-        </p>
+        {showTitle && (
+          <h2 className="text-2xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
+            Best N 图片生成
+          </h2>
+        )}
+        {showDescription && (
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            选择生成的歌曲数量和主题，点击生成即可获取图片。
+          </p>
+        )}
         {nextUpdateAt && (
           <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
             {`下次可生成时间：${new Date(nextUpdateAt).toLocaleTimeString()}`}
