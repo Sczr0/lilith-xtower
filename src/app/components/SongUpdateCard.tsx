@@ -2,6 +2,7 @@
 
 import ReactMarkdown from 'react-markdown';
 import { Calendar, Music, Wrench } from 'lucide-react';
+import type { DetailedHTMLProps, HTMLAttributes } from 'react';
 import { SongUpdate } from '../lib/types/content';
 
 // 从 Markdown 内容中提取简单摘要：统计“新增曲目”和“调整/定数”等条目数（尽量保守，失败则为 0）
@@ -76,37 +77,37 @@ export function SongUpdateCard({ update, isLatest = false }: SongUpdateCardProps
               // 隐藏 Markdown 一级标题，避免与卡片头重复
               h1: () => null,
               // 小节标题采用低饱和绿色，突出层级且保持极简
-              h2: ({ children }) => (
-                <h2 className="text-base font-medium text-emerald-700 dark:text-emerald-400 mt-2 mb-3 text-left">
-                  {children}
+              h2: (props: DetailedHTMLProps<HTMLAttributes<HTMLHeadingElement>, HTMLHeadingElement>) => (
+                <h2 {...props} className={`text-base font-medium text-emerald-700 dark:text-emerald-400 mt-2 mb-3 text-left ${props.className || ''}`}>
+                  {props.children}
                 </h2>
               ),
-              // 歌曲名称：去除顶部横线，让其自然衔接于“新增曲目”小节
-              h3: ({ children }) => (
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 mt-4">
-                  {children}
+              // 歌曲名称：去除顶部横线，让其自然衔接于"新增曲目"小节
+              h3: (props: DetailedHTMLProps<HTMLAttributes<HTMLHeadingElement>, HTMLHeadingElement>) => (
+                <h3 {...props} className={`text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 mt-4 ${props.className || ''}`}>
+                  {props.children}
                 </h3>
               ),
-              p: ({ children }) => (
-                <p className="my-1 text-gray-700 dark:text-gray-300">
-                  {children}
+              p: (props: DetailedHTMLProps<HTMLAttributes<HTMLParagraphElement>, HTMLParagraphElement>) => (
+                <p {...props} className={`my-1 text-gray-700 dark:text-gray-300 ${props.className || ''}`}>
+                  {props.children}
                 </p>
               ),
               // 信息条目：弹性换行，避免桌面端留白
-              ul: ({ children }) => (
-                <ul className="list-none p-0 m-0 flex flex-wrap items-start gap-x-6 gap-y-2">
-                  {children}
+              ul: (props: DetailedHTMLProps<HTMLAttributes<HTMLUListElement>, HTMLUListElement>) => (
+                <ul {...props} className={`list-none p-0 m-0 flex flex-wrap items-start gap-x-6 gap-y-2 ${props.className || ''}`}>
+                  {props.children}
                 </ul>
               ),
-              li: ({ children }) => (
-                <li className="text-gray-700 dark:text-gray-300 flex items-center gap-2 text-sm">
-                  {children}
+              li: (props: DetailedHTMLProps<HTMLAttributes<HTMLLIElement>, HTMLLIElement>) => (
+                <li {...props} className={`text-gray-700 dark:text-gray-300 flex items-center gap-2 text-sm ${props.className || ''}`}>
+                  {props.children}
                 </li>
               ),
               // 克制的强调
-              strong: ({ children }) => (
-                <strong className="text-gray-800 dark:text-gray-200 font-medium">
-                  {children}
+              strong: (props: DetailedHTMLProps<HTMLAttributes<HTMLElement>, HTMLElement>) => (
+                <strong {...props} className={`text-gray-800 dark:text-gray-200 font-medium ${props.className || ''}`}>
+                  {props.children}
                 </strong>
               ),
               hr: () => (

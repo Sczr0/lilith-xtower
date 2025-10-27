@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { DetailedHTMLProps, HTMLAttributes } from 'react';
 import { ScoreAPI } from '../lib/api/score';
 import type { ServiceStatsFeature, ServiceStatsResponse } from '../lib/types/score';
 
@@ -22,7 +23,7 @@ type FeatureCategory = 'primary' | 'secondary';
 type FeatureMeta = {
   label: string;
   category: FeatureCategory;
-  createIcon: (className: string) => JSX.Element;
+  createIcon: (className: string) => React.ReactElement;
 };
 
 const CACHE_KEY = 'cache_service_stats_v3';

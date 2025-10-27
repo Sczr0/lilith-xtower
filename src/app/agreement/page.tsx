@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
+import { DetailedHTMLProps, HTMLAttributes } from 'react';
 import { ClientHeader } from './ClientHeader';
 import { TableOfContents } from './components/TableOfContents';
 
@@ -80,27 +81,27 @@ export default function AgreementPage() {
     let headingCounter = 0;
 
     const components = {
-      h1: ({children, ...props}) => {
+      h1: ({children, ...props}: DetailedHTMLProps<HTMLAttributes<HTMLHeadingElement>, HTMLHeadingElement>) => {
         const id = `heading-${headingCounter++}`;
         return <h1 {...props} data-heading-id={id}>{children}</h1>;
       },
-      h2: ({children, ...props}) => {
+      h2: ({children, ...props}: DetailedHTMLProps<HTMLAttributes<HTMLHeadingElement>, HTMLHeadingElement>) => {
         const id = `heading-${headingCounter++}`;
         return <h2 {...props} data-heading-id={id}>{children}</h2>;
       },
-      h3: ({children, ...props}) => {
+      h3: ({children, ...props}: DetailedHTMLProps<HTMLAttributes<HTMLHeadingElement>, HTMLHeadingElement>) => {
         const id = `heading-${headingCounter++}`;
         return <h3 {...props} data-heading-id={id}>{children}</h3>;
       },
-      h4: ({children, ...props}) => {
+      h4: ({children, ...props}: DetailedHTMLProps<HTMLAttributes<HTMLHeadingElement>, HTMLHeadingElement>) => {
         const id = `heading-${headingCounter++}`;
         return <h4 {...props} data-heading-id={id}>{children}</h4>;
       },
-      h5: ({children, ...props}) => {
+      h5: ({children, ...props}: DetailedHTMLProps<HTMLAttributes<HTMLHeadingElement>, HTMLHeadingElement>) => {
         const id = `heading-${headingCounter++}`;
         return <h5 {...props} data-heading-id={id}>{children}</h5>;
       },
-      h6: ({children, ...props}) => {
+      h6: ({children, ...props}: DetailedHTMLProps<HTMLAttributes<HTMLHeadingElement>, HTMLHeadingElement>) => {
         const id = `heading-${headingCounter++}`;
         return <h6 {...props} data-heading-id={id}>{children}</h6>;
       }
