@@ -7,7 +7,7 @@ import { ThemeToggle } from '../../components/ThemeToggle';
 import Link from 'next/link';
 import { THEME_NAME_MOBILE, THEME_NAME_DESKTOP } from '../../lib/constants/themeNames';
 
-export type TabId = 'best-n' | 'single-query' | 'rks-list' | 'song-updates' | 'player-score-render' | 'stats';
+export type TabId = 'best-n' | 'single-query' | 'rks-list' | 'leaderboard' | 'song-updates' | 'player-score-render' | 'stats';
 
 interface Tab {
   id: TabId;
@@ -73,6 +73,16 @@ export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobile
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+        </svg>
+      ),
+    },
+    {
+      id: 'leaderboard',
+      name: '排行榜',
+      description: '全站排名与档案',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-6m6 6V5M5 21h14M13 13l2-2m0 0l2 2m-2-2v8" />
         </svg>
       ),
     },

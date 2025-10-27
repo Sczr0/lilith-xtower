@@ -1,5 +1,10 @@
 import { AuthCredential } from '../types/auth';
-import { RksResponse, ServiceStatsResponse } from '../types/score';
+import {
+  RksResponse,
+  ServiceStatsFeature,
+  ServiceStatsResponse,
+  StatsSummaryApiResponse,
+} from '../types/score';
 import { buildAuthRequestBody } from './auth';
 
 const BASE_URL = '/api';
@@ -28,19 +33,26 @@ export class ScoreAPI {
     }
 
     const data = await response.json();
-    const save: any = data?.save ?? {};
-    const gameRecord = save?.game_record ?? {};
+    const rawSave = data?.save;
+    const rawGameRecord =
+      rawSave && typeof rawSave === 'object' && rawSave !== null && 'game_record' in rawSave
+        ? (rawSave as { game_record?: unknown }).game_record
+        : undefined;
+    const gameRecord =
+      rawGameRecord && typeof rawGameRecord === 'object' && rawGameRecord !== null
+        ? (rawGameRecord as Record<string, unknown>)
+        : {};
 
     // 计算 RKS 的公式
     const calculateRks = (acc: number, constant: number): number => {
       if (constant <= 0) return 0;
-      
-      // acc 是百分数形式（如 96.00 表示 96%）
-      // 准确率未达到70%时，RKS为0
+
+      // acc 为百分数（如 96.00 表示 96%）
+      // 准确率未达到 70% 时，RKS 记为 0
       if (acc < 70) return 0;
-      
-      // RKS计算公式: rks = ((100 × Acc - 55) / 45)² × level（谱面定数）
-      // 其中 Acc 是小数形式（0.96），但传入的 acc 是百分数（96），所以需要先除以100
+
+      // RKS 计算公式: rks = ((100 × Acc - 55) / 45)² × level
+      // 其中 acc 需要先转为小数形式
       const accDecimal = acc / 100;
       const factor = Math.pow((100 * accDecimal - 55) / 45, 2);
       return constant * factor;
@@ -58,28 +70,35 @@ export class ScoreAPI {
 
     for (const [songKey, songRecords] of Object.entries(gameRecord)) {
       if (!Array.isArray(songRecords)) continue;
-      
-      // songKey 格式为 "歌曲名.艺术家"，直接使用作为歌曲名
+
+      // songKey 格式为“歌曲名 - 艺术家”，直接视为歌曲名
       const songName = songKey;
-      
-      for (const record of songRecords as any[]) {
+
+      for (const record of songRecords) {
         if (!record || typeof record !== 'object') continue;
-        
-        const difficulty = record.difficulty as 'EZ' | 'HD' | 'IN' | 'AT';
-        const accuracy = record.accuracy ?? record.acc ?? 0;
-        const score = record.score ?? 0;
-        const chart_constant = record.chart_constant ?? 0;
-        
-        if (difficulty && ['EZ', 'HD', 'IN', 'AT'].includes(difficulty)) {
-          records.push({
-            song_name: songName,
-            difficulty,
-            difficulty_value: chart_constant,
-            acc: accuracy,
-            score,
-            rks: calculateRks(accuracy, chart_constant),
-          });
+
+        const entry = record as Record<string, unknown>;
+        const difficulty = entry['difficulty'];
+
+        if (difficulty !== 'EZ' && difficulty !== 'HD' && difficulty !== 'IN' && difficulty !== 'AT') {
+          continue;
         }
+
+        const accuracySource = entry['accuracy'] ?? entry['acc'];
+        const accuracy = typeof accuracySource === 'number' ? accuracySource : 0;
+        const scoreValue = entry['score'];
+        const score = typeof scoreValue === 'number' ? scoreValue : 0;
+        const constantValue = entry['chart_constant'];
+        const chartConstant = typeof constantValue === 'number' ? constantValue : 0;
+
+        records.push({
+          song_name: songName,
+          difficulty,
+          difficulty_value: chartConstant,
+          acc: accuracy,
+          score,
+          rks: calculateRks(accuracy, chartConstant),
+        });
       }
     }
 
@@ -97,49 +116,98 @@ export class ScoreAPI {
     });
 
     if (!response.ok) {
-      throw new Error('获取服务统计失败');
+      let message = '获取服务统计失败';
+      try {
+        const payload = await response.json();
+        if (payload?.message) message = payload.message;
+      } catch {
+        // 忽略解析错误，沿用默认文案
+      }
+      throw new Error(message);
     }
 
-    const data = await response.json();
-    const features: Array<{ feature: string; count: number; last_at: string | null }> = data?.features || [];
+    let raw: StatsSummaryApiResponse;
+    try {
+      raw = await response.json();
+    } catch {
+      throw new Error('解析服务统计响应失败');
+    }
 
-    const find = (name: string) => features.find((f) => f.feature === name);
-    const bestn = find('bestn') || { count: 0, last_at: null } as any;
-    const single = find('single_query') || find('song') || { count: 0, last_at: null } as any;
-    const save = find('save') || { count: 0, last_at: null } as any;
-    const bestnUser = find('bestn_user') || { count: 0, last_at: null } as any;
-    const songSearch = find('song_search') || { count: 0, last_at: null } as any;
+    const normalizeCount = (value: unknown): number => {
+      if (typeof value === 'number' && Number.isFinite(value)) return value;
+      const parsed = Number(value);
+      return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+    };
 
-    const fallbackDate = new Date(0).toISOString();
+    const normalizeDate = (value: unknown): string | null => {
+      if (typeof value === 'string' && value.trim().length > 0) {
+        return value;
+      }
+      return null;
+    };
 
-    const statOf = (entry: any) => ({
-      count: entry?.count || 0,
-      last_updated: entry?.last_at || fallbackDate,
-    });
+    const rawFeatures = Array.isArray(raw.features)
+      ? raw.features
+          .map((item, index) => {
+            if (!item || typeof item !== 'object') return null;
+            const key =
+              typeof item.feature === 'string' && item.feature.trim().length > 0
+                ? item.feature
+                : `unknown_${index}`;
+            return {
+              key,
+              count: normalizeCount(item.count),
+              lastUpdated: normalizeDate(item.last_at),
+            };
+          })
+          .filter((entry): entry is ServiceStatsFeature => entry !== null)
+      : [];
 
-    const mapped: ServiceStatsResponse = {
-      bn: statOf(bestn),
-      // 仍保留 leaderboard 字段，按需展示（当前无数据时 count=0）
-      leaderboard: { count: 0, last_updated: fallbackDate },
-      // 兼容旧字段：song 代表单曲查询
-      song: statOf(single),
-      // 新增扩展字段
-      single_query: statOf(single),
-      save: statOf(save),
-      bestn_user: statOf(bestnUser),
-      song_search: statOf(songSearch),
-      // 附带时间与用户分布信息
-      time: {
-        timezone: data?.timezone ?? 'UTC',
-        config_start_at: data?.config_start_at ?? null,
-        first_event_at: data?.first_event_at ?? null,
-        last_event_at: data?.last_event_at ?? null,
-      },
-      users: {
-        total: data?.unique_users?.total ?? 0,
-        by_kind: Array.isArray(data?.unique_users?.by_kind) ? data.unique_users.by_kind : [],
+    const mergedFeatures = new Map<string, ServiceStatsFeature>();
+    const toTimestamp = (value: string | null): number => {
+      if (!value) return 0;
+      const ts = Date.parse(value);
+      return Number.isNaN(ts) ? 0 : ts;
+    };
+
+    for (const feature of rawFeatures) {
+      const existing = mergedFeatures.get(feature.key);
+      if (!existing) {
+        mergedFeatures.set(feature.key, { ...feature });
+        continue;
+      }
+      existing.count += feature.count;
+      if (toTimestamp(feature.lastUpdated) > toTimestamp(existing.lastUpdated)) {
+        existing.lastUpdated = feature.lastUpdated;
+      }
+    }
+
+    const features = Array.from(mergedFeatures.values()).sort((a, b) => b.count - a.count);
+
+    const uniqueUsersRaw = raw.unique_users ?? {};
+    const total = normalizeCount(uniqueUsersRaw.total);
+    const byKind: [string, number][] = Array.isArray(uniqueUsersRaw.by_kind)
+      ? uniqueUsersRaw.by_kind
+          .filter((entry): entry is [unknown, unknown] => Array.isArray(entry) && entry.length >= 2)
+          .map(([kind, count]) => {
+            const name = String(kind ?? 'unknown');
+            return [name, normalizeCount(count)];
+          })
+      : [];
+
+    return {
+      timezone: typeof raw.timezone === 'string' && raw.timezone ? raw.timezone : 'UTC',
+      configStartAt:
+        typeof raw.config_start_at === 'string' || raw.config_start_at === null ? raw.config_start_at : null,
+      firstEventAt:
+        typeof raw.first_event_at === 'string' || raw.first_event_at === null ? raw.first_event_at : null,
+      lastEventAt:
+        typeof raw.last_event_at === 'string' || raw.last_event_at === null ? raw.last_event_at : null,
+      features,
+      uniqueUsers: {
+        total,
+        byKind,
       },
     };
-    return mapped;
   }
 }

@@ -12,6 +12,7 @@ import { AnnouncementModal } from '../components/AnnouncementModal';
 import { SongUpdateList } from '../components/SongUpdateCard';
 import { PlayerScoreRenderer } from '../components/PlayerScoreRenderer';
 import { MenuGuide } from './components/MenuGuide';
+import { LeaderboardPanel } from '../components/LeaderboardPanel';
 import type { Announcement, SongUpdate } from '../lib/types/content';
 
 export default function Dashboard() {
@@ -149,6 +150,8 @@ export default function Dashboard() {
             <SongUpdateList updates={songUpdates} />
           </div>
         );
+      case 'leaderboard':
+        return <LeaderboardPanel />;
       case 'player-score-render':
         return (
           <div className="space-y-6">

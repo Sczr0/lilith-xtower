@@ -14,29 +14,40 @@ export interface RksResponse {
   };
 }
 
-export interface ServiceStat {
+export interface StatsSummaryApiFeature {
+  feature?: string;
+  count?: number;
+  last_at?: string | null;
+}
+
+export interface StatsSummaryApiUniqueUsers {
+  total?: number;
+  by_kind?: Array<[unknown, unknown]>;
+}
+
+export interface StatsSummaryApiResponse {
+  timezone?: string;
+  config_start_at?: string | null;
+  first_event_at?: string | null;
+  last_event_at?: string | null;
+  features?: StatsSummaryApiFeature[];
+  unique_users?: StatsSummaryApiUniqueUsers;
+}
+
+export interface ServiceStatsFeature {
+  key: string;
   count: number;
-  last_updated: string;
+  lastUpdated: string | null;
 }
 
 export interface ServiceStatsResponse {
-  bn: ServiceStat;
-  leaderboard: ServiceStat;
-  song: ServiceStat;
-  // 可选扩展功能
-  save?: ServiceStat;
-  bestn_user?: ServiceStat;
-  song_search?: ServiceStat;
-  single_query?: ServiceStat;
-  // 时间与用户分布
-  time?: {
-    timezone: string;
-    config_start_at: string | null;
-    first_event_at: string | null;
-    last_event_at: string | null;
-  };
-  users?: {
+  timezone: string;
+  configStartAt: string | null;
+  firstEventAt: string | null;
+  lastEventAt: string | null;
+  features: ServiceStatsFeature[];
+  uniqueUsers: {
     total: number;
-    by_kind: [string, number][];
+    byKind: [string, number][];
   };
 }

@@ -40,3 +40,77 @@ body {
 .song-update-md ul ul li {
   margin: 0;
 }
+
+/* 协议页面样式增强 */
+.prose h2 {
+  @apply text-2xl font-bold text-gray-900 dark:text-white mb-4 mt-8 pb-2 border-b border-gray-200 dark:border-gray-700;
+}
+
+.prose h3 {
+  @apply text-xl font-semibold text-gray-800 dark:text-gray-200 mb-3 mt-6;
+}
+
+.prose h4 {
+  @apply text-lg font-medium text-gray-700 dark:text-gray-300 mb-2 mt-4;
+}
+
+.prose p {
+  @apply text-gray-600 dark:text-gray-400 leading-relaxed mb-4;
+}
+
+.prose ul {
+  @apply space-y-2 mb-4;
+}
+
+.prose li {
+  @apply text-gray-600 dark:text-gray-400 leading-relaxed;
+}
+
+.prose strong {
+  @apply text-blue-600 dark:text-blue-400 font-semibold;
+}
+
+.prose a {
+  @apply text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline transition-colors;
+}
+
+/* 滚动条样式 */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.5);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.7);
+}
+
+/* 动画效果 */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-up {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+/* 玻璃拟态效果 */
+.glass-effect {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}

@@ -87,28 +87,6 @@
         }
       }
     },
-    "/health": {
-      "get": {
-        "tags": [
-          "Health"
-        ],
-        "summary": "健康检查",
-        "description": "用于探活的健康检查端点，返回服务状态与版本信息。",
-        "operationId": "health_check",
-        "responses": {
-          "200": {
-            "description": "服务健康",
-            "content": {
-              "application/json": {
-                "schema": {
-
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/image/bn": {
       "post": {
         "tags": [
@@ -117,6 +95,28 @@
         "summary": "生成 BestN 汇总图片",
         "description": "从官方/外部存档解析玩家成绩，按 RKS 值排序取前 N 条生成 BestN 概览（PNG）。可选内嵌封面与主题切换。",
         "operationId": "render_bn",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "description": "输出格式：png|jpeg，默认 png",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "width",
+            "in": "query",
+            "description": "目标宽度像素：按宽度同比例缩放",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -162,6 +162,28 @@
         "summary": "生成用户自报成绩的 BestN 图片",
         "description": "无需存档，直接提交若干条用户自报成绩，计算 RKS 排序并生成 BestN 图片；支持水印解除口令。",
         "operationId": "render_bn_user",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "description": "输出格式：png|jpeg，默认 png",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "width",
+            "in": "query",
+            "description": "目标宽度像素：按宽度同比例缩放",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -207,6 +229,28 @@
         "summary": "生成单曲成绩图片",
         "description": "从存档中定位指定歌曲（支持 ID/名称），展示四难度成绩、RKS、推分建议等信息（PNG）。",
         "operationId": "render_song",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "description": "输出格式：png|jpeg，默认 png",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "width",
+            "in": "query",
+            "description": "目标宽度像素：按宽度同比例缩放",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -240,6 +284,235 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/leaderboard/alias": {
+      "put": {
+        "tags": [
+          "Leaderboard"
+        ],
+        "summary": "设置/更新公开别名（幂等）",
+        "operationId": "put_alias",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AliasRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "409": {
+            "description": "别名被占用"
+          },
+          "422": {
+            "description": "别名非法"
+          }
+        }
+      }
+    },
+    "/leaderboard/profile": {
+      "put": {
+        "tags": [
+          "Leaderboard"
+        ],
+        "summary": "更新公开资料开关（文字展示）",
+        "operationId": "put_profile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "ok"
+          }
+        }
+      }
+    },
+    "/leaderboard/rks/by-rank": {
+      "get": {
+        "tags": [
+          "Leaderboard"
+        ],
+        "summary": "按排名区间获取玩家（按RKS）",
+        "description": "可传入单个 rank，或 [start,end] / [start,count] 区间获取玩家信息。采用与 TOP 相同的稳定排序与公开过滤。",
+        "operationId": "get_by_rank",
+        "parameters": [
+          {
+            "name": "rank",
+            "in": "query",
+            "description": "单个排名（1-based）",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "description": "起始排名（1-based）",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "description": "结束排名（包含）",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "count",
+            "in": "query",
+            "description": "返回数量（与 start 组合使用）",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaderboardTopResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/leaderboard/rks/me": {
+      "post": {
+        "tags": [
+          "Leaderboard"
+        ],
+        "summary": "我的名次（按RKS）",
+        "description": "通过认证信息推导用户身份，返回名次、分数、总量与百分位（竞争排名）",
+        "operationId": "post_me",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnifiedSaveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/leaderboard/rks/top": {
+      "get": {
+        "tags": [
+          "Leaderboard"
+        ],
+        "summary": "排行榜TOP（按RKS）",
+        "description": "返回公开玩家的RKS排行榜。若玩家开启展示，将在条目中附带BestTop3/APTop3文字数据。",
+        "operationId": "get_top",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "每页数量，默认50，最大200",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "偏移量",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaderboardTopResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/public/profile/{alias}": {
+      "get": {
+        "tags": [
+          "Leaderboard"
+        ],
+        "summary": "公开玩家资料（纯文字）",
+        "operationId": "get_public_profile",
+        "parameters": [
+          {
+            "name": "alias",
+            "in": "path",
+            "description": "公开别名",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProfileResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "not found"
           }
         }
       }
@@ -385,7 +658,7 @@
           "Stats"
         ],
         "summary": "按日聚合的统计数据",
-        "description": "在在线 SQLite 明细上进行区间聚合，返回每天每功能/路由的调用与错误次数汇总。",
+        "description": "在 SQLite 明细上进行区间聚合，返回每天每功能/路由的调用与错误次数汇总",
         "operationId": "get_daily_stats",
         "parameters": [
           {
@@ -439,7 +712,7 @@
           "Stats"
         ],
         "summary": "统计总览（唯一用户与功能使用）",
-        "description": "提供统计模块关键指标：全局首末事件时间、按功能的使用次数与最近时间、唯一用户总量及来源分布。",
+        "description": "提供统计模块关键指标：全局首末事件时间、按功能的使用次数与最近时间、唯一用户总量及来源分布。\n\n功能次数统计中的功能名可能值：\n- bestn：生成 BestN 汇总图\n- bestn_user：生成用户自报 BestN 图片\n- single_query：生成单曲成绩图\n- save：获取并解析玩家存档\n- song_search：歌曲检索",
         "operationId": "get_stats_summary",
         "responses": {
           "200": {
@@ -458,6 +731,27 @@
   },
   "components": {
     "schemas": {
+      "AliasRequest": {
+        "type": "object",
+        "required": [
+          "auth",
+          "alias"
+        ],
+        "properties": {
+          "alias": {
+            "type": "string"
+          },
+          "auth": {
+            "$ref": "#/components/schemas/UnifiedSaveRequest"
+          }
+        },
+        "example": {
+          "alias": "Alice",
+          "auth": {
+            "sessionToken": "r:abcdefg.hijklmn"
+          }
+        }
+      },
       "AppError": {
         "oneOf": [
           {
@@ -535,6 +829,32 @@
               "ImageRendererError": {
                 "type": "string",
                 "description": "图像渲染错误"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "参数校验错误",
+            "required": [
+              "Validation"
+            ],
+            "properties": {
+              "Validation": {
+                "type": "string",
+                "description": "参数校验错误"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "资源冲突（如别名占用）",
+            "required": [
+              "Conflict"
+            ],
+            "properties": {
+              "Conflict": {
+                "type": "string",
+                "description": "资源冲突（如别名占用）"
               }
             }
           },
@@ -647,6 +967,41 @@
           }
         }
       },
+      "ChartTextItem": {
+        "type": "object",
+        "required": [
+          "song",
+          "difficulty",
+          "acc",
+          "rks"
+        ],
+        "properties": {
+          "acc": {
+            "type": "number",
+            "format": "double",
+            "description": "ACC 百分比（如 99.43）"
+          },
+          "difficulty": {
+            "type": "string",
+            "description": "难度（EZ/HD/IN/AT）"
+          },
+          "rks": {
+            "type": "number",
+            "format": "double",
+            "description": "该谱面的 RKS 值"
+          },
+          "song": {
+            "type": "string",
+            "description": "歌曲名称"
+          }
+        },
+        "example": {
+          "acc": 99.43,
+          "difficulty": "AT",
+          "rks": 15.12,
+          "song": "Tempestissimo"
+        }
+      },
       "DailyAggRow": {
         "type": "object",
         "required": [
@@ -667,7 +1022,7 @@
           "err_count": {
             "type": "integer",
             "format": "int64",
-            "description": "错误次数（status \u003E= 400）"
+            "description": "错误次数（status >= 400）"
           },
           "feature": {
             "type": [
@@ -761,7 +1116,7 @@
           },
           "feature": {
             "type": "string",
-            "description": "功能名（如 bestn / single_query / save）"
+            "description": "功能名（可能值：bestn、bestn_user、single_query、save、song_search）。\n- bestn：生成 BestN 汇总图\n- bestn_user：生成用户自报 BestN 图片\n- single_query：生成单曲成绩图\n- save：获取并解析玩家存档\n- song_search：歌曲检索"
           },
           "last_at": {
             "type": [
@@ -770,6 +1125,180 @@
             ],
             "description": "最近一次发生时间（本地时区 RFC3339）"
           }
+        }
+      },
+      "ImageFormat": {
+        "type": "string",
+        "description": "输出图片格式",
+        "enum": [
+          "png",
+          "jpeg",
+          "webp"
+        ]
+      },
+      "LeaderboardTopItem": {
+        "type": "object",
+        "required": [
+          "rank",
+          "user",
+          "score",
+          "updated_at"
+        ],
+        "properties": {
+          "alias": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "公开别名（如有）"
+          },
+          "ap_top3": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ChartTextItem"
+            },
+            "description": "（可选）AP Top3 列表（当用户允许展示时）"
+          },
+          "best_top3": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ChartTextItem"
+            },
+            "description": "（可选）BestTop3 列表（当用户允许展示时）"
+          },
+          "rank": {
+            "type": "integer",
+            "format": "int64",
+            "description": "名次（竞争排名）"
+          },
+          "score": {
+            "type": "number",
+            "format": "double",
+            "description": "总 RKS"
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "最近更新时间（UTC RFC3339）"
+          },
+          "user": {
+            "type": "string",
+            "description": "去敏化用户标识（hash 前缀）"
+          }
+        },
+        "example": {
+          "alias": "Alice",
+          "ap_top3": [
+            {
+              "acc": 100.0,
+              "difficulty": "IN",
+              "rks": 13.45,
+              "song": "AP Song"
+            }
+          ],
+          "best_top3": [
+            {
+              "acc": 99.43,
+              "difficulty": "AT",
+              "rks": 15.12,
+              "song": "Tempestissimo"
+            }
+          ],
+          "rank": 1,
+          "score": 14.73,
+          "updated_at": "2025-09-20T04:10:44Z",
+          "user": "ab12****"
+        }
+      },
+      "LeaderboardTopResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LeaderboardTopItem"
+            }
+          },
+          "next_after_score": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "next_after_updated": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "next_after_user": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "example": {
+          "items": [
+            {
+              "alias": "Alice",
+              "rank": 1,
+              "score": 14.73,
+              "updated_at": "2025-09-20T04:10:44Z",
+              "user": "ab12****"
+            }
+          ],
+          "next_after_score": 14.73,
+          "next_after_updated": "2025-09-20T04:10:44Z",
+          "next_after_user": "abcd1234",
+          "total": 12345
+        }
+      },
+      "MeResponse": {
+        "type": "object",
+        "required": [
+          "rank",
+          "score",
+          "total",
+          "percentile"
+        ],
+        "properties": {
+          "percentile": {
+            "type": "number",
+            "format": "double"
+          },
+          "rank": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "score": {
+            "type": "number",
+            "format": "double"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "example": {
+          "percentile": 99.58,
+          "rank": 42,
+          "score": 13.21,
+          "total": 10000
         }
       },
       "ParsedSaveDoc": {
@@ -789,7 +1318,7 @@
             "description": "进度信息（如金钱、拓展信息）"
           },
           "game_record": {
-            "description": "结构化成绩（歌曲ID -\u003E [四难度成绩]）"
+            "description": "结构化成绩（歌曲ID -> [四难度成绩]）"
           },
           "settings": {
             "description": "客户端设置"
@@ -829,6 +1358,123 @@
             "description": "玩家总 RKS （Best27 + AP3）/ 30",
             "example": 14.56
           }
+        }
+      },
+      "ProfileUpdateRequest": {
+        "type": "object",
+        "required": [
+          "auth"
+        ],
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/UnifiedSaveRequest"
+          },
+          "is_public": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "show_ap_top3": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "show_best_top3": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "show_rks_composition": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "example": {
+          "auth": {
+            "sessionToken": "r:abcdefg.hijklmn"
+          },
+          "is_public": true,
+          "show_ap_top3": true,
+          "show_best_top3": true,
+          "show_rks_composition": true
+        }
+      },
+      "PublicProfileResponse": {
+        "type": "object",
+        "required": [
+          "alias",
+          "score",
+          "updated_at"
+        ],
+        "properties": {
+          "alias": {
+            "type": "string"
+          },
+          "ap_top3": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ChartTextItem"
+            }
+          },
+          "best_top3": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ChartTextItem"
+            }
+          },
+          "rks_composition": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RksCompositionText"
+              }
+            ]
+          },
+          "score": {
+            "type": "number",
+            "format": "double"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        },
+        "example": {
+          "alias": "Alice",
+          "ap_top3": [
+            {
+              "acc": 100.0,
+              "difficulty": "IN",
+              "rks": 13.45,
+              "song": "AP Song"
+            }
+          ],
+          "best_top3": [
+            {
+              "acc": 99.43,
+              "difficulty": "AT",
+              "rks": 15.12,
+              "song": "Tempestissimo"
+            }
+          ],
+          "rks_composition": {
+            "ap_top3_sum": 49.2,
+            "best27_sum": 390.12
+          },
+          "score": 14.73,
+          "updated_at": "2025-09-20T04:10:44Z"
         }
       },
       "QrCodeCreateResponse": {
@@ -905,6 +1551,10 @@
                 "type": "boolean",
                 "description": "是否将封面等资源内嵌到 PNG（默认为 false）"
               },
+              "format": {
+                "$ref": "#/components/schemas/ImageFormat",
+                "description": "输出图片格式（png/jpeg，默认 png）"
+              },
               "n": {
                 "type": "integer",
                 "format": "int32",
@@ -922,6 +1572,15 @@
               "theme": {
                 "$ref": "#/components/schemas/Theme",
                 "description": "渲染主题：white/black（默认 black）"
+              },
+              "width": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int32",
+                "description": "目标宽度像素（可选；不填使用默认 1200）。用于下采样以减小体积。",
+                "minimum": 0
               }
             }
           }
@@ -993,6 +1652,29 @@
             ],
             "description": "解除水印的口令（匹配配置或动态口令时，显式/隐式水印均关闭）"
           }
+        }
+      },
+      "RksCompositionText": {
+        "type": "object",
+        "required": [
+          "best27_sum",
+          "ap_top3_sum"
+        ],
+        "properties": {
+          "ap_top3_sum": {
+            "type": "number",
+            "format": "double",
+            "description": "AP Top3 的 RKS 总和"
+          },
+          "best27_sum": {
+            "type": "number",
+            "format": "double",
+            "description": "Best27 的 RKS 总和"
+          }
+        },
+        "example": {
+          "ap_top3_sum": 49.2,
+          "best27_sum": 390.12
         }
       },
       "SaveAndRksResponse": {
@@ -1340,7 +2022,7 @@
             }
           }
         ],
-        "description": "oneOf 响应：单个 SongInfo 或 Vec\u003CSongInfo\u003E"
+        "description": "oneOf 响应：单个 SongInfo 或 Vec<SongInfo>"
       },
       "StatsSummaryResponse": {
         "type": "object",
@@ -1484,6 +2166,13 @@
           }
         }
       }
+    },
+    "securitySchemes": {
+      "AdminToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Admin-Token"
+      }
     }
   },
   "tags": [
@@ -1506,6 +2195,10 @@
     {
       "name": "Stats",
       "description": "Stats APIs"
+    },
+    {
+      "name": "Leaderboard",
+      "description": "Leaderboard APIs"
     },
     {
       "name": "Health",
