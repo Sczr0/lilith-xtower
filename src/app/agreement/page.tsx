@@ -122,7 +122,7 @@ export default function AgreementPage() {
                     <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-50">用户协议</h1>
                     <p className="text-sm text-gray-500 dark:text-gray-400">请在使用服务前仔细阅读以下条款。</p>
                   </div>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">最近更新：2025 年 9 月 29 日</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">最近更新：2025 年 10 月 28 日</span>
                 </div>
               </section>
 
