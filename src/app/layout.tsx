@@ -33,20 +33,20 @@ export const metadata: Metadata = {
     default: "Phigros Query",
     template: "%s | Phigros Query",
   },
-  description: "Phigros 成绩查询与图片生成器",
+  description: "Phigros Query是一个由空间站「塔弦」主导制作的一个Phigros游戏成绩查询工具，全内容由LLM开发，并提供RKS查看、Best N查询、Best N 成绩图表生成和数据分析服务，支持多种登录方式。",
   keywords: ["Phigros", "成绩查询", "RKS", "Best N", "图片生成", "塔弦"],
   openGraph: {
     type: "website",
     url: "/",
     title: "Phigros Query",
-    description: "Phigros 成绩查询与图片生成器",
+    description: "Phigros Query是一个由空间站「塔弦」主导制作的一个Phigros游戏成绩查询工具，全内容由LLM开发，并提供RKS查看、Best N查询、Best N 成绩图表生成和数据分析服务，支持多种登录方式。",
     siteName: "Phigros Query",
     images: [{ url: "/og", width: 1200, height: 630 }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Phigros Query",
-    description: "Phigros 成绩查询与图片生成器",
+    description: "Phigros Query是一个由空间站「塔弦」主导制作的一个Phigros游戏成绩查询工具，全内容由LLM开发，并提供RKS查看、Best N查询、Best N 成绩图表生成和数据分析服务，支持多种登录方式。",
     images: ["/og"],
   },
 };
