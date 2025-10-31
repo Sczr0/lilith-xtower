@@ -20,7 +20,7 @@ export interface MaintenanceConfig {
 
 export const maintenanceConfig: MaintenanceConfig = {
   // 是否启用维护模式检查（true: 启用, false: 禁用）
-  enabled: true,
+  enabled: false,
 
   // 维护开始时间（ISO 8601 格式：YYYY-MM-DDTHH:mm:ss）
   // 示例：'2025-01-20T09:00:00' 表示 2025年1月20日 09:00
