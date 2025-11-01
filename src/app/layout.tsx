@@ -64,15 +64,18 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <head>
+        {/* 预加载本地自托管字体，提升首屏渲染 */}
         <link
-          rel="stylesheet"
-          href="https://ik.imagekit.io/Sczr/Source%20Han%20Sans%20&%20Saira%20Hybrid-Regular%20(1)/result.css?updatedAt=1733583831964"
+          rel="preload"
+          as="font"
+          type="font/woff2"
+          href="/Source%20Han%20Sans%20%26%20Saira%20Hybrid-Regular%20%235446.woff2"
+          crossOrigin="anonymous"
         />
         <script defer src="https://cloud.umami.is/script.js" data-website-id="fcb3f5e6-8b71-4abe-bf83-684c3690b476"></script>
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-        style={{ fontFamily: "'Source Han Sans & Saira Hybrid', sans-serif" }}
       >
         <ThemeProvider
           attribute="class"
