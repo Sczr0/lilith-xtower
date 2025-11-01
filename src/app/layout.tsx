@@ -7,6 +7,7 @@ import { MaintenanceProvider } from "./components/MaintenanceProvider";
 import { GenerationProvider } from "./contexts/GenerationContext";
 import { MaintenanceNotice } from "./components/MaintenanceNotice";
 import { Analytics } from "@vercel/analytics/next";
+import Script from "next/script";
 import fs from 'fs';
 import path from 'path';
 
@@ -64,15 +65,39 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <head>
-        <link
-          rel="stylesheet"
-          href="https://ik.imagekit.io/Sczr/Source%20Han%20Sans%20&%20Saira%20Hybrid-Regular%20(1)/result.css?updatedAt=1733583831964"
-        />
+        <link rel="preconnect" href="https://cloud.umami.is" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="//cloud.umami.is" />
         <script defer src="https://cloud.umami.is/script.js" data-website-id="fcb3f5e6-8b71-4abe-bf83-684c3690b476"></script>
+        {/* 延迟加载中文网字计划生成的本地分片 CSS，避免进入 LCP 关键路径 */}
+        <Script id="brand-font-loader" strategy="afterInteractive">
+          {`
+          (function(){
+            function loadBrandFonts(){
+              try {
+                var l = document.createElement('link');
+                l.rel = 'stylesheet';
+                l.href = '/fonts/Source%20Han%20Sans%20%26%20Saira%20Hybrid-Regular%20%235446/result.css';
+                l.onload = function(){
+                  try { document.documentElement.classList.add('brand-font'); } catch (e) {}
+                };
+                document.head.appendChild(l);
+              } catch (e) {}
+            }
+            try {
+              if (navigator.connection && navigator.connection.saveData) return;
+              if (window.matchMedia && window.matchMedia('(prefers-reduced-data: reduce)').matches) return;
+            } catch (e) {}
+            if (window.requestIdleCallback) {
+              window.requestIdleCallback(loadBrandFonts, { timeout: 2000 });
+            } else {
+              window.addEventListener('load', loadBrandFonts);
+            }
+          })();
+          `}
+        </Script>
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-        style={{ fontFamily: "'Source Han Sans & Saira Hybrid', sans-serif" }}
       >
         <ThemeProvider
           attribute="class"
