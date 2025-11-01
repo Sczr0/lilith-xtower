@@ -4,7 +4,12 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { AuthState, AuthCredential } from '../lib/types/auth';
 import { AuthStorage } from '../lib/storage/auth';
 import { AuthAPI } from '../lib/api/auth';
-import { AgreementModal } from '../components/AgreementModal';
+import dynamic from 'next/dynamic';
+// 动态加载协议弹窗，避免 react-markdown 进入全局共享 chunk
+const AgreementModal = dynamic(() => import('../components/AgreementModal').then(m => m.AgreementModal), {
+  ssr: false,
+  loading: () => null,
+});
 import { useServiceReachability } from '../hooks/useServiceReachability';
 
 const AGREEMENT_KEY = 'phigros_agreement_accepted';

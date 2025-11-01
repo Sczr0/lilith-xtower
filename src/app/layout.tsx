@@ -67,11 +67,9 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://cloud.umami.is" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="//cloud.umami.is" />
-        <link rel="preconnect" href="https://cloud.umami.is" crossOrigin="anonymous" />
-        <link rel="dns-prefetch" href="//cloud.umami.is" />
         {/* 预加载本地自托管字体，提升首屏渲染 */}
         {/* font preload removed to reduce blocking download */}
-        <script defer src="https://cloud.umami.is/script.js" data-website-id="fcb3f5e6-8b71-4abe-bf83-684c3690b476"></script>
+        <Script src="https://cloud.umami.is/script.js" data-website-id="fcb3f5e6-8b71-4abe-bf83-684c3690b476" strategy="lazyOnload" />
         {/* 延迟加载中文网字计划生成的本地分片 CSS，避免进入 LCP 关键路径 */}
         <Script id="brand-font-loader" strategy="afterInteractive">
           {`
@@ -99,32 +97,7 @@ export default function RootLayout({
           })();
           `}
         </Script>
-        <Script id="brand-font-loader" strategy="afterInteractive">
-          {`
-          (function(){
-            function loadBrandFonts(){
-              try {
-                var l = document.createElement('link');
-                l.rel = 'stylesheet';
-                l.href = '/fonts/brand-fonts.css';
-                l.onload = function(){
-                  try { document.documentElement.classList.add('brand-font'); } catch (e) {}
-                };
-                document.head.appendChild(l);
-              } catch (e) {}
-            }
-            try {
-              if (navigator.connection && navigator.connection.saveData) return; // 节流模式：不加载品牌字体
-              if (window.matchMedia && window.matchMedia('(prefers-reduced-data: reduce)').matches) return;
-            } catch (e) {}
-            if (window.requestIdleCallback) {
-              window.requestIdleCallback(loadBrandFonts, { timeout: 2000 });
-            } else {
-              window.addEventListener('load', loadBrandFonts);
-            }
-          })();
-          `}
-        </Script>
+        
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}

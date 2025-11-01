@@ -4,15 +4,18 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Sidebar, TabId } from './components/Sidebar';
 import { DashboardHeader } from './components/DashboardHeader';
-import { BnImageGenerator } from '../components/BnImageGenerator';
-import { SongSearchGenerator } from '../components/SongSearchGenerator';
-import { RksRecordsList } from '../components/RksRecordsList';
+import dynamic from 'next/dynamic';
 import { ServiceStats } from '../components/ServiceStats';
-import { AnnouncementModal } from '../components/AnnouncementModal';
-import { SongUpdateList } from '../components/SongUpdateCard';
-import { PlayerScoreRenderer } from '../components/PlayerScoreRenderer';
 import { MenuGuide } from './components/MenuGuide';
-import { LeaderboardPanel } from '../components/LeaderboardPanel';
+
+// 按需动态加载各功能组件，避免首屏加载与执行过多 JS
+const BnImageGenerator = dynamic(() => import('../components/BnImageGenerator').then(m => m.BnImageGenerator), { ssr: false, loading: () => null });
+const SongSearchGenerator = dynamic(() => import('../components/SongSearchGenerator').then(m => m.SongSearchGenerator), { ssr: false, loading: () => null });
+const RksRecordsList = dynamic(() => import('../components/RksRecordsList').then(m => m.RksRecordsList), { ssr: false, loading: () => null });
+const AnnouncementModal = dynamic(() => import('../components/AnnouncementModal').then(m => m.AnnouncementModal), { ssr: false, loading: () => null });
+const SongUpdateList = dynamic(() => import('../components/SongUpdateCard').then(m => m.SongUpdateList), { ssr: false, loading: () => null });
+const PlayerScoreRenderer = dynamic(() => import('../components/PlayerScoreRenderer').then(m => m.PlayerScoreRenderer), { ssr: false, loading: () => null });
+const LeaderboardPanel = dynamic(() => import('../components/LeaderboardPanel').then(m => m.LeaderboardPanel), { ssr: false, loading: () => null });
 import type { Announcement, SongUpdate } from '../lib/types/content';
 
 export default function Dashboard() {
