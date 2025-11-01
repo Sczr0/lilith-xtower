@@ -14,77 +14,6 @@
   --font-mono: var(--font-geist-mono);
 }
 
-/* 自托管中文字体（分片子集，减少一次性下载体积） */
-/* 1) CJK 标点与全角字符（很小，优先匹配） */
-@font-face {
-  font-family: 'Source Han Sans & Saira Hybrid';
-  src: url('/fonts/brand-cjk-punct.woff2') format('woff2');
-  font-style: normal;
-  font-weight: 400;
-  font-display: optional;
-  unicode-range:
-    U+3000-303F,        /* CJK 符号和标点 */
-    U+FF00-FFEF,        /* 半角/全角 */
-    U+2010-2015, U+2018-2019, U+201C-201D, U+2026, U+2014, U+2013, U+00B7, U+2022; /* 常用排版标点 */
-}
-
-/* 2) CJK 扩展 A（按需加载） */
-@font-face {
-  font-family: 'Source Han Sans & Saira Hybrid';
-  src: url('/fonts/brand-cjk-extA.woff2') format('woff2');
-  font-style: normal;
-  font-weight: 400;
-  font-display: optional;
-  unicode-range: U+3400-4DBF;
-}
-
-/* 3) 基本汉字分片（4 份，按需加载，降低单文件体积） */
-@font-face {
-  font-family: 'Source Han Sans & Saira Hybrid';
-  src: url('/fonts/brand-cjk-4e00-62ff.woff2') format('woff2');
-  font-style: normal;
-  font-weight: 400;
-  font-display: optional;
-  unicode-range: U+4E00-62FF;
-}
-
-@font-face {
-  font-family: 'Source Han Sans & Saira Hybrid';
-  src: url('/fonts/brand-cjk-6300-77ff.woff2') format('woff2');
-  font-style: normal;
-  font-weight: 400;
-  font-display: optional;
-  unicode-range: U+6300-77FF;
-}
-
-@font-face {
-  font-family: 'Source Han Sans & Saira Hybrid';
-  src: url('/fonts/brand-cjk-7800-90ff.woff2') format('woff2');
-  font-style: normal;
-  font-weight: 400;
-  font-display: optional;
-  unicode-range: U+7800-90FF;
-}
-
-@font-face {
-  font-family: 'Source Han Sans & Saira Hybrid';
-  src: url('/fonts/brand-cjk-9100-9fff.woff2') format('woff2');
-  font-style: normal;
-  font-weight: 400;
-  font-display: optional;
-  unicode-range: U+9100-9FFF;
-}
-
-/* 4) CJK 扩展 B 及以上（本字体可能无字形，极小） */
-@font-face {
-  font-family: 'Source Han Sans & Saira Hybrid';
-  src: url('/fonts/brand-cjk-extBplus.woff2') format('woff2');
-  font-style: normal;
-  font-weight: 400;
-  font-display: optional;
-  unicode-range: U+20000-3134F;
-}
-
 html.dark {
   --background: #0a0a0a;
   --foreground: #ededed;
@@ -96,6 +25,15 @@ html, body {
 }
 
 body {
+  /* 首屏默认使用系统栈，避免触发自定义中文字体下载进入关键路径 */
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
+    'Noto Sans CJK SC', 'Source Han Sans SC', 'Droid Sans Fallback',
+    Arial, Helvetica, sans-serif;
+}
+
+/* 字体就绪后再切换为品牌字体（通过在 <html> 上添加 .brand-font 类触发） */
+html.brand-font body {
   font-family: 'Source Han Sans & Saira Hybrid',
     system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
     'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
