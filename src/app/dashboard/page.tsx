@@ -34,6 +34,37 @@ export default function Dashboard() {
     try { return localStorage.getItem(AGREEMENT_KEY) === 'true'; } catch { return false; }
   });
 
+  // 在首屏完成交互后，空闲时预热其它 Tab 的动态 chunk，避免首次切换时卡顿
+  // 使用 requestIdleCallback（回退到 setTimeout），确保不阻塞首屏渲染
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const idle = (cb: () => void) => {
+      try {
+        // @ts-ignore 浏览器环境下存在 requestIdleCallback
+        return (window as any).requestIdleCallback ? (window as any).requestIdleCallback(cb) : setTimeout(cb, 0);
+      } catch {
+        return setTimeout(cb, 0);
+      }
+    };
+    try {
+      // 遵循省流偏好设置，避免在用户要求节省数据时进行预热下载
+      // 与品牌字体加载逻辑保持一致
+      const nav: any = (navigator as any);
+      if (nav && nav.connection && nav.connection.saveData) return;
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-data: reduce)').matches) return;
+    } catch {}
+
+    idle(() => {
+      // 与 dynamic import 的路径保持一致，保证共享相同的分包 chunk
+      import('../components/BnImageGenerator');
+      import('../components/SongSearchGenerator');
+      import('../components/RksRecordsList');
+      import('../components/SongUpdateCard');
+      import('../components/PlayerScoreRenderer');
+      import('../components/LeaderboardPanel');
+    });
+  }, []);
+
   useEffect(() => {
     // 与 AuthContext 中的 AGREEMENT_KEY 保持一致
     const AGREEMENT_KEY = 'phigros_agreement_accepted';
