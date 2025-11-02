@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { ServiceStats } from '../components/ServiceStats';
-import MarkdownBlock from '../components/MarkdownBlock';
+import { getPrecompiledAsset } from '../lib/precompiled';
 import SponsorsList from '../components/SponsorsList';
 import { useAuth } from '../contexts/AuthContext';
 import { useState, useEffect } from 'react';
@@ -33,6 +33,19 @@ export default function AboutPage() {
         hostname.includes('xtower.site') // 匹配所有其他 xtower.site 相关域名
       )
     );
+  }, []);
+
+  // 加载预编译的 About HTML
+  const [aboutHtml, setAboutHtml] = useState<string>('');
+  const [aboutError, setAboutError] = useState<string | null>(null);
+  useEffect(() => {
+    let aborted = false;
+    setAboutError(null);
+    setAboutHtml('');
+    getPrecompiledAsset('about')
+      .then(({ html }) => { if (!aborted) setAboutHtml(html); })
+      .catch((e) => { if (!aborted) setAboutError(e instanceof Error ? e.message : String(e)); })
+    return () => { aborted = true };
   }, []);
 
   const serviceProviders = [
@@ -154,9 +167,21 @@ export default function AboutPage() {
             </div>
           </section>
 
-          {/* 可自填区域：从 public/about/custom.md 读取并渲染 */}
+          {/* 可自填区域：从预编译 HTML 渲染（public/precompiled/about.<hash>.html）*/}
           <section className="border border-gray-200 dark:border-neutral-800 rounded-xl p-4 sm:p-5">
-            <MarkdownBlock src="/about/custom.md" />
+            {aboutError ? (
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                无法加载 About 内容（{aboutError}）。
+              </div>
+            ) : (
+              <article className="prose prose-sm sm:prose dark:prose-invert max-w-none">
+                {aboutHtml ? (
+                  <div dangerouslySetInnerHTML={{ __html: aboutHtml }} />
+                ) : (
+                  <div className="text-sm text-gray-400 dark:text-gray-500">加载中…</div>
+                )}
+              </article>
+            )}
           </section>
 
           {/* 感谢服务提供商 */}

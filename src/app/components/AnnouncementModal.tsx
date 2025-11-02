@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
+import { Markdown } from './Markdown';
 import { X } from 'lucide-react';
 import { Announcement } from '../lib/types/content';
 
@@ -88,7 +88,7 @@ export function AnnouncementModal({ announcements, onClose, showAll = false }: A
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
           <div className="prose prose-sm dark:prose-invert max-w-none">
-            <ReactMarkdown>{currentAnnouncement.content}</ReactMarkdown>
+            <Markdown>{currentAnnouncement.content}</Markdown>
           </div>
         </div>
 

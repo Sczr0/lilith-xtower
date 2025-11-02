@@ -3,7 +3,7 @@ import { ScoreAPI } from '../score';
 import type { ServiceStatsResponse } from '../../types/score';
 
 const createFetchMock = (payload: unknown, ok = true) =>
-  vi.fn<Parameters<typeof fetch>, Promise<Response>>(async () =>
+  vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(async () =>
     ({
       ok,
       async json() {

@@ -11,6 +11,7 @@ const AgreementModal = dynamic(() => import('../components/AgreementModal').then
   loading: () => null,
 });
 import { useServiceReachability } from '../hooks/useServiceReachability';
+import { getPrecompiledAsset } from '../lib/precompiled';
 
 const AGREEMENT_KEY = 'phigros_agreement_accepted';
 
@@ -24,10 +25,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 interface AuthProviderProps {
   children: ReactNode;
-  agreementContent: string;
 }
 
-export function AuthProvider({ children, agreementContent }: AuthProviderProps) {
+export function AuthProvider({ children }: AuthProviderProps) {
   const [authState, setAuthState] = useState<AuthState>({
     isAuthenticated: false,
     credential: null,
@@ -35,6 +35,7 @@ export function AuthProvider({ children, agreementContent }: AuthProviderProps) 
     error: null,
   });
   const [showAgreement, setShowAgreement] = useState(false);
+  const [agreementHtml, setAgreementHtml] = useState<string>('');
   const setPendingCredential = useState<AuthCredential | null>(null)[1];
 
   // 当出现“服务器暂时无法访问/网络错误”时，轮询健康端点，恢复后移除横幅
@@ -148,6 +149,14 @@ export function AuthProvider({ children, agreementContent }: AuthProviderProps) 
           error: null,
         });
         
+        // 加载协议 HTML 后再显示协议弹窗
+        try {
+          const { html } = await getPrecompiledAsset('agreement');
+          setAgreementHtml(html);
+        } catch (e) {
+          console.warn('加载协议 HTML 失败，将显示占位文本', e);
+          setAgreementHtml('<p class="text-sm text-gray-500">用户协议内容暂时无法加载，请稍后重试。</p>');
+        }
         // 显示协议弹窗
         setPendingCredential(credential);
         setShowAgreement(true);
@@ -237,7 +246,7 @@ export function AuthProvider({ children, agreementContent }: AuthProviderProps) 
       {children}
       {showAgreement && (
         <AgreementModal
-          content={agreementContent}
+          html={agreementHtml}
           onAgree={handleAgree}
           onClose={handleCloseAgreement}
         />

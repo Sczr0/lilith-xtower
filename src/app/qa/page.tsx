@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { useState, useEffect } from 'react';
-import ReactMarkdown from 'react-markdown';
+import { Markdown } from '../components/Markdown';
 import { useAuth } from '../contexts/AuthContext';
 
 interface QAItem {
@@ -242,7 +242,7 @@ export default function QAPage() {
                   <div className="px-6 pb-4">
                     <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
                       <div className="text-gray-700 dark:text-gray-300 prose prose-sm dark:prose-invert max-w-none">
-                        <ReactMarkdown>{item.answer}</ReactMarkdown>
+                        <Markdown>{item.answer}</Markdown>
                       </div>
                     </div>
                   </div>

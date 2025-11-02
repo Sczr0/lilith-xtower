@@ -3,8 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/precompile-md.mjs",
     "dev": "next dev --turbopack",
+    "prebuild": "node scripts/precompile-md.mjs",
     "build": "next build --turbopack",
+    "preanalyze": "node scripts/precompile-md.mjs",
+    "analyze": "cross-env ANALYZE=true next build",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
@@ -27,6 +31,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
+    "@next/bundle-analyzer": "^16.0.1",
     "@tailwindcss/postcss": "^4.1.16",
     "@tailwindcss/typography": "^0.5.19",
     "@types/node": "^20.19.24",
@@ -34,10 +39,13 @@
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
     "autoprefixer": "^10.4.21",
+    "cross-env": "^10.1.0",
     "eslint": "^9.39.0",
     "eslint-config-next": "15.5.4",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.16",
+    "marked": "^12.0.2",
+    "sanitize-html": "^2.13.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.6"
   }

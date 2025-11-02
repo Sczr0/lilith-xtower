@@ -1,15 +1,15 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import ReactMarkdown from 'react-markdown';
+import { Markdown } from './Markdown';
 
 interface AgreementModalProps {
-  content: string;
+  html: string;
   onAgree: () => void;
   onClose: () => void;
 }
 
-export function AgreementModal({ content, onAgree, onClose }: AgreementModalProps) {
+export function AgreementModal({ html, onAgree, onClose }: AgreementModalProps) {
   const [scrolledToBottom, setScrolledToBottom] = useState(false);
   const [isNearBottom, setIsNearBottom] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -37,7 +37,7 @@ export function AgreementModal({ content, onAgree, onClose }: AgreementModalProp
         setIsNearBottom(true);
       }
     }
-  }, [content]);
+  }, [html]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
@@ -72,7 +72,7 @@ export function AgreementModal({ content, onAgree, onClose }: AgreementModalProp
           className="flex-1 p-8 overflow-y-auto bg-white dark:bg-gray-800"
         >
           <article className="prose prose-lg dark:prose-invert max-w-none">
-            <ReactMarkdown>{content}</ReactMarkdown>
+            <div dangerouslySetInnerHTML={{ __html: html }} />
           </article>
         </div>
 

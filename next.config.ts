@@ -1,6 +1,17 @@
 import type { NextConfig } from "next";
+// 启用 Bundle Analyzer：生成静态可视化报告，用于定位过度切分与大体积依赖
+// 使用 ESM 默认导入（项目已启用 esModuleInterop）
+import bundleAnalyzer from '@next/bundle-analyzer';
 
 const nextConfig: NextConfig = {
+  // 减少对包内子模块的零碎解析，合并请求、缩短编译与运行时的模块解析链路
+  // 仅列出在客户端广泛使用、且内部模块较为分散的依赖
+  experimental: {
+    optimizePackageImports: [
+      'lucide-react',
+      '@radix-ui/react-select',
+    ],
+  },
   async rewrites() {
     return [
       {
@@ -11,6 +22,28 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
+      {
+        // 全站 CSP（按需放宽第三方脚本）
+        source: '/:path*',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              // 允许内联脚本用于少量必要场景（如品牌字体 loader）；放宽 umami 域名
+              "script-src 'self' 'unsafe-inline' https://cloud.umami.is",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data:",
+              "font-src 'self'",
+              "connect-src 'self' https://cloud.umami.is",
+              "frame-ancestors 'self'",
+              "object-src 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+            ].join('; '),
+          },
+        ],
+      },
       {
         // 为字体等静态资源设置长期缓存
         source: '/:all*.(woff2|woff)',
@@ -41,8 +74,46 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      // legacy non-hash endpoints removed
+      {
+        // 预编译 manifest：短缓存以便快速感知更新
+        source: '/precompiled/manifest.json',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=600',
+          },
+        ],
+      },
+      {
+        // 预编译的哈希化 HTML：长期缓存
+        source: '/precompiled/:file.html',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      {
+        // 预编译的哈希化 TOC JSON：长期缓存（注意匹配 .toc.json）
+        source: '/precompiled/:file.toc.json',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
     ];
   },
 };
 
-export default nextConfig;
+// 包分析插件：仅在 ANALYZE=true 时启用，输出静态报告
+const withBundleAnalyzer = bundleAnalyzer({
+  enabled: process.env.ANALYZE === 'true',
+  openAnalyzer: false,
+  analyzerMode: 'static',
+});
+
+export default withBundleAnalyzer(nextConfig);

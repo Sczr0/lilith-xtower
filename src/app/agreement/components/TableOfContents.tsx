@@ -1,12 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-
-interface TableOfContentsProps {
-  content: string;
-  activeSection: string;
-  variant?: 'sidebar' | 'dropdown';
-}
+import type React from 'react';
 
 interface TocItem {
   id: string;
@@ -14,10 +9,20 @@ interface TocItem {
   level: number;
 }
 
-export function TableOfContents({ content, activeSection, variant = 'sidebar' }: TableOfContentsProps) {
+interface TableOfContentsProps {
+  // 原始 Markdown 文本（旧用法）
+  content?: string;
+  // 预编译生成的目录（新用法）
+  toc?: TocItem[];
+  activeSection: string;
+  variant?: 'sidebar' | 'dropdown';
+}
+
+export function TableOfContents({ content, toc, activeSection, variant = 'sidebar' }: TableOfContentsProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const tocItems = useMemo<TocItem[]>(() => {
+    if (toc && toc.length > 0) return toc;
     if (!content) return [];
 
     const lines = content.split('\n');
@@ -37,15 +42,16 @@ export function TableOfContents({ content, activeSection, variant = 'sidebar' }:
     });
 
     return items;
-  }, [content]);
+  }, [content, toc]);
 
   useEffect(() => {
     // 内容发生变更后收起移动端折叠面板
     setIsOpen(false);
-  }, [content]);
+  }, [content, toc]);
 
   
-  const scrollToSection = (id: string) => {
+  const scrollToSection = (id: string, ev?: React.MouseEvent) => {
+    if (ev) ev.preventDefault();
     // 通过data-heading-id属性查找对应的标题元素
     const targetHeading = document.querySelector(`[data-heading-id="${id}"]`);
 
@@ -54,6 +60,7 @@ export function TableOfContents({ content, activeSection, variant = 'sidebar' }:
       if (variant === 'dropdown') {
         setIsOpen(false);
       }
+      try { history.replaceState(null, '', `#${id}`); } catch {}
     } else {
       console.error('Target heading not found for ID:', id);
       // 降级方案：使用原始的索引方法
@@ -64,6 +71,7 @@ export function TableOfContents({ content, activeSection, variant = 'sidebar' }:
         if (variant === 'dropdown') {
           setIsOpen(false);
         }
+        try { history.replaceState(null, '', `#${id}`); } catch {}
       }
     }
   };
@@ -91,10 +99,10 @@ export function TableOfContents({ content, activeSection, variant = 'sidebar' }:
         {isOpen && (
           <nav className="border-t border-gray-200 dark:border-neutral-800 px-2 py-3 text-sm">
             {tocItems.map(item => (
-              <button
+              <a
                 key={item.id}
-                type="button"
-                onClick={() => scrollToSection(item.id)}
+                href={`#${item.id}`}
+                onClick={(e) => scrollToSection(item.id, e)}
                 className={`block w-full rounded-md px-2 py-1 text-left transition-colors ${
                   activeSection === item.title
                     ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'
@@ -103,7 +111,7 @@ export function TableOfContents({ content, activeSection, variant = 'sidebar' }:
                 style={{ paddingLeft: `${(item.level - 1) * 12 + 12}px` }}
               >
                 {item.title}
-              </button>
+              </a>
             ))}
           </nav>
         )}
@@ -121,10 +129,10 @@ export function TableOfContents({ content, activeSection, variant = 'sidebar' }:
       </div>
       <div className="space-y-1 text-sm">
         {tocItems.map(item => (
-          <button
+          <a
             key={item.id}
-            type="button"
-            onClick={() => scrollToSection(item.id)}
+            href={`#${item.id}`}
+            onClick={(e) => scrollToSection(item.id, e)}
             className={`w-full rounded-md px-3 py-2 text-left transition-colors ${
               activeSection === item.title
                 ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'
@@ -133,7 +141,7 @@ export function TableOfContents({ content, activeSection, variant = 'sidebar' }:
             style={{ paddingLeft: `${(item.level - 1) * 12 + 12}px` }}
           >
             {item.title}
-          </button>
+          </a>
         ))}
       </div>
     </nav>

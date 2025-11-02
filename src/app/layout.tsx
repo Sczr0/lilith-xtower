@@ -8,8 +8,7 @@ import { GenerationProvider } from "./contexts/GenerationContext";
 import { MaintenanceNotice } from "./components/MaintenanceNotice";
 import { Analytics } from "@vercel/analytics/next";
 import Script from "next/script";
-import fs from 'fs';
-import path from 'path';
+// Removed fs/path – agreement HTML now loaded on demand in AuthProvider via manifest
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -57,10 +56,7 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const agreementContent = fs.readFileSync(
-    path.join(process.cwd(), 'src', 'app', 'agreement', 'agreement.md'),
-    'utf8'
-  );
+  
 
   return (
     <html lang="zh-CN" suppressHydrationWarning>
@@ -109,7 +105,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <MaintenanceNotice />
-          <AuthProvider agreementContent={agreementContent}>
+          <AuthProvider>
             <MaintenanceProvider>
               <GenerationProvider>
                 {children}

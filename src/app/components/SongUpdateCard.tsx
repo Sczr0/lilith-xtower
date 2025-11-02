@@ -1,6 +1,6 @@
 "use client";
 
-import ReactMarkdown from 'react-markdown';
+import { Markdown } from './Markdown';
 import { Calendar, Music, Wrench } from 'lucide-react';
 import type { DetailedHTMLProps, HTMLAttributes } from 'react';
 import { SongUpdate } from '../lib/types/content';
@@ -72,7 +72,7 @@ export function SongUpdateCard({ update, isLatest = false }: SongUpdateCardProps
       {/* 内容区域 */}
       <section className="px-5 py-4">
         <div className="prose prose-sm dark:prose-invert max-w-none leading-relaxed song-update-md prose-headings:my-2 prose-p:my-1 prose-ul:my-2 prose-li:my-0">
-          <ReactMarkdown
+          <Markdown
             components={{
               // 隐藏 Markdown 一级标题，避免与卡片头重复
               h1: () => null,
@@ -116,7 +116,7 @@ export function SongUpdateCard({ update, isLatest = false }: SongUpdateCardProps
             }}
           >
             {update.content}
-          </ReactMarkdown>
+          </Markdown>
         </div>
       </section>
     </div>
@@ -149,4 +149,3 @@ export function SongUpdateList({ updates }: SongUpdateListProps) {
     </div>
   );
 }
-

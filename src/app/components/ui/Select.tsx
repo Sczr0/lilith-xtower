@@ -1,6 +1,35 @@
  'use client'
 
- import * as Select from '@radix-ui/react-select'
+ import {
+   Root,
+   Trigger,
+   Value,
+   Icon,
+   Portal,
+   Content,
+   ScrollUpButton,
+   Viewport,
+   Item,
+   ItemText,
+   ItemIndicator,
+   ScrollDownButton,
+ } from '@radix-ui/react-select'
+ 
+ // 使用具名导入并组装为与原 API 一致的命名空间对象，便于现有调用且利于 tree-shaking
+ const Select = {
+   Root,
+   Trigger,
+   Value,
+   Icon,
+   Portal,
+   Content,
+   ScrollUpButton,
+   Viewport,
+   Item,
+   ItemText,
+   ItemIndicator,
+   ScrollDownButton,
+ } as const
  import React from 'react'
 
  // 通用选项类型
