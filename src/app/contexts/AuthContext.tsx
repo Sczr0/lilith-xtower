@@ -1,11 +1,11 @@
-﻿'use client';
+'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { AuthState, AuthCredential } from '../lib/types/auth';
 import { AuthStorage } from '../lib/storage/auth';
 import { AuthAPI } from '../lib/api/auth';
 import dynamic from 'next/dynamic';
-// 鍔ㄦ€佸姞杞藉崗璁脊绐楋紝閬垮厤 react-markdown 杩涘叆鍏ㄥ眬鍏变韩 chunk
+// 动态加载协议弹窗，避免 react-markdown 进入全局共享 chunk
 const AgreementModal = dynamic(() => import('../components/AgreementModal').then(m => m.AgreementModal), { ssr: false, loading: () => null });
 
 import { useServiceReachability } from '../hooks/useServiceReachability';
@@ -25,7 +25,6 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-
   const [authState, setAuthState] = useState<AuthState>({
     isAuthenticated: false,
     credential: null,
@@ -36,55 +35,38 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [agreementHtml, setAgreementHtml] = useState<string>('');
   const setPendingCredential = useState<AuthCredential | null>(null)[1];
 
-  // 褰撳嚭鐜扳€滄湇鍔″櫒鏆傛椂鏃犳硶璁块棶/缃戠粶閿欒鈥濇椂锛岃疆璇㈠仴搴风鐐癸紝鎭㈠鍚庣Щ闄ゆí骞?  const shouldPollStatus = !!authState.error && (/鏈嶅姟鍣ㄦ殏鏃舵棤娉曡闂?.test(authState.error) || /缃戠粶閿欒/.test(authState.error));
+  // 当出现“服务器暂时无法访问/网络错误”时，轮询健康端点，恢复后移除横幅
+  const shouldPollStatus = !!authState.error && (/服务器暂时无法访问/.test(authState.error || '') || /网络错误/.test(authState.error || ''));
   useServiceReachability({
     shouldPoll: shouldPollStatus,
     onReachable: () => setAuthState(prev => ({ ...prev, error: null })),
   });
 
-  // 鍒濆鍖栨椂妫€鏌ユ湰鍦板瓨鍌ㄤ腑鐨勫嚟璇?  useEffect(() => {
+  // 初始化时检查本地存储中的凭证
+  useEffect(() => {
     const initializeAuth = async () => {
       try {
         const credential = AuthStorage.getCredential();
-        
+
         if (credential) {
           const result = await AuthAPI.validateCredential(credential);
-          
+
           if (result.isValid) {
-            setAuthState({
-              isAuthenticated: true,
-              credential,
-              isLoading: false,
-              error: null,
-            });
+            setAuthState({ isAuthenticated: true, credential, isLoading: false, error: null });
           } else if (result.shouldLogout) {
-            // 4xx 閿欒锛氬嚟璇佹棤鏁堬紝娓呴櫎鏈湴鍑瘉
+            // 4xx 错误：凭证无效，清除本地凭证
             AuthStorage.clearCredential();
-            setAuthState({
-              isAuthenticated: false,
-              credential: null,
-              isLoading: false,
-              error: result.error || '鐧诲綍鍑瘉宸茶繃鏈燂紝璇烽噸鏂扮櫥褰?,
-            });
+            setAuthState({ isAuthenticated: false, credential: null, isLoading: false, error: result.error || '登录凭证已过期，请重新登录' });
           } else {
-            // 5xx 鎴栫綉缁滈敊璇細淇濈暀鍑瘉鍜岃璇佺姸鎬侊紝璁╃敤鎴风暀鍦ㄥ綋鍓嶉〉闈?            setAuthState({
-              isAuthenticated: true,
-              credential,
-              isLoading: false,
-              error: result.error || '鏈嶅姟鍣ㄦ殏鏃舵棤娉曡闂紝璇风◢鍚庡啀璇?,
-            });
+            // 5xx 或网络错误：保留凭证和认证状态，让用户留在当前页面
+            setAuthState({ isAuthenticated: true, credential, isLoading: false, error: result.error || '服务器暂时无法访问，请稍后再试' });
           }
         } else {
           setAuthState(prev => ({ ...prev, isLoading: false }));
         }
       } catch (error) {
-        console.error('鍒濆鍖栬璇佺姸鎬佸け璐?', error);
-        setAuthState({
-          isAuthenticated: false,
-          credential: null,
-          isLoading: false,
-          error: '鍒濆鍖栬璇佺姸鎬佸け璐?,
-        });
+        console.error('初始化认证状态失败', error);
+        setAuthState({ isAuthenticated: false, credential: null, isLoading: false, error: '初始化认证状态失败' });
       }
     };
 
@@ -97,24 +79,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       const result = await AuthAPI.validateCredential(credential);
       if (!result.isValid) {
-        throw new Error(result.error || '鐧诲綍鍑瘉楠岃瘉澶辫触锛岃閲嶆柊鐧诲綍');
+        throw new Error(result.error || '登录凭证验证失败，请重新登录');
       }
 
-      // 协议勾选由登录后确认弹窗处理，这里不自动标记
+      // 仅在验证通过后保存凭证
       AuthStorage.saveCredential(credential);
-      
-      setAuthState({
-        isAuthenticated: true,
-        credential,
-        isLoading: false,
-        error: null,
-      });
+
+      setAuthState({ isAuthenticated: true, credential, isLoading: false, error: null });
 
       if (typeof window !== 'undefined') {
         window.location.href = '/dashboard';
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : '鐧诲綍澶辫触';
+      const errorMessage = error instanceof Error ? error.message : '登录失败';
       setAuthState(prev => ({ ...prev, isLoading: false, error: errorMessage }));
       throw error;
     }
@@ -124,52 +101,36 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const agreementAccepted = localStorage.getItem(AGREEMENT_KEY);
     if (agreementAccepted) {
       await proceedLogin(credential);
-    } else {
-      // 鍏堥獙璇佸苟淇濆瓨鍑瘉锛岀‘淇濈敤鎴峰湪鏌ョ湅鍗忚鏈熼棿涔熻兘姝ｅ父璁块棶鍏朵粬椤甸潰
-      try {
-        setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
-        
-        const result = await AuthAPI.validateCredential(credential);
-        if (!result.isValid) {
-          throw new Error(result.error || '鐧诲綍鍑瘉楠岃瘉澶辫触锛岃閲嶆柊鐧诲綍');
-        }
-        
-        // 淇濆瓨鍑瘉鍒板瓨鍌ㄥ拰鐘舵€?        AuthStorage.saveCredential(credential);
-        setAuthState({
-          isAuthenticated: true,
-          credential,
-          isLoading: false,
-          error: null,
-        });
-        
-        // 鍔犺浇鍗忚 HTML 鍚庡啀鏄剧ず鍗忚寮圭獥
-        try {
-          // 简化：不加载协议 HTML，直接进入勾选确认模式
-          setAgreementHtml("");
-          
-          
-          
-          
-        // 鏄剧ず鍗忚寮圭獥
-        setPendingCredential(credential);
-        setShowAgreement(true);
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : '鐧诲綍澶辫触';
-        setAuthState({ 
-          isAuthenticated: false,
-          credential: null,
-          isLoading: false, 
-          error: errorMessage 
-        });
+      return;
+    }
+
+    // 先验证并保存凭证，再弹出同意弹窗（默认简化模式）
+    try {
+      setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
+
+      const result = await AuthAPI.validateCredential(credential);
+      if (!result.isValid) {
+        throw new Error(result.error || '登录凭证验证失败，请重新登录');
       }
+
+      AuthStorage.saveCredential(credential);
+      setAuthState({ isAuthenticated: true, credential, isLoading: false, error: null });
+
+      // 简化模式：不给 html，则弹窗走“勾选确认”
+      setAgreementHtml('');
+      setPendingCredential(credential);
+      setShowAgreement(true);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '登录失败';
+      setAuthState({ isAuthenticated: false, credential: null, isLoading: false, error: errorMessage });
     }
   };
 
   const handleAgree = async () => {
     setShowAgreement(false);
     setPendingCredential(null);
-    
-    // 淇濆瓨鍗忚鎺ュ彈鐘舵€佸苟璺宠浆
+
+    // 保存协议接受状态并跳转
     localStorage.setItem(AGREEMENT_KEY, 'true');
     if (typeof window !== 'undefined') {
       window.location.href = '/dashboard';
@@ -179,33 +140,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const handleCloseAgreement = () => {
     setShowAgreement(false);
     setPendingCredential(null);
-    
-    // 鐢ㄦ埛鎷掔粷鍗忚锛屾竻闄ゅ嚟璇佸拰鐧诲綍鐘舵€?    AuthStorage.clearCredential();
-    setAuthState({
-      isAuthenticated: false,
-      credential: null,
-      isLoading: false,
-      error: '鎮ㄩ渶瑕佸悓鎰忕敤鎴峰崗璁墠鑳戒娇鐢ㄦ湰鏈嶅姟',
-    });
+
+    // 用户拒绝协议，清除凭证和登录状态
+    AuthStorage.clearCredential();
+    setAuthState({ isAuthenticated: false, credential: null, isLoading: false, error: '您需要同意用户协议才能使用本服务' });
   };
 
   const logout = () => {
     AuthStorage.clearCredential();
     localStorage.removeItem(AGREEMENT_KEY);
-    // 娓呴櫎涓庣敤鎴风浉鍏崇殑缂撳瓨
+    // 清除与用户相关的缓存
     try {
       localStorage.removeItem('cache_rks_records_v1');
       localStorage.removeItem('cache_rks_records_v2');
       localStorage.removeItem('cache_bestn_meta_v1');
       localStorage.removeItem('cache_song_image_meta_v1');
     } catch {}
-    setAuthState({
-      isAuthenticated: false,
-      credential: null,
-      isLoading: false,
-      error: null,
-    });
-    
+    setAuthState({ isAuthenticated: false, credential: null, isLoading: false, error: null });
+
     if (typeof window !== 'undefined') {
       window.location.href = '/login';
     }
@@ -216,11 +168,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       const result = await AuthAPI.validateCredential(authState.credential);
       if (result.shouldLogout) {
-        // 鍑瘉鏃犳晥锛岄€€鍑虹櫥褰?        logout();
+        // 凭证无效，退出登录
+        logout();
       }
       return result.isValid;
     } catch (error) {
-      console.error('楠岃瘉鍑瘉澶辫触:', error);
+      console.error('验证凭证失败:', error);
       return false;
     }
   };
@@ -247,20 +200,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
 }
 
 /**
- * 浣跨敤璁よ瘉涓婁笅鏂囩殑Hook
+ * 使用认证上下文的Hook
  */
 export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
-  
+
   if (context === undefined) {
-    throw new Error('useAuth蹇呴』鍦ˋuthProvider鍐呴儴浣跨敤');
+    throw new Error('useAuth必须在AuthProvider内部使用');
   }
-  
+
   return context;
 }
 
 /**
- * 璁よ瘉淇濇姢鐨勯珮闃剁粍浠? */
+ * 认证保护的高阶组件
+ */
 export function withAuth<P extends object>(
   Component: React.ComponentType<P>
 ): React.ComponentType<P> {
@@ -276,7 +230,7 @@ export function withAuth<P extends object>(
     }
 
     if (!isAuthenticated) {
-      // 閲嶅畾鍚戝埌鐧诲綍椤甸潰
+      // 重定向到登录页面
       if (typeof window !== 'undefined') {
         window.location.href = '/login';
       }
@@ -286,5 +240,4 @@ export function withAuth<P extends object>(
     return <Component {...props} />;
   };
 }
-
 
