@@ -6,6 +6,7 @@ import { ImageAPI, BestNTheme } from '../lib/api/image';
 import { useGenerationBusy, useGenerationManager, useGenerationResult } from '../contexts/GenerationContext';
 import { getOwnerKey } from '../lib/utils/cache';
 import { StyledSelect } from './ui/Select';
+import { LoadingPlaceholder, LoadingSpinner } from './LoadingIndicator';
 
 const DEFAULT_N = 27;
 
@@ -158,7 +159,12 @@ export function BnImageGenerator({ showTitle = true, showDescription = true }: {
             onClick={handleGenerate}
             className="w-full inline-flex items-center justify-center rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-medium px-4 py-2 transition-colors"
           >
-            {isLoading ? '生成中…' : '生成图片'}
+            {isLoading ? (
+              // 生成请求等待动画（按钮内小尺寸旋转圈）
+              <LoadingSpinner size="sm" text="生成中..." />
+            ) : (
+              '生成图片'
+            )}
           </button>
         </div>
       </div>
@@ -196,6 +202,9 @@ export function BnImageGenerator({ showTitle = true, showDescription = true }: {
             </button>
           </div>
         </div>
+      ) : isLoading ? (
+        // 图片生成请求等候阶段的加载动画占位
+        <LoadingPlaceholder text="正在生成图片..." />
       ) : (
         <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-8 text-center text-sm text-gray-500 dark:text-gray-400">
           生成后的图片将显示在这里。
