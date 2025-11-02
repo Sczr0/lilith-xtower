@@ -34,7 +34,7 @@ const nextConfig: NextConfig = {
               "script-src 'self' 'unsafe-inline' https://cloud.umami.is https://static.cloudflareinsights.com",
               "connect-src 'self' https://cloud.umami.is https://cloudflareinsights.com",
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data:",
+              "img-src 'self' data: blob:",
               "font-src 'self'",
               "frame-ancestors 'self'",
               "object-src 'none'; base-uri 'self'; form-action 'self'",
