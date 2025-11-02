@@ -40,8 +40,9 @@ export default function Dashboard() {
     if (typeof window === 'undefined') return;
     const idle = (cb: () => void) => {
       try {
-        // @ts-expect-error -- 浏览器环境下存在 requestIdleCallback
-        return (window as any).requestIdleCallback ? (window as any).requestIdleCallback(cb) : setTimeout(cb, 0);
+        // 在浏览器空闲时执行；优先使用 requestIdleCallback，回退到 setTimeout
+        const ric = (window as any).requestIdleCallback;
+        return typeof ric === 'function' ? ric(cb) : setTimeout(cb, 0);
       } catch {
         return setTimeout(cb, 0);
       }
