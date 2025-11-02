@@ -40,7 +40,7 @@ export default function Dashboard() {
     if (typeof window === 'undefined') return;
     const idle = (cb: () => void) => {
       try {
-        // @ts-ignore 浏览器环境下存在 requestIdleCallback
+        // @ts-expect-error -- 浏览器环境下存在 requestIdleCallback
         return (window as any).requestIdleCallback ? (window as any).requestIdleCallback(cb) : setTimeout(cb, 0);
       } catch {
         return setTimeout(cb, 0);
