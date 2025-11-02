@@ -31,15 +31,13 @@ const nextConfig: NextConfig = {
             value: [
               "default-src 'self'",
               // 允许内联脚本用于少量必要场景（如品牌字体 loader）；放宽 umami 域名
-              "script-src 'self' 'unsafe-inline' https://cloud.umami.is",
+              "script-src 'self' 'unsafe-inline' https://cloud.umami.is https://static.cloudflareinsights.com",
+              "connect-src 'self' https://cloud.umami.is https://cloudflareinsights.com",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data:",
               "font-src 'self'",
-              "connect-src 'self' https://cloud.umami.is",
               "frame-ancestors 'self'",
-              "object-src 'none'",
-              "base-uri 'self'",
-              "form-action 'self'",
+              "object-src 'none'; base-uri 'self'; form-action 'self'",
             ].join('; '),
           },
         ],
