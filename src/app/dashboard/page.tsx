@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Sidebar, TabId } from './components/Sidebar';
 import { DashboardHeader } from './components/DashboardHeader';
 import dynamic from 'next/dynamic';
+import { AnnouncementModal } from '../components/AnnouncementModal';
 import { ServiceStats } from '../components/ServiceStats';
 import { MenuGuide } from './components/MenuGuide';
 
@@ -12,11 +13,11 @@ import { MenuGuide } from './components/MenuGuide';
 const BnImageGenerator = dynamic(() => import('../components/BnImageGenerator').then(m => m.BnImageGenerator), { ssr: false, loading: () => null });
 const SongSearchGenerator = dynamic(() => import('../components/SongSearchGenerator').then(m => m.SongSearchGenerator), { ssr: false, loading: () => null });
 const RksRecordsList = dynamic(() => import('../components/RksRecordsList').then(m => m.RksRecordsList), { ssr: false, loading: () => null });
-const AnnouncementModal = dynamic(() => import('../components/AnnouncementModal').then(m => m.AnnouncementModal), { ssr: false, loading: () => null });
 const SongUpdateList = dynamic(() => import('../components/SongUpdateCard').then(m => m.SongUpdateList), { ssr: false, loading: () => null });
 const PlayerScoreRenderer = dynamic(() => import('../components/PlayerScoreRenderer').then(m => m.PlayerScoreRenderer), { ssr: false, loading: () => null });
 const LeaderboardPanel = dynamic(() => import('../components/LeaderboardPanel').then(m => m.LeaderboardPanel), { ssr: false, loading: () => null });
 import type { Announcement, SongUpdate } from '../lib/types/content';
+const AGREEMENT_KEY = 'phigros_agreement_accepted';
 
 export default function Dashboard() {
   const { isAuthenticated, isLoading, error } = useAuth();
@@ -28,7 +29,10 @@ export default function Dashboard() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   // 仅在用户已同意用户协议后，才显示首次使用提醒与公告，避免与协议弹窗叠加造成混乱
   const [showMenuGuide, setShowMenuGuide] = useState(false);
-  const [agreementAccepted, setAgreementAccepted] = useState(false);
+  const [agreementAccepted, setAgreementAccepted] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    try { return localStorage.getItem(AGREEMENT_KEY) === 'true'; } catch { return false; }
+  });
 
   useEffect(() => {
     // 与 AuthContext 中的 AGREEMENT_KEY 保持一致
@@ -40,6 +44,20 @@ export default function Dashboard() {
       setShowMenuGuide(!!accepted);
     } catch {}
   }, [isAuthenticated]);
+
+  // 当已同意协议且存在未读公告时，触发展示
+  useEffect(() => {
+    if (!agreementAccepted || announcements.length === 0) return;
+    try {
+      const dismissedStr = localStorage.getItem('dismissed_announcements');
+      const dismissed = dismissedStr ? new Set<string>(JSON.parse(dismissedStr)) : new Set<string>();
+      const unread = announcements.filter((a: Announcement) => !dismissed.has(a.id));
+      if (unread.length > 0) {
+        setShowAllAnnouncements(false);
+        setShowAnnouncements(true);
+      }
+    } catch {}
+  }, [agreementAccepted, announcements]);
 
   // 加载公告和新曲速递数据
   useEffect(() => {
@@ -74,11 +92,11 @@ export default function Dashboard() {
       }
     };
 
-    // 仅在登录且已同意用户协议后加载并可能展示公告
-    if (isAuthenticated && agreementAccepted) {
+    // 登录后立即加载内容，无需等待协议判定
+    if (isAuthenticated) {
       loadContent();
     }
-  }, [isAuthenticated, agreementAccepted]);
+  }, [isAuthenticated]);
 
   if (isLoading) {
     return (
