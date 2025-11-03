@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo, useRef } from "react";
+import { usePathname } from "next/navigation";
 
 type MetricName = "LCP" | "CLS" | "INP" | "TTFB" | "FCP" | "FID";
 
@@ -11,6 +12,11 @@ const SAMPLE_RATE = (() => {
   const n = raw ? Number(raw) : NaN;
   if (!Number.isFinite(n)) return 1; // 默认 100% 采样（可通过环境变量下调）
   return Math.min(Math.max(n, 0), 1);
+})();
+
+const MOBILE_ONLY = (() => {
+  const raw = (process.env.NEXT_PUBLIC_WEB_VITALS_ONLY_MOBILE || "").toLowerCase();
+  return raw === "1" || raw === "true";
 })();
 
 function maybeTrackWithUmami(event: string, payload: unknown) {
@@ -68,20 +74,48 @@ function minimizeAttribution(attr: any) {
 function reportMetric(metric: any) {
   try {
     if (!isProd) return;
-    if (Math.random() > SAMPLE_RATE) return;
-
     const name: MetricName = metric?.name;
+
+    // 端侧去重：同 name+id 仅上报一次
+    const key = `${name}|${metric?.id}`;
+    if (sentRef.current.has(key)) return;
+
+    // 阈值过滤：
+    if (typeof metric?.delta === "number") {
+      if (metric.delta <= 0) return; // 仅在值增加时上报
+      if (name === "CLS" && metric.delta < 0.001) return; // 丢弃极小抖动
+    } else if (name === "CLS" && typeof metric?.value === "number" && metric.value < 0.001) {
+      return;
+    }
+
+    // 设备优先：如启用仅移动端采样，则非移动端直接丢弃
+    if (MOBILE_ONLY) {
+      try {
+        const ua = navigator.userAgent || "";
+        const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(ua);
+        if (!isMobile) return;
+      } catch (_) {}
+    }
+
+    // rating 非 good 时强制上报；good 按采样率
+    const rating = metric?.rating as string | undefined;
+    if (rating === "good" && Math.random() > SAMPLE_RATE) return;
+
     const payload = {
       id: metric?.id,
       name,
       value: typeof metric?.value === "number" ? Math.round(metric.value * 1000) / 1000 : metric?.value,
-      rating: metric?.rating,
+      rating,
       delta: metric?.delta,
       nav: metric?.navigationType,
       path: typeof location !== "undefined" ? location.pathname : undefined,
+      viewId: viewIdRef.current,
       t: Date.now(),
       attribution: minimizeAttribution(metric?.attribution),
     };
+
+    // 标记已发送，防止重复
+    sentRef.current.add(key);
 
     if (!maybeTrackWithUmami("web-vitals", payload)) {
       sendToEndpoint(payload);
@@ -90,6 +124,15 @@ function reportMetric(metric: any) {
 }
 
 export default function WebVitals() {
+  // 页面视图分段：当 pathname 变化时，生成新的 viewId
+  const pathname = usePathname();
+  const counterRef = useRef(0);
+  useEffect(() => {
+    // 每次软导航（pathname 改变）时更新视图 ID
+    const next = `${Date.now()}-${(counterRef.current = (counterRef.current + 1) % 1e6)}`;
+    viewIdRef.current = next;
+  }, [pathname]);
+
   useEffect(() => {
     // 在空闲期再加载与注册，尽量规避首屏关键路径
     const run = () => {
@@ -122,3 +165,6 @@ export default function WebVitals() {
   return null;
 }
 
+// 以下为组件级别的静态状态（跨次渲染保持）
+const sentRef: { current: Set<string> } = { current: new Set() };
+const viewIdRef: { current: string } = { current: `${Date.now()}-0` };

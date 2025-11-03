@@ -8,14 +8,62 @@ export async function POST(req: NextRequest) {
     if (!contentType.includes("application/json")) {
       return new Response("Bad Request", { status: 400 });
     }
-    const data = await req.json();
-    // 轻量处理：打印关键信息供临时观察，生产可接入日志/存储
+    const raw = await req.json();
+    const allowedNames = new Set(["LCP", "CLS", "INP", "TTFB", "FCP", "FID"]);
+
+    // 基本字段校验与瘦身
+    const cleaned = (() => {
+      const d: any = typeof raw === "object" && raw ? raw : {};
+      const name: string = d.name;
+      const value: number | undefined = typeof d.value === "number" ? d.value : undefined;
+      const rating: string | undefined = typeof d.rating === "string" ? d.rating : undefined;
+      const id: string | undefined = typeof d.id === "string" ? d.id : undefined;
+      const path: string | undefined = typeof d.path === "string" ? d.path : undefined;
+      const nav: string | undefined = typeof d.nav === "string" ? d.nav : undefined;
+      const viewId: string | undefined = typeof d.viewId === "string" ? d.viewId : undefined;
+      const t: number | undefined = typeof d.t === "number" ? d.t : Date.now();
+      const delta: number | undefined = typeof d.delta === "number" ? d.delta : undefined;
+      const attribution = (() => {
+        const a: any = d.attribution;
+        if (!a || typeof a !== "object") return undefined;
+        const out: Record<string, unknown> = {};
+        const take = (k: string, max = 512) => {
+          if (!(k in a)) return;
+          const v = a[k];
+          if (typeof v === "string") out[k] = v.length > max ? v.slice(0, max) : v;
+          else out[k] = v;
+        };
+        take("element", 512);
+        take("url", 512);
+        take("loadState", 64);
+        take("navigationType", 32);
+        take("eventTarget", 64);
+        take("eventType", 32);
+        take("interactionType", 32);
+        take("inputDelay", 32);
+        take("processingDuration", 32);
+        take("presentationDelay", 32);
+        take("largestShiftValue", 32);
+        return Object.keys(out).length ? out : undefined;
+      })();
+      return { name, value, rating, id, path, nav, viewId, t, delta, attribution };
+    })();
+
+    // 丢弃非法/异常数据
+    if (!allowedNames.has(cleaned.name as any)) return new Response(null, { status: 204 });
+    if (typeof cleaned.value !== "number" || Number.isNaN(cleaned.value)) return new Response(null, { status: 204 });
+    if (cleaned.path && cleaned.path.length > 1024) cleaned.path = cleaned.path.slice(0, 1024);
+
+    // 轻量日志（可改为投递 Axiom/DB）
     try {
-      const { name, value, rating, path } = data || {};
-      console.log(`[web-vitals] ${name}=${value} (${rating}) ${path ?? ""}`);
+      const ua = req.headers.get("user-agent") || "";
+      const country = req.headers.get("x-vercel-ip-country") || undefined;
+      // 控制台打印简要信息
+      console.log(
+        `[web-vitals] ${cleaned.name}=${cleaned.value} (${cleaned.rating ?? ""}) ${cleaned.path ?? ""} ua=${ua.slice(0,80)} country=${country ?? ""}`
+      );
     } catch (_) {}
   } catch (_) {}
   // 无正文 204，便于 sendBeacon 快速返回
   return new Response(null, { status: 204 });
 }
-
