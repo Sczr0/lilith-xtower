@@ -64,6 +64,9 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://cloud.umami.is" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="//cloud.umami.is" />
+        {/* Umami Cloud API Gateway 预连接，避免 CSP 拦截与提前握手 */}
+        <link rel="preconnect" href="https://api-gateway.umami.dev" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="//api-gateway.umami.dev" />
         {/* 预加载本地自托管字体，提升首屏渲染 */}
         {/* font preload removed to reduce blocking download */}
         <Script src="https://cloud.umami.is/script.js" data-website-id="fcb3f5e6-8b71-4abe-bf83-684c3690b476" strategy="lazyOnload" />
