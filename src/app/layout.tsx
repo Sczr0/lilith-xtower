@@ -8,6 +8,7 @@ import { GenerationProvider } from "./contexts/GenerationContext";
 import { MaintenanceNotice } from "./components/MaintenanceNotice";
 import { Analytics } from "@vercel/analytics/next";
 import Script from "next/script";
+import WebVitals from "./components/WebVitals";
 // Removed fs/path – agreement HTML now loaded on demand in AuthProvider via manifest
 
 const geistSans = Geist({
@@ -114,6 +115,7 @@ export default function RootLayout({
           </AuthProvider>
         </ThemeProvider>
         <Analytics />
+        <WebVitals />
       </body>
     </html>
   );

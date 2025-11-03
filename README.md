@@ -39,6 +39,13 @@ npm run start
 
 - `NEXT_PUBLIC_SITE_URL`（可选）：用于站点元数据 `metadataBase`
 
+Web Vitals 真实用户监测（RUM）
+- 已集成基于 `web-vitals` 的 RUM，上报核心指标 LCP/CLS/INP/TTFB/FCP。
+- 默认仅在生产环境启用，动态导入并在空闲时机注册，避免影响首屏关键路径。
+- 采样率（可选）：在环境中设置 `NEXT_PUBLIC_WEB_VITALS_SAMPLE_RATE`（0~1，默认 1）。
+- 上报优先尝试 Umami 自定义事件：`umami.track('web-vitals', payload)`；若不可用，使用 `navigator.sendBeacon('/api/rum', ...)` 兜底。
+- 服务器端接收端点：`/api/rum`（Edge Runtime），当前仅打印关键字段，可按需接入日志或持久化。
+
 文档
 
 - 更新日志见 `[CHANGELOG.md](docs/CHANGELOG.md)`
