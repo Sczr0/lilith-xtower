@@ -20,35 +20,17 @@
             "destination": "/api/rum"
         },
         {
-            "source": "/api/stats/summary",
-            "destination": "/api/stats/summary"
-        },
-        {
-            "source": "/api/*",
-            "destination": "https://seekend.xtower.site/api/v1/:splat"
-        },
-        {
-            "source": "/favicon.ico",
-            "destination": "/favicon.ico"
-        },
-        {
-            "source": "/robots.txt",
-            "destination": "/robots.txt"
-        },
-        {
-            "source": "/sitemap.xml",
-            "destination": "/sitemap.xml"
-        },
-        {
-            "source": "/og",
-            "destination": "/og"
-        },
-        {
             "source": "/internal/sponsors",
             "destination": "/internal/sponsors"
         }
     ],
-    "redirects": [],
+    "redirects": [
+        {
+            "source": "/api/*",
+            "destination": "https://seekend.xtower.site/api/v1/:splat",
+            "statusCode": 302
+        }
+    ],
     "headers": [
         {
             "source": "/health",
