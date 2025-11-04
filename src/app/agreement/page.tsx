@@ -1,6 +1,7 @@
 ﻿'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { RotatingTips } from '../components/RotatingTips';
 import { ClientHeader } from './ClientHeader';
 import { TableOfContents } from './components/TableOfContents';
 import { getPrecompiledAsset } from '../lib/precompiled';
@@ -116,6 +117,7 @@ export default function AgreementPage() {
         <div className="flex flex-col items-center justify-center py-28 text-sm text-gray-500 dark:text-gray-400">
           <div className="mb-4 h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-blue-500" />
           <span>正在加载用户协议...</span>
+          <RotatingTips />
         </div>
       ) : error ? (
         <div className="px-4">

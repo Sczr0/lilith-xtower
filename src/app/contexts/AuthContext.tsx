@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { AuthState, AuthCredential } from '../lib/types/auth';
 import { AuthStorage } from '../lib/storage/auth';
 import { AuthAPI } from '../lib/api/auth';
+import { RotatingTips } from '../components/RotatingTips';
 import dynamic from 'next/dynamic';
 // 动态加载协议弹窗，避免 react-markdown 进入全局共享 chunk
 const AgreementModal = dynamic(() => import('../components/AgreementModal').then(m => m.AgreementModal), { ssr: false, loading: () => null });
@@ -222,7 +223,10 @@ export function withAuth<P extends object>(
     if (isLoading) {
       return (
         <div className="flex items-center justify-center min-h-screen">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="flex flex-col items-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <RotatingTips />
+          </div>
         </div>
       );
     }

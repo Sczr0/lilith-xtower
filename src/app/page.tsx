@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import Script from 'next/script';
+import { RotatingTips } from './components/RotatingTips';
 import { ThemeToggle } from './components/ThemeToggle';
 import { useAuth } from './contexts/AuthContext';
 // 主页不再需要副作用跳转逻辑
@@ -14,7 +15,10 @@ export default function Home() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-white dark:bg-neutral-950 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+        <div className="flex flex-col items-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+          <RotatingTips />
+        </div>
       </div>
     );
   }
