@@ -12,6 +12,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { Suspense } from "react";
 import Script from "next/script";
 import WebVitals from "./components/WebVitals";
+import { TipsProvider } from "./components/TipsProvider";
 // Removed fs/path – agreement HTML now loaded on demand in AuthProvider via manifest
 
 const geistSans = Geist({
@@ -160,16 +161,18 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <MaintenanceNotice />
-          <Suspense fallback={null}>
-            <AuthProvider>
-              <MaintenanceProvider>
-                <GenerationProvider>
-                  {children}
-                </GenerationProvider>
-              </MaintenanceProvider>
-            </AuthProvider>
-          </Suspense>
+          <TipsProvider>
+            <MaintenanceNotice />
+            <Suspense fallback={null}>
+              <AuthProvider>
+                <MaintenanceProvider>
+                  <GenerationProvider>
+                    {children}
+                  </GenerationProvider>
+                </MaintenanceProvider>
+              </AuthProvider>
+            </Suspense>
+          </TipsProvider>
         </ThemeProvider>
         <Analytics />
         <WebVitals />
