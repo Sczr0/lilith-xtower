@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
+import { RotatingTips } from '../../components/RotatingTips';
 import Image from 'next/image';
 import { useAuth } from '../../contexts/AuthContext';
 import { AuthAPI, poll } from '../../lib/api/auth';
@@ -101,8 +102,9 @@ export function QRCodeLogin() {
 
       {status === 'loading' && (
         <div className="flex flex-col items-center justify-center py-8">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-2"></div>
           <p className="text-gray-600 dark:text-gray-400">正在获取二维码...</p>
+          <RotatingTips />
         </div>
       )}
 

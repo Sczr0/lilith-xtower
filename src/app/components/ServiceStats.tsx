@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { DetailedHTMLProps, HTMLAttributes } from 'react';
+import { RotatingTips } from './RotatingTips';
 import { ScoreAPI } from '../lib/api/score';
 import type { ServiceStatsFeature, ServiceStatsResponse } from '../lib/types/score';
 
@@ -219,9 +220,10 @@ export function ServiceStats({ variant = 'default', showTitle = true, showDescri
         </div>
       )}
 
-      {isLoading && !stats ? (
-        <div className="flex items-center justify-center py-12">
+{isLoading && !stats ? (
+        <div className="flex flex-col items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" aria-label="loading spinner" />
+          <RotatingTips />
         </div>
       ) : stats ? (
         <>

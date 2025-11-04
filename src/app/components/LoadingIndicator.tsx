@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { RotatingTips } from './RotatingTips';
 
 interface LoadingSpinnerProps {
   /** 可选的提示文本 */
@@ -46,6 +47,7 @@ export function LoadingPlaceholder({ text = '正在加载图片...' }: LoadingPl
   return (
     <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-10 text-center bg-white/40 dark:bg-gray-900/30">
       <LoadingSpinner text={text} size="lg" className="mx-auto" />
+      <RotatingTips className="mt-2" />
     </div>
   );
 }

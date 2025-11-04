@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { RotatingTips } from './RotatingTips';
 import { useAuth } from '../contexts/AuthContext';
 import { ScoreAPI } from '../lib/api/score';
 import { RksRecord } from '../lib/types/score';
@@ -198,9 +199,10 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
         </div>
       )}
 
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12">
+{isLoading ? (
+        <div className="flex flex-col items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <RotatingTips />
         </div>
       ) : filteredRecords.length > 0 ? (
         <div className="space-y-4">

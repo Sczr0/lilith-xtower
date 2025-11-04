@@ -7,6 +7,7 @@ import { useGenerationBusy, useGenerationManager, useGenerationResult } from '..
 import { getOwnerKey } from '../lib/utils/cache';
 import { searchSongId } from '../lib/api/song';
 import { LoadingPlaceholder, LoadingSpinner } from './LoadingIndicator';
+import { RotatingTips } from './RotatingTips';
 
 // 支持通过 showDescription 隐藏组件内的描述，避免与外层重复
 export function SongSearchGenerator({ showTitle = true, showDescription = true }: { showTitle?: boolean; showDescription?: boolean }) {
@@ -183,7 +184,7 @@ export function SongSearchGenerator({ showTitle = true, showDescription = true }
         </div>
       ) : isLoading ? (
         // 查询请求等候阶段的加载动画占位
-        <LoadingPlaceholder text="正在查询并生成图片..." />
+          <LoadingPlaceholder text="正在查询并生成图片..." />
       ) : (
         <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-8 text-center text-sm text-gray-500 dark:text-gray-400">
           输入歌曲关键词后点击查询，图片将显示在这里。

@@ -26,15 +26,22 @@ export function RotatingTips({ intervalMs = 3000, className = "" }: RotatingTips
   useEffect(() => {
     let mounted = true;
     (async () => {
-      try {
-        const res = await fetch("/tips.txt", { cache: "no-store" });
-        if (!res.ok) return;
+      const load = async (path: string) => {
+        const res = await fetch(path, { cache: "no-store", headers: { Accept: 'text/plain' } });
+        if (!res.ok) return null;
         const text = await res.text();
-        const lines = text
+        return text
           .split(/\r?\n/g)
           .map((s) => s.trim())
           .filter((s) => s.length > 0 && !s.startsWith("#"));
-        if (mounted && lines.length > 0) setTips(lines);
+      };
+      try {
+        let lines = await load('/tips.txt');
+        if ((!lines || lines.length === 0)) {
+          // 兼容大小写差异的文件名
+          lines = await load('/Tips.txt');
+        }
+        if (mounted && lines && lines.length > 0) setTips(lines);
       } catch {}
     })();
     return () => {
