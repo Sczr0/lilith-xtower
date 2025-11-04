@@ -40,6 +40,11 @@ const nextConfig: NextConfig = {
               "object-src 'none'; base-uri 'self'; form-action 'self'",
             ].join('; '),
           },
+          {
+            // 允许边缘/代理缓存 SSR 输出，降低 TTFB
+            key: 'Cache-Control',
+            value: 'public, max-age=0, s-maxage=600, stale-while-revalidate',
+          },
         ],
       },
       {

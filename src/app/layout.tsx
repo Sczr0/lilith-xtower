@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import fs from "node:fs";
+import path from "node:path";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "./components/ThemeProvider";
@@ -7,6 +9,7 @@ import { MaintenanceProvider } from "./components/MaintenanceProvider";
 import { GenerationProvider } from "./contexts/GenerationContext";
 import { MaintenanceNotice } from "./components/MaintenanceNotice";
 import { Analytics } from "@vercel/analytics/next";
+import { Suspense } from "react";
 import Script from "next/script";
 import WebVitals from "./components/WebVitals";
 // Removed fs/path – agreement HTML now loaded on demand in AuthProvider via manifest
@@ -57,11 +60,39 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  
+  // 允许通过环境变量逗号分隔指定需要预加载的 CSS 路径（部署期注入，以避免哈希失配）
+  const cssPreloadRaw = process.env.NEXT_PUBLIC_PRELOAD_CSS || "";
+  const cssPreloads = cssPreloadRaw
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s && s.startsWith("/"));
+
+  // 如未通过环境变量提供，则尝试读取构建阶段生成的 public/preload-css.json
+  if (cssPreloads.length === 0) {
+    try {
+      const p = path.join(process.cwd(), "public", "preload-css.json");
+      if (fs.existsSync(p)) {
+        const raw = fs.readFileSync(p, "utf8");
+        const json = JSON.parse(raw);
+        const arr = Array.isArray(json?.css) ? json.css : [];
+        for (const href of arr) {
+          if (typeof href === "string" && href.startsWith("/")) cssPreloads.push(href);
+        }
+      }
+    } catch {}
+  }
+
+  // 站点源用于 preconnect（提前完成 DNS/TLS/TCP）
+  let originHref = SITE_URL;
+  try {
+    originHref = new URL(SITE_URL).origin;
+  } catch {}
 
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <head>
+        {/* 预连接到本站源 */}
+        <link rel="preconnect" href={originHref} crossOrigin="anonymous" />
         <link rel="preconnect" href="https://cloud.umami.is" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="//cloud.umami.is" />
         {/* Umami Cloud API Gateway 预连接，避免 CSP 拦截与提前握手 */}
@@ -77,6 +108,10 @@ export default function RootLayout({
           data-domains="lilith.xtower.site"
           strategy="lazyOnload"
         />
+        {/* 按需预加载首屏关键 CSS（仅当设置 NEXT_PUBLIC_PRELOAD_CSS 时注入） */}
+        {cssPreloads.map((href) => (
+          <link key={href} rel="preload" as="style" href={href} />
+        ))}
         {/* 延迟加载中文网字计划生成的本地分片 CSS，避免进入 LCP 关键路径 */}
         <Script id="brand-font-loader" strategy="afterInteractive">
           {`
@@ -116,13 +151,15 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <MaintenanceNotice />
-          <AuthProvider>
-            <MaintenanceProvider>
-              <GenerationProvider>
-                {children}
-              </GenerationProvider>
-            </MaintenanceProvider>
-          </AuthProvider>
+          <Suspense fallback={null}>
+            <AuthProvider>
+              <MaintenanceProvider>
+                <GenerationProvider>
+                  {children}
+                </GenerationProvider>
+              </MaintenanceProvider>
+            </AuthProvider>
+          </Suspense>
         </ThemeProvider>
         <Analytics />
         <WebVitals />
