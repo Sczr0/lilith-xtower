@@ -24,23 +24,21 @@ export function RotatingTips({ intervalMs = 3000, className = "" }: RotatingTips
   const timerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    let aborted = false;
-    const ac = new AbortController();
+    let mounted = true;
     (async () => {
       try {
-        const res = await fetch("/tips.txt", { cache: "no-store", signal: ac.signal });
+        const res = await fetch("/tips.txt", { cache: "no-store" });
         if (!res.ok) return;
         const text = await res.text();
         const lines = text
           .split(/\r?\n/g)
           .map((s) => s.trim())
           .filter((s) => s.length > 0 && !s.startsWith("#"));
-        if (!aborted && lines.length > 0) setTips(lines);
+        if (mounted && lines.length > 0) setTips(lines);
       } catch {}
     })();
     return () => {
-      aborted = true;
-      ac.abort();
+      mounted = false;
     };
   }, []);
 
@@ -70,4 +68,3 @@ export function RotatingTips({ intervalMs = 3000, className = "" }: RotatingTips
     </div>
   );
 }
-

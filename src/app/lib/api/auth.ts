@@ -46,13 +46,9 @@ export class AuthAPI {
         cache: 'no-store',
         headers: { 'Accept': 'application/json' },
       });
-      if (!res.ok) return false;
-      try {
-        const data = await res.json();
-        return !!(data && (data.status === 'ok' || data.ok === true));
-      } catch {
-        return false;
-      }
+      // 放宽判断：任何 2xx 视为可用，避免因返回体格式变化误判
+      if (res.ok) return true;
+      return false;
     } catch {
       return false;
     }
