@@ -19,13 +19,53 @@ const MOBILE_ONLY = (() => {
   return raw === "1" || raw === "true";
 })();
 
+// 仅对 Umami 上报进行“扁平化 + 去高基数”处理；
+// 发送到自建 /api/rum 则保留完整负载，便于未来复用/迁移。
+function shapeUmamiWebVitalsPayload(payload: any): Record<string, unknown> {
+  try {
+    const out: Record<string, unknown> = {};
+    // 保留可筛选的低基数字段
+    if (typeof payload?.name === "string") out.name = payload.name as string;
+    if (typeof payload?.rating === "string") out.rating = payload.rating as string;
+    if (typeof payload?.nav === "string") out.nav = payload.nav as string;
+
+    // 路径保留，但限制长度，避免极端基数
+    if (typeof payload?.path === "string") {
+      const p = payload.path as string;
+      out.path = p.length > 160 ? p.slice(0, 160) : p;
+    }
+
+    // 数值：仅保留 value（四舍五入），不上传 id/viewId/t/delta 等高基数字段
+    if (typeof payload?.value === "number" && Number.isFinite(payload.value)) {
+      out.value = Math.round(payload.value * 1000) / 1000;
+    }
+
+    // 将 attribution 中的少量关键信息扁平化为顶层
+    const attr = payload?.attribution;
+    if (attr && typeof attr === "object") {
+      const a: any = attr;
+      if (typeof a.navigationType === "string") out.attr_navigationType = a.navigationType;
+      if (typeof a.eventType === "string") out.attr_eventType = a.eventType;
+      if (typeof a.interactionType === "string") out.attr_interactionType = a.interactionType;
+      if (typeof a.loadState === "string") out.attr_loadState = a.loadState;
+      if (typeof a.largestShiftValue === "number") out.attr_largestShiftValue = a.largestShiftValue;
+    }
+
+    return out;
+  } catch (_) {
+    return {};
+  }
+}
+
 function maybeTrackWithUmami(event: string, payload: unknown) {
   try {
     // Umami v2：window.umami.track(evt, data)
     // 这里做运行时探测，不强依赖脚本是否加载完成
     const w = window as unknown as { umami?: { track?: (e: string, d?: unknown) => void } };
     if (w.umami && typeof w.umami.track === "function") {
-      w.umami.track(event, payload);
+      // 仅对 web-vitals 事件应用“瘦身 & 扁平化”，其他事件保持原样
+      const data = event === "web-vitals" ? shapeUmamiWebVitalsPayload(payload as any) : payload;
+      w.umami.track(event, data);
       return true;
     }
   } catch (_) {}

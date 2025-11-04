@@ -4,17 +4,12 @@ import Link from 'next/link';
 import Script from 'next/script';
 import { ThemeToggle } from './components/ThemeToggle';
 import { useAuth } from './contexts/AuthContext';
-import { useEffect } from 'react';
+// 主页不再需要副作用跳转逻辑
 
 export default function Home() {
   const { isAuthenticated, isLoading } = useAuth();
 
-  // 已登录则跳转到控制台，保持原有行为
-  useEffect(() => {
-    if (isAuthenticated && !isLoading) {
-      window.location.href = '/dashboard';
-    }
-  }, [isAuthenticated, isLoading]);
+  // 性能优化：不再在主页对已登录用户执行自动跳转
 
   if (isLoading) {
     return (
@@ -24,7 +19,7 @@ export default function Home() {
     );
   }
 
-  if (isAuthenticated) return null;
+  // 已登录用户也保留在主页，移除原来的空白返回
 
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950 text-gray-900 dark:text-gray-50">
