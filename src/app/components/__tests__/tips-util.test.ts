@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseTipsText, __buildCandidatesForTest } from '../TipsProvider';
+import { parseTipsText } from '../TipsProvider';
 
 describe('parseTipsText', () => {
   it('trims, filters blanks and comments, and de-duplicates', () => {
@@ -9,24 +9,4 @@ describe('parseTipsText', () => {
   });
 });
 
-describe('__buildCandidatesForTest', () => {
-  it('includes prefixed and root candidates in order', () => {
-    const c = __buildCandidatesForTest('/base');
-    expect(c).toEqual([
-      '/base/tips.txt', '/tips.txt',
-      '/base/Tip.txt', '/Tip.txt',
-      '/base/Tips.txt', '/Tips.txt',
-      '/base/tip.txt', '/tip.txt',
-    ]);
-  });
-  it('falls back to root-only when prefix empty', () => {
-    const c = __buildCandidatesForTest('');
-    expect(c).toEqual([
-      '/tips.txt',
-      '/Tip.txt',
-      '/Tips.txt',
-      '/tip.txt',
-    ]);
-  });
-});
-
+// embedded mode no longer builds network candidates; tests removed

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { EMBEDDED_TIPS } from "./tips.data";
 
 /**
  * TipsProvider：集中管理 Tips 加载与缓存，供全站消费
@@ -42,92 +43,14 @@ export function parseTipsText(text: string): string[] {
   return out;
 }
 
-// 构造候选 URL 列表：同时包含前缀与根路径版本
-function buildCandidates(prefix: string): string[] {
-  const names = ["tips.txt", "Tip.txt", "Tips.txt", "tip.txt"];
-  const out: string[] = [];
-  for (const n of names) {
-    if (prefix) out.push(`${prefix}/${n}`);
-    out.push(`/${n}`);
-  }
-  return out;
-}
-
-// 探测 basePath / 资源前缀
-function detectStaticPrefix(): string {
-  // 1) 优先使用 NEXT_PUBLIC_BASE_PATH（如提供）
-  const envBase = (process.env.NEXT_PUBLIC_BASE_PATH || "").trim();
-  if (envBase && envBase.startsWith("/")) return envBase.replace(/\/$/, "");
-  // 2) 读取 __NEXT_DATA__.assetPrefix（若存在且为相对路径）
-  try {
-    const anyWin = window as unknown as { __NEXT_DATA__?: any };
-    const ap = anyWin?.__NEXT_DATA__?.assetPrefix;
-    if (typeof ap === "string" && ap.startsWith("/")) return ap.replace(/\/$/, "");
-  } catch {}
-  // 3) 扫描本地 _next 脚本 src，提取前缀
-  try {
-    const scripts = Array.from(document.scripts) as HTMLScriptElement[];
-    for (const s of scripts) {
-      const src = s.getAttribute("src") || "";
-      if (src.startsWith("/") && src.includes("/_next/")) {
-        const idx = src.indexOf("/_next/");
-        const prefix = src.slice(0, idx);
-        return prefix || "";
-      }
-    }
-  } catch {}
-  return "";
-}
+// 注意：预编译模式下不再进行网络加载与前缀探测
 
 export function TipsProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<TipsState>("idle");
-  const [tips, setTips] = useState<string[]>(DEFAULT_TIPS);
-  const [error, setError] = useState<string | undefined>(undefined);
-  const onceRef = useRef(false);
-
-  const reload = useCallback(async () => {
-    setState("loading");
-    setError(undefined);
-    try {
-      const prefix = typeof window !== "undefined" ? detectStaticPrefix() : "";
-      const candidates = buildCandidates(prefix);
-      let loaded: string[] | null = null;
-      for (const url of candidates) {
-        try {
-          const res = await fetch(url, { cache: "no-store", headers: { Accept: "text/plain" } });
-          if (!res.ok) continue;
-          const text = await res.text();
-          const arr = parseTipsText(text);
-          if (arr.length > 0) { loaded = arr; break; }
-        } catch {}
-      }
-      if (loaded && loaded.length > 0) {
-        setTips(loaded);
-        setState("loaded");
-        return;
-      }
-      setState("error");
-      setError("未找到有效的 tips 文件");
-    } catch (e: any) {
-      setState("error");
-      setError(e?.message || "加载 tips 失败");
-    }
-  }, []);
-
-  // 首次空闲时加载，尽量不阻塞首屏
-  useEffect(() => {
-    if (onceRef.current) return;
-    onceRef.current = true;
-    if (typeof window === "undefined") return;
-    if ("requestIdleCallback" in window) {
-      (window as any).requestIdleCallback(() => { reload(); }, { timeout: 1500 });
-    } else {
-      // 退化：load 事件后加载
-      const w = window as Window & typeof globalThis;
-      const onLoad = () => { void reload(); };
-      w.addEventListener("load", onLoad, { once: true } as AddEventListenerOptions);
-    }
-  }, [reload]);
+  // 预编译模式：直接使用嵌入式常量
+  const [state] = useState<TipsState>("loaded");
+  const [tips] = useState<string[]>(EMBEDDED_TIPS && EMBEDDED_TIPS.length > 0 ? EMBEDDED_TIPS : DEFAULT_TIPS);
+  const [error] = useState<string | undefined>(undefined);
+  const reload = useCallback(async () => { /* no-op in embedded mode */ }, []);
 
   const value = useMemo(() => ({ state, tips, error, reload }), [state, tips, error, reload]);
   return <TipsContext.Provider value={value}>{children}</TipsContext.Provider>;
@@ -145,6 +68,3 @@ export function useTips(): TipsContextValue {
   }
   return ctx;
 }
-
-// 测试辅助导出（不在生产中直接使用）
-export const __buildCandidatesForTest = buildCandidates;
