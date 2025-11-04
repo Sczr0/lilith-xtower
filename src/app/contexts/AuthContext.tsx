@@ -42,25 +42,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
     onReachable: () => setAuthState(prev => ({ ...prev, error: null })),
   });
 
-  // 初始化时检查本地存储中的凭证
+  // 初始化时检查本地存储中的凭证（轻量化：仅做健康检查，不再触发 /save）
   useEffect(() => {
     const initializeAuth = async () => {
       try {
         const credential = AuthStorage.getCredential();
 
         if (credential) {
-          const result = await AuthAPI.validateCredential(credential);
+          // 直接恢复登录状态，避免触发 /save 重负载；后台做一次健康检查
+          setAuthState({ isAuthenticated: true, credential, isLoading: false, error: null });
 
-          if (result.isValid) {
-            setAuthState({ isAuthenticated: true, credential, isLoading: false, error: null });
-          } else if (result.shouldLogout) {
-            // 4xx 错误：凭证无效，清除本地凭证
-            AuthStorage.clearCredential();
-            setAuthState({ isAuthenticated: false, credential: null, isLoading: false, error: result.error || '登录凭证已过期，请重新登录' });
-          } else {
-            // 5xx 或网络错误：保留凭证和认证状态，让用户留在当前页面
-            setAuthState({ isAuthenticated: true, credential, isLoading: false, error: result.error || '服务器暂时无法访问，请稍后再试' });
-          }
+          // 后台健康检查，仅用于提示“服务器暂时无法访问/网络错误”，不校验凭证有效性
+          try {
+            const ok = await AuthAPI.checkHealth();
+            if (!ok) {
+              setAuthState(prev => ({ ...prev, error: '服务器暂时无法访问，请稍后再试' }));
+            }
+          } catch {}
         } else {
           setAuthState(prev => ({ ...prev, isLoading: false }));
         }
@@ -240,4 +238,3 @@ export function withAuth<P extends object>(
     return <Component {...props} />;
   };
 }
-

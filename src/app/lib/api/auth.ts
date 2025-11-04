@@ -36,6 +36,28 @@ export const buildAuthRequestBody = (credential: AuthCredential): AuthRequest =>
  */
 export class AuthAPI {
   /**
+   * 轻量健康检查：用于站点访问时的存活性校验，避免触发 /save 的重负载逻辑。
+   */
+  static async checkHealth(): Promise<boolean> {
+    try {
+      // 通过应用自身域名访问相对路径，避免跨域与硬编码
+      const res = await fetch('/health', {
+        method: 'GET',
+        cache: 'no-store',
+        headers: { 'Accept': 'application/json' },
+      });
+      if (!res.ok) return false;
+      try {
+        const data = await res.json();
+        return !!(data && (data.status === 'ok' || data.ok === true));
+      } catch {
+        return false;
+      }
+    } catch {
+      return false;
+    }
+  }
+  /**
    * 获取登录二维码
    */
   static async getQRCode(): Promise<QRCodeResponse> {

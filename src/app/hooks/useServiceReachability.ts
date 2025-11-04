@@ -8,7 +8,8 @@ interface Options {
   onReachable?: () => void;
 }
 
-const DEFAULT_URL = "https://seekend.xtower.site/health";
+// 使用相对路径，通过 next.config.ts rewrites 转发到后端健康检查
+const DEFAULT_URL = "/health";
 
 export function useServiceReachability({ shouldPoll, url = DEFAULT_URL, onReachable }: Options) {
   const timerRef = useRef<number | null>(null);
