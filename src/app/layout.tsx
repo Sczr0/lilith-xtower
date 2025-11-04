@@ -69,7 +69,14 @@ export default function RootLayout({
         <link rel="dns-prefetch" href="//api-gateway.umami.dev" />
         {/* 预加载本地自托管字体，提升首屏渲染 */}
         {/* font preload removed to reduce blocking download */}
-        <Script src="https://cloud.umami.is/script.js" data-website-id="fcb3f5e6-8b71-4abe-bf83-684c3690b476" strategy="lazyOnload" />
+        {/* 指定 host-url 以避免脚本转发到 api-gateway 导致的跨域问题 */}
+        <Script
+          src="https://cloud.umami.is/script.js"
+          data-website-id="fcb3f5e6-8b71-4abe-bf83-684c3690b476"
+          data-host-url="https://cloud.umami.is"
+          data-domains="lilith.xtower.site"
+          strategy="lazyOnload"
+        />
         {/* 延迟加载中文网字计划生成的本地分片 CSS，避免进入 LCP 关键路径 */}
         <Script id="brand-font-loader" strategy="afterInteractive">
           {`
