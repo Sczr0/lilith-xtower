@@ -10,7 +10,7 @@ import path from 'node:path';
 
 const projectRoot = process.cwd();
 const nextStaticDir = path.join(projectRoot, '.next', 'static');
-const outFile = path.join(projectRoot, 'public', 'preload-css.json');
+const outFileNext = path.join(projectRoot, '.next', 'static', 'preload-css.json');
 const TOPK = Math.max(1, Math.min(Number(process.env.PRELOAD_CSS_TOPK || '2') || 2, 5));
 
 function walk(dir) {
@@ -41,11 +41,10 @@ try {
   });
 
   const json = { css: picked };
-  fs.mkdirSync(path.dirname(outFile), { recursive: true });
-  fs.writeFileSync(outFile, JSON.stringify(json, null, 2));
-  console.log(`[generate-preload-css] wrote ${outFile}:`, JSON.stringify(json));
+  fs.mkdirSync(path.dirname(outFileNext), { recursive: true });
+  fs.writeFileSync(outFileNext, JSON.stringify(json, null, 2));
+  console.log(`[generate-preload-css] wrote ${outFileNext}:`, JSON.stringify(json));
 } catch (e) {
   console.error('[generate-preload-css] failed:', e);
   process.exitCode = 0; // 不阻断构建
 }
-

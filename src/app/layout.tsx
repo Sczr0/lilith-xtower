@@ -67,17 +67,27 @@ export default function RootLayout({
     .map((s) => s.trim())
     .filter((s) => s && s.startsWith("/"));
 
-  // 如未通过环境变量提供，则尝试读取构建阶段生成的 public/preload-css.json
+  // 如未通过环境变量提供，则优先读取构建阶段生成的 .next/static/preload-css.json（与当前构建强一致）
   if (cssPreloads.length === 0) {
     try {
-      const p = path.join(process.cwd(), "public", "preload-css.json");
-      if (fs.existsSync(p)) {
-        const raw = fs.readFileSync(p, "utf8");
+      const pNext = path.join(process.cwd(), ".next", "static", "preload-css.json");
+      if (fs.existsSync(pNext)) {
+        const raw = fs.readFileSync(pNext, "utf8");
         const json = JSON.parse(raw);
         const arr = Array.isArray(json?.css) ? json.css : [];
-        for (const href of arr) {
-          if (typeof href === "string" && href.startsWith("/")) cssPreloads.push(href);
-        }
+        for (const href of arr) if (typeof href === "string" && href.startsWith("/")) cssPreloads.push(href);
+      }
+    } catch {}
+  }
+  // 仍未获得，则尝试 public/preload-css.json（兼容旧版本，但存在与构建不同步风险）
+  if (cssPreloads.length === 0) {
+    try {
+      const pPub = path.join(process.cwd(), "public", "preload-css.json");
+      if (fs.existsSync(pPub)) {
+        const raw = fs.readFileSync(pPub, "utf8");
+        const json = JSON.parse(raw);
+        const arr = Array.isArray(json?.css) ? json.css : [];
+        for (const href of arr) if (typeof href === "string" && href.startsWith("/")) cssPreloads.push(href);
       }
     } catch {}
   }
