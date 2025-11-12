@@ -24,13 +24,7 @@
             "destination": "/internal/sponsors"
         }
     ],
-    "redirects": [
-        {
-            "source": "/api/*",
-            "destination": "https://seekend.xtower.site/api/v1/:splat",
-            "statusCode": 302
-        }
-    ],
+    "redirects": [],
     "headers": [
         {
             "source": "/health",
