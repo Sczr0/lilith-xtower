@@ -89,7 +89,7 @@ export function AgreementModal({ html, onAgree, onClose }: AgreementModalProps) 
               </span>
             </label>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              注：可点击“用户协议”在新窗口查看全文，阅读不是强制，但勾选为使用前的必要步骤。
+              注：可点击“用户协议”在新窗口查看全文。
             </p>
           </div>
 

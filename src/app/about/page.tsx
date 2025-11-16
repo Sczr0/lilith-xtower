@@ -107,7 +107,7 @@ export default function AboutPage() {
     {
       title: '服务监控',
       links: [
-        { name: '数据访问统计', url: 'https://eu.umami.is/share/mRTglbfLNoT7Vofa/aw0000.xtower.site', external: true },
+        { name: '数据访问统计', url: 'https://cloud.umami.is/share/GquXbTjndnY5H0ts', external: true },
         { name: '服务可用性监控', url: 'https://stats.uptimerobot.com/cTTBFmsBaZ', external: true }
       ],
       icon: (
