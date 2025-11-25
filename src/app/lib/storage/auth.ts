@@ -3,6 +3,7 @@
 import { AuthCredential } from '../types/auth';
 
 const STORAGE_KEY = 'phigros_auth_credential';
+const TAPTAP_VERSION_KEY = 'phigros_taptap_version';
 
 /**
  * 本地存储管理工具类
@@ -65,6 +66,41 @@ export class AuthStorage {
    */
   static hasValidCredential(): boolean {
     return this.getCredential() !== null;
+  }
+
+  /**
+   * 保存TapTap版本到本地存储
+   */
+  static saveTapTapVersion(version: 'CN' | 'Global'): void {
+    try {
+      localStorage.setItem(TAPTAP_VERSION_KEY, version);
+    } catch (error) {
+      console.error('保存TapTap版本失败:', error);
+    }
+  }
+
+  /**
+   * 从本地存储读取TapTap版本
+   */
+  static getTapTapVersion(): 'CN' | 'Global' {
+    try {
+      const version = localStorage.getItem(TAPTAP_VERSION_KEY);
+      return (version as 'CN' | 'Global') || 'CN';
+    } catch (error) {
+      console.error('读取TapTap版本失败:', error);
+      return 'CN';
+    }
+  }
+
+  /**
+   * 清除本地存储中的TapTap版本
+   */
+  static clearTapTapVersion(): void {
+    try {
+      localStorage.removeItem(TAPTAP_VERSION_KEY);
+    } catch (error) {
+      console.error('清除TapTap版本失败:', error);
+    }
   }
 
   /**

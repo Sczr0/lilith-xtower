@@ -1,6 +1,9 @@
 // 认证方式枚举
 export type AuthMethod = 'qrcode' | 'manual' | 'api' | 'platform';
 
+// TapTap版本类型
+export type TapTapVersion = 'CN' | 'Global';
+
 // 二维码登录相关类型
 export interface QRCodeResponse {
   qrCodeImage: string;
@@ -62,9 +65,11 @@ export interface ExternalApiCredentials {
   sessiontoken?: string | null;
 }
 
+// 统一请求体（适配新后端）
 export interface UnifiedSaveRequestBody {
   sessionToken?: string | null;
   externalCredentials?: ExternalApiCredentials | null;
+  taptap_version?: TapTapVersion;
 }
 
 export type AuthRequest = UnifiedSaveRequestBody;

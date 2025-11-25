@@ -4,19 +4,25 @@ import {
   AuthRequest,
   AuthCredential,
 } from '../types/auth';
+import { AuthStorage } from '../storage/auth';
 
 const BASE_URL = '/api';
 
 export const buildAuthRequestBody = (credential: AuthCredential): AuthRequest => {
+  const taptapVersion = AuthStorage.getTapTapVersion();
   switch (credential.type) {
     case 'session':
-      return { sessionToken: credential.token };
+      return { 
+        sessionToken: credential.token,
+        taptap_version: taptapVersion
+      };
     case 'api':
       return {
         externalCredentials: {
           apiUserId: credential.api_user_id,
           apiToken: credential.api_token ?? null,
         },
+        taptap_version: taptapVersion
       };
     case 'platform':
       return {
@@ -24,6 +30,7 @@ export const buildAuthRequestBody = (credential: AuthCredential): AuthRequest =>
           platform: credential.platform,
           platformId: credential.platform_id,
         },
+        taptap_version: taptapVersion
       };
     default:
       throw new Error('不支持的凭证类型');
@@ -58,7 +65,8 @@ export class AuthAPI {
    */
   static async getQRCode(): Promise<QRCodeResponse> {
     try {
-      const response = await fetch(`${BASE_URL}/auth/qrcode`, {
+      const taptapVersion = AuthStorage.getTapTapVersion();
+      const response = await fetch(`${BASE_URL}/auth/qrcode?taptap_version=${taptapVersion}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
