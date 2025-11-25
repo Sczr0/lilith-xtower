@@ -13,6 +13,7 @@ import { Suspense } from "react";
 import Script from "next/script";
 import WebVitals from "./components/WebVitals";
 import { TipsProvider } from "./components/TipsProvider";
+import { PromoBanner } from "./components/PromoBanner";
 // Removed fs/path – agreement HTML now loaded on demand in AuthProvider via manifest
 
 const geistSans = Geist({
@@ -161,6 +162,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
+          <PromoBanner />
           <TipsProvider>
             <MaintenanceNotice />
             <Suspense fallback={null}>
