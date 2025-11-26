@@ -20,8 +20,8 @@ const TAP_CONFIG: Record<
   }
 > = {
   cn: {
-    deviceCodeEndpoint: 'https://www.taptap.com/oauth2/v1/device/code',
-    tokenEndpoint: 'https://www.taptap.cn/oauth2/v1/token',
+    deviceCodeEndpoint: 'https://accounts.tapapis.cn/oauth2/v1/device/code',
+    tokenEndpoint: 'https://accounts.tapapis.cn/oauth2/v1/token',
     userInfoEndpoint: 'https://open.tapapis.cn/account/basic-info/v1',
     leancloudBaseUrl: 'https://rak3ffdi.cloud.tds1.tapapis.cn/1.1',
     leancloudAppId: 'rAK3FfdieFob2Nn8Am',
@@ -29,9 +29,9 @@ const TAP_CONFIG: Record<
     clientId: 'rAK3FfdieFob2Nn8Am',
   },
   global: {
-    deviceCodeEndpoint: 'https://www.taptap.io/oauth2/v1/device/code',
-    tokenEndpoint: 'https://www.taptap.io/oauth2/v1/token',
-    userInfoEndpoint: 'https://open.tapapis.io/account/basic-info/v1',
+    deviceCodeEndpoint: 'https://accounts.tapapis.com/oauth2/v1/device/code',
+    tokenEndpoint: 'https://accounts.tapapis.com/oauth2/v1/token',
+    userInfoEndpoint: 'https://open.tapapis.com/account/basic-info/v1',
     leancloudBaseUrl: 'https://kviehlel.cloud.ap-sg.tapapis.com/1.1',
     leancloudAppId: 'kviehleldgxsagpozb',
     leancloudAppKey: 'tG9CTm0LDD736k9HMM9lBZrbeBGRmUkjSfNLDNib',

@@ -20,6 +20,10 @@ type LeanCloudUserResponse = {
   sessionToken?: string;
 };
 
+// 需要 Node 环境以使用 crypto/hmac 并允许外部网络
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
