@@ -47,7 +47,7 @@ const nextConfig: NextConfig = {
               "default-src 'self'",
               // 允许内联脚本用于少量必要场景（如品牌字体 loader）；放宽 umami 域名
               "script-src 'self' 'unsafe-inline' https://cloud.umami.is https://static.cloudflareinsights.com",
-              "connect-src 'self' https://cloud.umami.is https://cloudflareinsights.com https://api-gateway.umami.dev https://api.umami.is https://seekend.xtower.site https://www.taptap.io",
+              "connect-src 'self' https://cloud.umami.is https://cloudflareinsights.com https://api-gateway.umami.dev https://api.umami.is https://seekend.xtower.site https://accounts.tapapis.com https://accounts.tapapis.cn https://afdian.com",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob:",
               "font-src 'self'",

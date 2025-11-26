@@ -4,9 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { RotatingTips } from '../../components/RotatingTips';
 import Image from 'next/image';
 import { useAuth } from '../../contexts/AuthContext';
-import { AuthAPI, poll } from '../../lib/api/auth';
 import { SessionCredential, TapTapVersion } from '../../lib/types/auth';
 import { AuthStorage } from '../../lib/storage/auth';
+import { requestDeviceCode, pollDeviceToken } from '../../lib/taptap/deviceFlow';
 
 interface QRCodeLoginProps {
   taptapVersion: TapTapVersion;
@@ -21,66 +21,46 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
   const [taptapDeepLink, setTaptapDeepLink] = useState<string>('');
   const [isMobile, setIsMobile] = useState<boolean>(false);
 
-  // 获取二维码
+  // 获取二维码并直接轮询 TapTap 授权，不依赖后端
   const getQRCode = useCallback(async () => {
     try {
       setStatus('loading');
       setError('');
 
-      const response = await AuthAPI.getQRCode();
       const version = taptapVersion ?? AuthStorage.getTapTapVersion();
-      setQrCodeImage(response.qrCodeImage);
-      // 生成 TapTap 深链（仅当后端返回 qrcodeUrl 时）
-      if (response.qrcodeUrl) {
-        try {
-          const url = new URL(response.qrcodeUrl);
-          const userCode = url.searchParams.get('user_code');
-          if (userCode) {
-            // 将 user_code 拼接到 TapTap 深链模板中（与产品方提供的格式保持一致）
-            const accountHost =
-              version === 'Global' ? 'https://accounts.taptap.io' : 'https://accounts.taptap.cn';
-            const encoded = encodeURIComponent(`${accountHost}/device?qrcode=1&user_code=${userCode}`);
-            const deepLink = `taptap://taptap.com/login-auth?url=${encoded}`;
-            setTaptapDeepLink(deepLink);
-          } else {
-            setTaptapDeepLink('');
-          }
-        } catch {
-          setTaptapDeepLink('');
-        }
-      } else {
-        setTaptapDeepLink('');
-      }
+      const codeData = await requestDeviceCode(version);
+
+      setQrCodeImage(codeData.qrcodeUrl);
+      setTaptapDeepLink(codeData.qrcodeUrl);
       setStatus('scanning');
       
-      // 开始轮询扫码状态
-      const finalStatus = await poll(
-        () => AuthAPI.pollQRStatus(response.qrId),
-        (result) => result.status === 'success',
-        2000, // 每2秒轮询一次
-        120000 // 2分钟超时
+      const tokenData = await pollDeviceToken(
+        version,
+        codeData.deviceCode,
+        codeData.deviceId,
+        (codeData.interval ?? 1) * 1000,
+        120000,
       );
 
-      // 扫码成功，直接使用轮询返回的结果
-      if (finalStatus.status === 'success' && finalStatus.sessionToken) {
-        const credential: SessionCredential = {
-          type: 'session',
-          token: finalStatus.sessionToken,
-          timestamp: Date.now(),
-        };
-        
-        await login(credential);
-        setStatus('success');
-      } else {
-        // 如果轮询成功但没有token，说明逻辑异常
-        throw new Error('扫码成功但未能获取登录凭证');
+      const sessionToken = tokenData.token || tokenData.access_token;
+      if (!sessionToken) {
+        throw new Error('未获取到 TapTap token');
       }
+
+      const credential: SessionCredential = {
+        type: 'session',
+        token: sessionToken,
+        timestamp: Date.now(),
+      };
+      
+      await login(credential);
+      setStatus('success');
     } catch (error) {
       console.error('扫码登录失败:', error);
       setStatus('error');
       setError(error instanceof Error ? error.message : '扫码登录失败');
     }
-  }, [login]);
+  }, [login, taptapVersion]);
 
   // 组件挂载时自动获取二维码
   useEffect(() => {
