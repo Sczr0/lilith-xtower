@@ -20,7 +20,7 @@ export default function LoginPage() {
   const { isAuthenticated, isLoading, credential, logout } = useAuth();
   const router = useRouter();
   const [agreementAccepted, setAgreementAccepted] = useState(false);
-  const [taptapVersion, setTaptapVersion] = useState<'CN' | 'Global'>('CN');
+  const [taptapVersion, setTaptapVersion] = useState<'cn' | 'global'>('cn');
   const userSelectedVersionRef = useRef(false);
 
   // 读取TapTap版本配置
@@ -30,7 +30,7 @@ export default function LoginPage() {
   }, []);
 
   // 保存TapTap版本配置
-  const handleVersionChange = (version: 'CN' | 'Global') => {
+  const handleVersionChange = (version: 'cn' | 'global') => {
     userSelectedVersionRef.current = true;
     setTaptapVersion(version);
     AuthStorage.saveTapTapVersion(version);
@@ -191,9 +191,9 @@ export default function LoginPage() {
                   <h3 className="text-base sm:text-lg font-medium mb-3 text-gray-900 dark:text-gray-100">选择TapTap版本</h3>
                   <div className="flex gap-4">
                     <button
-                      onClick={() => handleVersionChange('CN')}
+                      onClick={() => handleVersionChange('cn')}
                       className={`flex-1 py-3 px-4 rounded-xl transition-all duration-300 ${
-                        taptapVersion === 'CN'
+                        taptapVersion === 'cn'
                           ? 'bg-blue-500 text-white shadow-lg border-2 border-blue-600'
                           : 'bg-gray-100 dark:bg-gray-700/50 border-2 border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-700'
                       }`}
@@ -201,9 +201,9 @@ export default function LoginPage() {
                       <span className="font-medium">国内版</span>
                     </button>
                     <button
-                      onClick={() => handleVersionChange('Global')}
+                      onClick={() => handleVersionChange('global')}
                       className={`flex-1 py-3 px-4 rounded-xl transition-all duration-300 ${
-                        taptapVersion === 'Global'
+                        taptapVersion === 'global'
                           ? 'bg-blue-500 text-white shadow-lg border-2 border-blue-600'
                           : 'bg-gray-100 dark:bg-gray-700/50 border-2 border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-700'
                       }`}

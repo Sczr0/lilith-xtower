@@ -66,7 +66,7 @@ export class AuthAPI {
   static async getQRCode(): Promise<QRCodeResponse> {
     try {
       const taptapVersion = AuthStorage.getTapTapVersion();
-      const response = await fetch(`${BASE_URL}/auth/qrcode?taptap_version=${taptapVersion}`, {
+      const response = await fetch(`${BASE_URL}/auth/qrcode?version=${taptapVersion}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

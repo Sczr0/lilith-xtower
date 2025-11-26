@@ -2,7 +2,7 @@
 export type AuthMethod = 'qrcode' | 'manual' | 'api' | 'platform';
 
 // TapTap版本类型
-export type TapTapVersion = 'CN' | 'Global';
+export type TapTapVersion = 'cn' | 'global';
 
 // 二维码登录相关类型
 export interface QRCodeResponse {

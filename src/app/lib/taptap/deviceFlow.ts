@@ -26,14 +26,14 @@ const TAPSDK_VERSION = '2.1';
 
 const endpoints = (version: TapTapVersion) => ({
   codeUrl:
-    version === 'Global'
+    version === 'global'
       ? 'https://accounts.tapapis.com/oauth2/v1/device/code'
       : 'https://accounts.tapapis.cn/oauth2/v1/device/code',
   tokenUrl:
-    version === 'Global'
+    version === 'global'
       ? 'https://accounts.tapapis.com/oauth2/v1/token'
       : 'https://accounts.tapapis.cn/oauth2/v1/token',
-  clientId: version === 'Global' ? GLOBAL_CLIENT_ID : CN_CLIENT_ID,
+  clientId: version === 'global' ? GLOBAL_CLIENT_ID : CN_CLIENT_ID,
 });
 
 const generateDeviceId = () => {

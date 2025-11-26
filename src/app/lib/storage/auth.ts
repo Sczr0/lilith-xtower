@@ -71,7 +71,7 @@ export class AuthStorage {
   /**
    * 保存TapTap版本到本地存储
    */
-  static saveTapTapVersion(version: 'CN' | 'Global'): void {
+  static saveTapTapVersion(version: 'cn' | 'global'): void {
     try {
       localStorage.setItem(TAPTAP_VERSION_KEY, version);
     } catch (error) {
@@ -82,13 +82,13 @@ export class AuthStorage {
   /**
    * 从本地存储读取TapTap版本
    */
-  static getTapTapVersion(): 'CN' | 'Global' {
+  static getTapTapVersion(): 'cn' | 'global' {
     try {
       const version = localStorage.getItem(TAPTAP_VERSION_KEY);
-      return (version as 'CN' | 'Global') || 'CN';
+      return (version as 'cn' | 'global') || 'cn';
     } catch (error) {
       console.error('读取TapTap版本失败:', error);
-      return 'CN';
+      return 'cn';
     }
   }
 
