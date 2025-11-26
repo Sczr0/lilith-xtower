@@ -20,6 +20,25 @@ type TokenResponse = {
   mac_algorithm?: string;
 };
 
+// TapTap用户资料类型
+type TapTapProfileData = {
+  id: string;
+  name: string;
+  avatar: string;
+  bio?: string;
+  gender?: string;
+  birthday?: string;
+  region?: string;
+  verified: boolean;
+  // 更多字段根据实际API响应添加
+};
+
+// 与后端集成的认证数据类型
+type LCCombinedAuthData = {
+  profile: TapTapProfileData;
+  token: TokenResponse;
+};
+
 const CN_CLIENT_ID = 'rAK3FfdieFob2Nn8Am';
 const GLOBAL_CLIENT_ID = 'kviehleldgxsagpozb';
 const TAPSDK_VERSION = '2.1';
@@ -33,6 +52,10 @@ const endpoints = (version: TapTapVersion) => ({
     version === 'global'
       ? 'https://accounts.tapapis.com/oauth2/v1/token'
       : 'https://accounts.tapapis.cn/oauth2/v1/token',
+  profileUrl:
+    version === 'global'
+      ? 'https://open.tapapis.com/account/profile/v1'
+      : 'https://open.tapapis.cn/account/profile/v1',
   clientId: version === 'global' ? GLOBAL_CLIENT_ID : CN_CLIENT_ID,
 });
 
@@ -45,6 +68,55 @@ const toFormBody = (data: Record<string, string | number>) =>
   Object.entries(data)
     .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
     .join('&');
+
+/**
+ * 生成MAC签名认证头
+ */
+const generateMacSignature = async (
+  kid: string,
+  macKey: string,
+  macAlgorithm: string,
+  method: string,
+  uri: string,
+  host: string,
+  port: string,
+  timestamp: number
+): Promise<string> => {
+  const nonce = Math.floor(Math.random() * 1000000).toString();
+  const normalizedString = `${timestamp}\n${nonce}\n${method}\n${uri}\n${host}\n${port}\n\n`;
+
+  const encoder = new TextEncoder();
+  const key = encoder.encode(macKey);
+  const data = encoder.encode(normalizedString);
+
+  let hash: ArrayBuffer;
+  if (macAlgorithm === 'hmac-sha-256') {
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw',
+      key,
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+    hash = await crypto.subtle.sign('HMAC', cryptoKey, data);
+  } else if (macAlgorithm === 'hmac-sha-1') {
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw',
+      key,
+      { name: 'HMAC', hash: 'SHA-1' },
+      false,
+      ['sign']
+    );
+    hash = await crypto.subtle.sign('HMAC', cryptoKey, data);
+  } else {
+    throw new Error(`Unsupported MAC algorithm: ${macAlgorithm}`);
+  }
+
+  const hashArray = Array.from(new Uint8Array(hash));
+  const macValue = btoa(String.fromCharCode.apply(null, hashArray));
+
+  return `id="${kid}",ts="${timestamp}",nonce="${nonce}",mac="${macValue}"`;
+};
 
 export const requestDeviceCode = async (
   version: TapTapVersion,
@@ -134,4 +206,136 @@ export const pollDeviceToken = async (
     }
     await new Promise((r) => setTimeout(r, intervalMs));
   }
+};
+
+/**
+ * 使用TapTap Access Token获取用户资料
+ */
+export const getTapTapProfile = async (
+  version: TapTapVersion,
+  accessToken: string,
+  kid: string,
+  macKey: string,
+  macAlgorithm: string,
+): Promise<TapTapProfileData> => {
+  const { profileUrl, clientId } = endpoints(version);
+  const url = `${profileUrl}?client_id=${clientId}`;
+  
+  // 生成MAC签名
+  const timestamp = Math.floor(Date.now() / 1000);
+  const authorizationHeader = await generateMacSignature(
+    kid,
+    macKey,
+    macAlgorithm,
+    'GET',
+    '/account/profile/v1',
+    profileUrl.replace(/^https?:\/\//, '').replace(/\/$/, ''),
+    '443',
+    timestamp
+  );
+
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Authorization': `MAC ${authorizationHeader}`,
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`获取用户资料失败: ${res.status}`);
+  }
+
+  const data = await res.json();
+  return data as TapTapProfileData;
+};
+
+/**
+ * 将TapTap认证数据与后端服务集成，获取session token
+ */
+export const loginWithTapTapData = async (
+  version: TapTapVersion,
+  profileData: TapTapProfileData,
+  tokenData: TokenResponse,
+): Promise<string> => {
+  // 构建LeanCloud认证数据格式
+  const lcAuthData = {
+    taptap: {
+      profile: profileData,
+      token: {
+        access_token: tokenData.access_token,
+        expires_in: tokenData.expires_in,
+        token_type: tokenData.token_type,
+        scope: tokenData.scope,
+        kid: tokenData.kid,
+        mac_key: tokenData.mac_key,
+        mac_algorithm: tokenData.mac_algorithm,
+      }
+    }
+  };
+
+  // 调用后端API进行登录
+  const res = await fetch('/api/auth/taptap-login', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      authData: lcAuthData,
+      version: version
+    }),
+  });
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    throw new Error(error.message || `后端登录失败: ${res.status}`);
+  }
+
+  const data = await res.json();
+  
+  if (!data.sessionToken) {
+    throw new Error('后端未返回session token');
+  }
+
+  return data.sessionToken;
+};
+
+/**
+ * 完整的TapTap扫码登录流程
+ */
+export const completeTapTapLogin = async (
+  version: TapTapVersion,
+  deviceCode: string,
+  deviceId: string,
+  intervalMs: number,
+  timeoutMs: number,
+): Promise<{ sessionToken: string; profileData: TapTapProfileData }> => {
+  // 步骤1：轮询获取TapTap Access Token
+  const tokenData = await pollDeviceToken(
+    version,
+    deviceCode,
+    deviceId,
+    intervalMs,
+    timeoutMs,
+  );
+
+  if (!tokenData.access_token || !tokenData.kid || !tokenData.mac_key || !tokenData.mac_algorithm) {
+    throw new Error('TapTap token数据不完整');
+  }
+
+  // 步骤2：使用Access Token获取用户资料
+  const profileData = await getTapTapProfile(
+    version,
+    tokenData.access_token,
+    tokenData.kid,
+    tokenData.mac_key,
+    tokenData.mac_algorithm,
+  );
+
+  // 步骤3：将TapTap数据与后端服务集成，获取session token
+  const sessionToken = await loginWithTapTapData(version, profileData, tokenData);
+
+  return {
+    sessionToken,
+    profileData,
+  };
 };

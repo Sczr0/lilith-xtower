@@ -5,7 +5,7 @@ import { RotatingTips } from '../../components/RotatingTips';
 import { useAuth } from '../../contexts/AuthContext';
 import { SessionCredential, TapTapVersion } from '../../lib/types/auth';
 import { AuthStorage } from '../../lib/storage/auth';
-import { requestDeviceCode, pollDeviceToken } from '../../lib/taptap/deviceFlow';
+import { requestDeviceCode, completeTapTapLogin } from '../../lib/taptap/deviceFlow';
 import QRCode from 'qrcode';
 
 interface QRCodeLoginProps {
@@ -22,7 +22,7 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
   const [taptapDeepLink, setTaptapDeepLink] = useState<string>('');
   const [isMobile, setIsMobile] = useState<boolean>(false);
 
-  // 获取二维码并直接轮询 TapTap 授权，不依赖后端
+  // 使用完整的TapTap扫码登录流程
   const getQRCode = useCallback(async () => {
     try {
       setStatus('loading');
@@ -41,18 +41,14 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
       setTaptapDeepLink(codeData.qrcodeUrl);
       setStatus('scanning');
       
-      const tokenData = await pollDeviceToken(
+      // 使用完整的TapTap登录流程：获取token -> 获取用户资料 -> 后端集成
+      const { sessionToken } = await completeTapTapLogin(
         version,
         codeData.deviceCode,
         codeData.deviceId,
         (codeData.interval ?? 1) * 1000,
         120000,
       );
-
-      const sessionToken = tokenData.token || tokenData.access_token;
-      if (!sessionToken) {
-        throw new Error('未获取到 TapTap token');
-      }
 
       const credential: SessionCredential = {
         type: 'session',
