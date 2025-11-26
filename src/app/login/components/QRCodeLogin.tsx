@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { useAuth } from '../../contexts/AuthContext';
 import { AuthAPI, poll } from '../../lib/api/auth';
 import { SessionCredential } from '../../lib/types/auth';
+import { AuthStorage } from '../../lib/storage/auth';
 
 export function QRCodeLogin() {
   const { login } = useAuth();
@@ -15,6 +16,7 @@ export function QRCodeLogin() {
   // 移动端深链：用于在移动端直接跳转 TapTap 确认登录
   const [taptapDeepLink, setTaptapDeepLink] = useState<string>('');
   const [isMobile, setIsMobile] = useState<boolean>(false);
+  const [currentVersion, setCurrentVersion] = useState<'CN' | 'Global'>('CN');
 
   // 获取二维码
   const getQRCode = useCallback(async () => {
@@ -23,6 +25,8 @@ export function QRCodeLogin() {
       setError('');
       
       const response = await AuthAPI.getQRCode();
+      const version = AuthStorage.getTapTapVersion();
+      setCurrentVersion(version);
       setQrCodeImage(response.qrCodeImage);
       // 生成 TapTap 深链（仅当后端返回 qrcodeUrl 时）
       if (response.qrcodeUrl) {
@@ -31,7 +35,9 @@ export function QRCodeLogin() {
           const userCode = url.searchParams.get('user_code');
           if (userCode) {
             // 将 user_code 拼接到 TapTap 深链模板中（与产品方提供的格式保持一致）
-            const encoded = encodeURIComponent(`https://accounts.taptap.cn/device?qrcode=1&user_code=${userCode}`);
+            const accountHost =
+              version === 'Global' ? 'https://accounts.taptap.io' : 'https://accounts.taptap.cn';
+            const encoded = encodeURIComponent(`${accountHost}/device?qrcode=1&user_code=${userCode}`);
             const deepLink = `taptap://taptap.com/login-auth?url=${encoded}`;
             setTaptapDeepLink(deepLink);
           } else {

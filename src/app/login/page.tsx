@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { AuthMethod } from '../lib/types/auth';
 import { QRCodeLogin } from './components/QRCodeLogin';
@@ -13,6 +13,7 @@ import { AuthDetailsModal } from '../components/AuthDetailsModal';
 import { useAuth } from '../contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { AuthStorage } from '../lib/storage/auth';
+import { checkTapTapRegion, tapTapVersionFromDetection } from '../utils/taptapRegion';
 
 export default function LoginPage() {
   const [activeMethod, setActiveMethod] = useState<AuthMethod>('qrcode');
@@ -21,6 +22,14 @@ export default function LoginPage() {
   const router = useRouter();
   const [agreementAccepted, setAgreementAccepted] = useState(false);
   const [taptapVersion, setTaptapVersion] = useState<'CN' | 'Global'>('CN');
+  const [regionStatus, setRegionStatus] = useState({
+    loading: true,
+    detected: false,
+    isInternational: false,
+    error: '',
+    checkedAt: '',
+  });
+  const userSelectedVersionRef = useRef(false);
 
   // 读取TapTap版本配置
   useEffect(() => {
@@ -30,9 +39,54 @@ export default function LoginPage() {
 
   // 保存TapTap版本配置
   const handleVersionChange = (version: 'CN' | 'Global') => {
+    userSelectedVersionRef.current = true;
     setTaptapVersion(version);
     AuthStorage.saveTapTapVersion(version);
   };
+
+  // 自动检测 TapTap 版本（通过后端探测 taptap.io）
+  const runAutoDetect = useCallback(
+    async (options?: { allowOverride?: boolean }) => {
+      setRegionStatus((prev) => ({ ...prev, loading: true, error: '' }));
+
+      try {
+        const result = await checkTapTapRegion();
+        const version = tapTapVersionFromDetection(result);
+        const shouldApply = options?.allowOverride || !userSelectedVersionRef.current;
+
+        if (options?.allowOverride) {
+          userSelectedVersionRef.current = false;
+        }
+
+        if (shouldApply) {
+          setTaptapVersion(version);
+          AuthStorage.saveTapTapVersion(version);
+        }
+
+        setRegionStatus({
+          loading: false,
+          detected: true,
+          isInternational: result.isInternational,
+          error: '',
+          checkedAt: result.checkedAt,
+        });
+      } catch (error) {
+        setRegionStatus({
+          loading: false,
+          detected: false,
+          isInternational: false,
+          error: error instanceof Error ? error.message : '自动检测失败，已默认为国内版',
+          checkedAt: '',
+        });
+      }
+    },
+    [],
+  );
+
+  // 首屏自动检测是否为国际版用户（未手动选择时才覆盖）
+  useEffect(() => {
+    runAutoDetect();
+  }, [runAutoDetect]);
 
   // 读取是否已同意用户协议，仅在同意后才自动跳转至仪表盘
   useEffect(() => {
@@ -94,7 +148,7 @@ export default function LoginPage() {
   const renderLoginForm = () => {
     switch (activeMethod) {
       case 'qrcode':
-        return <QRCodeLogin />;
+        return <QRCodeLogin key={taptapVersion} />;
       case 'manual':
         return <ManualLogin />;
       case 'api':
@@ -208,6 +262,44 @@ export default function LoginPage() {
                     >
                       <span className="font-medium">国际版</span>
                     </button>
+                  </div>
+                  <div className="mt-3 text-sm text-gray-600 dark:text-gray-400 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      {regionStatus.loading ? (
+                        <>
+                          <span className="inline-block h-3 w-3 rounded-full bg-blue-500 animate-pulse" aria-hidden />
+                          <span>自动检测 TapTap 版本中…</span>
+                        </>
+                      ) : regionStatus.detected ? (
+                        <>
+                          <span className="inline-block h-2.5 w-2.5 rounded-full bg-green-500" aria-hidden />
+                          <span>
+                            已自动检测为{regionStatus.isInternational ? '国际版' : '国内版'}
+                            {regionStatus.isInternational
+                              ? '（taptap.io 页面未发现“ 不在中国大陆地区提供服务 ”提示）'
+                              : '（检测到页面包含“不在中国大陆地区提供服务”提示）'}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="inline-block h-2.5 w-2.5 rounded-full bg-amber-500" aria-hidden />
+                          <span>自动检测失败：{regionStatus.error || '已默认国内版'}</span>
+                        </>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {regionStatus.checkedAt && !regionStatus.loading ? (
+                        <span className="text-xs text-gray-500 dark:text-gray-500">
+                          检测时间：{new Date(regionStatus.checkedAt).toLocaleTimeString()}
+                        </span>
+                      ) : null}
+                      <button
+                        onClick={() => runAutoDetect({ allowOverride: true })}
+                        className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-sm"
+                      >
+                        重新检测
+                      </button>
+                    </div>
                   </div>
                 </div>
                 
