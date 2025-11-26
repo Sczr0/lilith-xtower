@@ -1,4 +1,4 @@
-﻿import { TapTapVersion } from '../types/auth';
+import { TapTapVersion } from '../types/auth';
 
 /**
  * TapTap / LeanCloud 扫码登录核心逻辑（默认使用同源代理避免 CORS）
@@ -258,24 +258,6 @@ export async function loginLeanCloudWithTapTap(
   return data.sessionToken;
 }
 
-export async function completeTapTapQrLogin(
-  version: TapTapVersion,
-  qr: QrCodeData,
-  options?: { signal?: AbortSignal; timeoutMs?: number },
-): Promise<{ sessionToken: string; profile: TapTapProfile; token: TokenResponse }> {
-  const timeoutMs = options?.timeoutMs ?? 120_000;
-  const token = await pollTapTapToken(
-    version,
-    qr.deviceCode,
-    qr.deviceId,
-    qr.interval * 1000,
-    timeoutMs,
-    options?.signal,
-  );
-  const profile = await fetchTapTapProfile(version, token);
-  const sessionToken = await loginLeanCloudWithTapTap(version, profile, token);
-  return { sessionToken, profile, token };
-}
 
 const generateMacHeader = async (token: TokenResponse, method: 'GET' | 'POST', url: URL) => {
   if (!token.kid || !token.mac_key || !token.mac_algorithm) {
@@ -305,3 +287,39 @@ const generateLeanCloudSign = async (appKey: string) => {
 
 export const getTapConfig = (version: TapTapVersion) => TAP_CONFIG[version];
 export type { TokenResponse };
+
+
+export async function completeTapTapQrLogin(
+  version: TapTapVersion,
+  qr: QrCodeData,
+  options?: { signal?: AbortSignal; timeoutMs?: number },
+): Promise<{ sessionToken: string; profile: TapTapProfile; token: TokenResponse }> {
+  const timeoutMs = options?.timeoutMs ?? 120_000;
+
+  if (USE_PROXY) {
+    const res = await proxyFetch<{ sessionToken: string; profile: TapTapProfile; token: TokenResponse }>(
+      'complete',
+      {
+        version,
+        deviceCode: qr.deviceCode,
+        deviceId: qr.deviceId,
+        interval: qr.interval * 1000,
+        timeoutMs,
+      },
+      options?.signal,
+    );
+    return res;
+  }
+
+  const token = await pollTapTapToken(
+    version,
+    qr.deviceCode,
+    qr.deviceId,
+    qr.interval * 1000,
+    timeoutMs,
+    options?.signal,
+  );
+  const profile = await fetchTapTapProfile(version, token);
+  const sessionToken = await loginLeanCloudWithTapTap(version, profile, token);
+  return { sessionToken, profile, token };
+}

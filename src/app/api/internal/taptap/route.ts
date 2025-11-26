@@ -14,7 +14,7 @@ type TokenResponse = {
   mac_algorithm?: string;
 };
 
-type Action = 'device_code' | 'poll_token' | 'profile' | 'leancloud';
+type Action = 'device_code' | 'poll_token' | 'profile' | 'leancloud' | 'complete';
 
 type LeanCloudUserResponse = {
   sessionToken?: string;
@@ -45,6 +45,11 @@ export async function POST(req: NextRequest) {
     if (action === 'leancloud') {
       const sessionToken = await loginLeanCloudServer(config, body.profile as TapTapProfile, body.token as TokenResponse);
       return NextResponse.json({ sessionToken });
+    }
+
+    if (action === 'complete') {
+      const data = await completeServer(config, body.deviceCode, body.deviceId, body.interval ?? 1000, body.timeoutMs ?? 120000);
+      return NextResponse.json(data);
     }
 
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
@@ -115,6 +120,35 @@ async function pollTokenOnceServer(
   if (err === 'authorization_waiting') return { status: 'waiting' };
   if (err === 'access_denied') return { status: 'denied', msg: '用户取消或拒绝授权' };
   return { status: 'denied', msg: json?.data?.msg || '获取授权状态失败' };
+}
+
+async function completeServer(
+  config: ReturnType<typeof getTapConfig>,
+  deviceCode: string,
+  deviceId: string,
+  intervalMs: number,
+  timeoutMs: number,
+): Promise<{ sessionToken: string; profile: TapTapProfile; token: TokenResponse }> {
+  const start = Date.now();
+  let token: TokenResponse | undefined;
+  while (true) {
+    const once = await pollTokenOnceServer(config, deviceCode, deviceId);
+    if (once.status === 'ok' && once.token) {
+      token = once.token;
+      break;
+    }
+    if (once.status === 'denied') {
+      throw new Error(once.msg || '用户取消或拒绝授权');
+    }
+    if (Date.now() - start > timeoutMs) {
+      throw new Error('扫描超时，请重新获取二维码');
+    }
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+
+  const profile = await fetchProfileServer(config, token!);
+  const sessionToken = await loginLeanCloudServer(config, profile, token!);
+  return { sessionToken, profile, token: token! };
 }
 
 async function fetchProfileServer(config: ReturnType<typeof getTapConfig>, token: TokenResponse): Promise<TapTapProfile> {
