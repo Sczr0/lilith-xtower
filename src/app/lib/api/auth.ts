@@ -13,8 +13,8 @@ export const buildAuthRequestBody = (credential: AuthCredential): AuthRequest =>
   switch (credential.type) {
     case 'session':
       return {
-        session_token: credential.token,
-        taptap_version: taptapVersion
+        sessionToken: credential.token,
+        taptapVersion: taptapVersion
       };
     case 'api':
       return {
@@ -22,7 +22,7 @@ export const buildAuthRequestBody = (credential: AuthCredential): AuthRequest =>
           apiUserId: credential.api_user_id,
           apiToken: credential.api_token ?? null,
         },
-        taptap_version: taptapVersion
+        taptapVersion: taptapVersion
       };
     case 'platform':
       return {
@@ -30,7 +30,7 @@ export const buildAuthRequestBody = (credential: AuthCredential): AuthRequest =>
           platform: credential.platform,
           platformId: credential.platform_id,
         },
-        taptap_version: taptapVersion
+        taptapVersion: taptapVersion
       };
     default:
       throw new Error('不支持的凭证类型');

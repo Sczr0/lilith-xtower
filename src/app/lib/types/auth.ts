@@ -62,14 +62,14 @@ export interface ExternalApiCredentials {
   platformId?: string | null;
   apiUserId?: string | null;
   apiToken?: string | null;
-  session_token?: string | null;
+  sessiontoken?: string | null;
 }
 
 // 统一请求体（适配新后端）
 export interface UnifiedSaveRequestBody {
-  session_token?: string | null;
+  sessionToken?: string | null;
+  taptapVersion?: TapTapVersion;
   externalCredentials?: ExternalApiCredentials | null;
-  taptap_version?: TapTapVersion;
 }
 
 export type AuthRequest = UnifiedSaveRequestBody;
