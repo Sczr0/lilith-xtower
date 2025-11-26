@@ -62,12 +62,12 @@ export interface ExternalApiCredentials {
   platformId?: string | null;
   apiUserId?: string | null;
   apiToken?: string | null;
-  sessiontoken?: string | null;
+  session_token?: string | null;
 }
 
 // 统一请求体（适配新后端）
 export interface UnifiedSaveRequestBody {
-  sessionToken?: string | null;
+  session_token?: string | null;
   externalCredentials?: ExternalApiCredentials | null;
   taptap_version?: TapTapVersion;
 }

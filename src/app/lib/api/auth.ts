@@ -12,8 +12,8 @@ export const buildAuthRequestBody = (credential: AuthCredential): AuthRequest =>
   const taptapVersion = AuthStorage.getTapTapVersion();
   switch (credential.type) {
     case 'session':
-      return { 
-        sessionToken: credential.token,
+      return {
+        session_token: credential.token,
         taptap_version: taptapVersion
       };
     case 'api':
