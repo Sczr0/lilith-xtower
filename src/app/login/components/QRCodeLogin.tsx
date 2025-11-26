@@ -5,7 +5,7 @@ import { RotatingTips } from '../../components/RotatingTips';
 import { useAuth } from '../../contexts/AuthContext';
 import { SessionCredential, TapTapVersion } from '../../lib/types/auth';
 import { AuthStorage } from '../../lib/storage/auth';
-import { requestDeviceCode, completeTapTapLogin } from '../../lib/taptap/deviceFlow';
+import { requestDeviceCode, standaloneTapTapLogin } from '../../lib/taptap/standaloneFlow';
 import QRCode from 'qrcode';
 
 interface QRCodeLoginProps {
@@ -41,8 +41,8 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
       setTaptapDeepLink(codeData.qrcodeUrl);
       setStatus('scanning');
       
-      // 使用完整的TapTap登录流程：获取token -> 获取用户资料 -> 后端集成
-      const { sessionToken } = await completeTapTapLogin(
+      // 使用完全解耦的TapTap登录流程：直接与TapTap API和LeanCloud交互
+      const { sessionToken } = await standaloneTapTapLogin(
         version,
         codeData.deviceCode,
         codeData.deviceId,
