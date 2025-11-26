@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { RotatingTips } from '../../components/RotatingTips';
-import Image from 'next/image';
 import { useAuth } from '../../contexts/AuthContext';
 import { SessionCredential, TapTapVersion } from '../../lib/types/auth';
 import { AuthStorage } from '../../lib/storage/auth';
 import { requestDeviceCode, pollDeviceToken } from '../../lib/taptap/deviceFlow';
+import QRCode from 'qrcode';
 
 interface QRCodeLoginProps {
   taptapVersion: TapTapVersion;
@@ -15,6 +15,7 @@ interface QRCodeLoginProps {
 export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
   const { login } = useAuth();
   const [qrCodeImage, setQrCodeImage] = useState<string>('');
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'scanning' | 'success' | 'error'>('idle');
   const [error, setError] = useState<string>('');
   // 移动端深链：用于在移动端直接跳转 TapTap 确认登录
@@ -31,6 +32,12 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
       const codeData = await requestDeviceCode(version);
 
       setQrCodeImage(codeData.qrcodeUrl);
+      try {
+        const dataUrl = await QRCode.toDataURL(codeData.qrcodeUrl, { width: 256, margin: 1 });
+        setQrCodeDataUrl(dataUrl);
+      } catch {
+        setQrCodeDataUrl(codeData.qrcodeUrl); // fallback
+      }
       setTaptapDeepLink(codeData.qrcodeUrl);
       setStatus('scanning');
       
@@ -96,17 +103,16 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
         </div>
       )}
 
-      {status === 'scanning' && qrCodeImage && (
+      {status === 'scanning' && (qrCodeDataUrl || qrCodeImage) && (
         <div className="flex flex-col items-center space-y-4">
           <div className="bg-white p-4 rounded-lg shadow-lg">
-            <Image
-              src={qrCodeImage}
+            <img
+              src={qrCodeDataUrl || qrCodeImage}
               alt="登录二维码"
+              className="w-64 h-64 object-contain"
               width={256}
               height={256}
-              className="w-64 h-64 object-contain"
-              unoptimized
-              priority
+              referrerPolicy="no-referrer"
             />
           </div>
           <div className="text-center space-y-2">
