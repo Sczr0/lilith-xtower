@@ -231,8 +231,33 @@ export async function loginLeanCloudWithTapTap(
   profile: TapTapProfile,
   token: TokenResponse,
 ): Promise<string> {
+  const openid =
+    (profile as any)?.data?.openid ??
+    (profile as any)?.openid ??
+    (profile as any)?.id;
+  const unionid =
+    (profile as any)?.data?.unionid ?? (profile as any)?.unionid ?? undefined;
+
+  const authPayload = {
+    openid,
+    unionid,
+    access_token: token.access_token,
+    expires_in: token.expires_in,
+    token_type: token.token_type,
+    scope: token.scope,
+    kid: token.kid,
+    mac_key: token.mac_key,
+    mac_algorithm: token.mac_algorithm,
+    // 保留完整数据便于兼容
+    profile,
+    token,
+  };
+
   if (USE_PROXY) {
-    const res = await proxyFetch<{ sessionToken: string }>('leancloud', { version, profile, token });
+    const res = await proxyFetch<{ sessionToken: string }>('leancloud', {
+      version,
+      authPayload,
+    });
     if (!res.sessionToken) throw new Error('LeanCloud 未返回 sessionToken');
     return res.sessionToken;
   }
@@ -242,7 +267,7 @@ export async function loginLeanCloudWithTapTap(
   const base = config.leancloudBaseUrl.replace(/\/$/, '');
   const url = base.endsWith('/1.1') ? `${base}/users` : `${base}/1.1/users`;
 
-  const body = { authData: { taptap: { profile, token } } };
+  const body = { authData: { taptap: authPayload } };
   const res = await fetch(url, {
     method: 'POST',
     headers: {

@@ -182,6 +182,27 @@ async function loginLeanCloudServer(
   const base = config.leancloudBaseUrl.replace(/\/$/, '');
   const url = base.endsWith('/1.1') ? `${base}/users` : `${base}/1.1/users`;
 
+  const openid =
+    (profile as any)?.data?.openid ??
+    (profile as any)?.openid ??
+    (profile as any)?.id;
+  const unionid =
+    (profile as any)?.data?.unionid ?? (profile as any)?.unionid ?? undefined;
+
+  const authPayload = {
+    openid,
+    unionid,
+    access_token: token.access_token,
+    expires_in: token.expires_in,
+    token_type: token.token_type,
+    scope: token.scope,
+    kid: token.kid,
+    mac_key: token.mac_key,
+    mac_algorithm: token.mac_algorithm,
+    profile,
+    token,
+  };
+
   const res = await fetch(url, {
     method: 'POST',
     headers: {
@@ -189,7 +210,7 @@ async function loginLeanCloudServer(
       'X-LC-Id': config.leancloudAppId,
       'X-LC-Sign': sign,
     },
-    body: JSON.stringify({ authData: { taptap: { profile, token } } }),
+    body: JSON.stringify({ authData: { taptap: authPayload } }),
   });
   if (!res.ok) throw new Error(`LeanCloud 登录失败: ${res.status} ${await res.text()}`);
   const data = (await res.json()) as LeanCloudUserResponse;
