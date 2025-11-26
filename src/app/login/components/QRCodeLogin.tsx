@@ -5,10 +5,14 @@ import { RotatingTips } from '../../components/RotatingTips';
 import Image from 'next/image';
 import { useAuth } from '../../contexts/AuthContext';
 import { AuthAPI, poll } from '../../lib/api/auth';
-import { SessionCredential } from '../../lib/types/auth';
+import { SessionCredential, TapTapVersion } from '../../lib/types/auth';
 import { AuthStorage } from '../../lib/storage/auth';
 
-export function QRCodeLogin() {
+interface QRCodeLoginProps {
+  taptapVersion: TapTapVersion;
+}
+
+export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
   const { login } = useAuth();
   const [qrCodeImage, setQrCodeImage] = useState<string>('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'scanning' | 'success' | 'error'>('idle');
@@ -16,17 +20,15 @@ export function QRCodeLogin() {
   // 移动端深链：用于在移动端直接跳转 TapTap 确认登录
   const [taptapDeepLink, setTaptapDeepLink] = useState<string>('');
   const [isMobile, setIsMobile] = useState<boolean>(false);
-  const [currentVersion, setCurrentVersion] = useState<'CN' | 'Global'>('CN');
 
   // 获取二维码
   const getQRCode = useCallback(async () => {
     try {
       setStatus('loading');
       setError('');
-      
+
       const response = await AuthAPI.getQRCode();
-      const version = AuthStorage.getTapTapVersion();
-      setCurrentVersion(version);
+      const version = taptapVersion ?? AuthStorage.getTapTapVersion();
       setQrCodeImage(response.qrCodeImage);
       // 生成 TapTap 深链（仅当后端返回 qrcodeUrl 时）
       if (response.qrcodeUrl) {

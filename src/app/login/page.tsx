@@ -148,7 +148,7 @@ export default function LoginPage() {
   const renderLoginForm = () => {
     switch (activeMethod) {
       case 'qrcode':
-        return <QRCodeLogin key={taptapVersion} />;
+        return <QRCodeLogin key={taptapVersion} taptapVersion={taptapVersion} />;
       case 'manual':
         return <ManualLogin />;
       case 'api':
