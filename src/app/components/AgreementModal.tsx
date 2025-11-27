@@ -93,7 +93,7 @@ export function AgreementModal({ html, onAgree, onClose }: AgreementModalProps) 
               </span>
             </label>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              注：可点击"用户协议"或"隐私协议"在新窗口查看全文。
+              注：可点击「用户协议」或「隐私协议」在新窗口查看全文。
             </p>
           </div>
 

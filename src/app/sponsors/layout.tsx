@@ -18,13 +18,13 @@ export const metadata: Metadata = {
     title: "赞助者 | Phigros Query",
     description: "感谢各位赞助者对本项目的支持与贡献。正是有了您的帮助，我们才能持续提供成绩查询服务。",
     siteName: "Phigros Query",
-    images: [{ url: "/og", width: 1200, height: 630 }],
+    images: [{ url: "/og?title=赞助者", width: 1200, height: 630 }],
   },
   twitter: {
     card: "summary_large_image",
     title: "赞助者 | Phigros Query",
     description: "感谢各位赞助者对本项目的支持与贡献。正是有了您的帮助，我们才能持续提供成绩查询服务。",
-    images: ["/og"],
+    images: ["/og?title=赞助者"],
   },
   alternates: {
     canonical: '/sponsors',

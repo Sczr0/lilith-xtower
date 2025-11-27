@@ -18,13 +18,13 @@ export const metadata: Metadata = {
     title: "用户协议 | Phigros Query",
     description: "Phigros查询服务用户协议与隐私政策，详细说明服务条款、数据使用规范、用户权利义务等内容。使用本服务即表示您同意相关条款。",
     siteName: "Phigros Query",
-    images: [{ url: "/og", width: 1200, height: 630 }],
+    images: [{ url: "/og?title=用户协议", width: 1200, height: 630 }],
   },
   twitter: {
     card: "summary_large_image",
     title: "用户协议 | Phigros Query",
     description: "Phigros查询服务用户协议与隐私政策，详细说明服务条款、数据使用规范、用户权利义务等内容。使用本服务即表示您同意相关条款。",
-    images: ["/og"],
+    images: ["/og?title=用户协议"],
   },
   alternates: {
     canonical: '/agreement',

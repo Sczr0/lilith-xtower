@@ -15,20 +15,52 @@ const SITE_URL = rawSiteUrl
  * 静态内容在服务端渲染，Header 由客户端组件处理认证状态
  */
 export default function Home() {
-  // 结构化数据 JSON-LD
+  // 结构化数据 JSON-LD - 包含 WebSite 和 Organization
   const jsonLd = {
     '@context': 'https://schema.org',
-    '@type': 'WebSite',
-    name: 'Phigros Query',
-    url: SITE_URL,
-    potentialAction: {
-      '@type': 'SearchAction',
-      target: {
-        '@type': 'EntryPoint',
-        urlTemplate: `${SITE_URL}/qa?q={search_term_string}`,
+    '@graph': [
+      {
+        '@type': 'WebSite',
+        '@id': `${SITE_URL}/#website`,
+        name: 'Phigros Query',
+        url: SITE_URL,
+        description: 'Phigros游戏成绩查询工具，提供RKS查看、Best N查询和成绩图生成服务',
+        publisher: {
+          '@id': `${SITE_URL}/#organization`,
+        },
+        potentialAction: {
+          '@type': 'SearchAction',
+          target: {
+            '@type': 'EntryPoint',
+            urlTemplate: `${SITE_URL}/qa?q={search_term_string}`,
+          },
+          'query-input': 'required name=search_term_string',
+        },
       },
-      'query-input': 'required name=search_term_string',
-    },
+      {
+        '@type': 'Organization',
+        '@id': `${SITE_URL}/#organization`,
+        name: 'Phigros Query',
+        alternateName: '空间站「塔弦」',
+        url: SITE_URL,
+        logo: {
+          '@type': 'ImageObject',
+          url: `${SITE_URL}/about/avatar.png`,
+          width: 512,
+          height: 512,
+        },
+        description: 'Phigros游戏成绩查询工具，由空间站「塔弦」主导制作，提供RKS计算、Best N查询和成绩图生成功能',
+        sameAs: [
+          'https://github.com/Sczr0',
+          'https://afdian.com/a/xtower',
+        ],
+        contactPoint: {
+          '@type': 'ContactPoint',
+          contactType: 'customer support',
+          url: 'https://qm.qq.com/q/YQMW1eiz8m',
+        },
+      },
+    ],
   };
 
   return (

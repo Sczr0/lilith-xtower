@@ -1,7 +1,16 @@
 import Link from 'next/link';
+import Script from 'next/script';
 import { SimpleHeader } from '../components/SimpleHeader';
 import { QAList } from './components/QAList';
 import { getAllQA } from '../lib/qa';
+
+// 获取站点 URL
+const rawSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+const SITE_URL = rawSiteUrl
+  ? (rawSiteUrl.startsWith('http://') || rawSiteUrl.startsWith('https://')
+      ? rawSiteUrl
+      : `https://${rawSiteUrl}`)
+  : 'https://lilith.xtower.site';
 
 // ISR: 每小时重新验证一次
 export const revalidate = 3600;
@@ -93,8 +102,60 @@ export default async function QAPage() {
     qaData = defaultQAData;
   }
 
+  // FAQPage 结构化数据 - 用于搜索引擎富媒体摘要
+  const faqJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: qaData.map(item => ({
+      '@type': 'Question',
+      name: item.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: item.answer,
+      },
+    })),
+  };
+
+  // BreadcrumbList 结构化数据
+  const breadcrumbJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: '首页',
+        item: SITE_URL,
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: '常见问题',
+        item: `${SITE_URL}/qa`,
+      },
+    ],
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-950">
+      {/* FAQPage 结构化数据 */}
+      <Script
+        id="ld-json-faq"
+        type="application/ld+json"
+        strategy="afterInteractive"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(faqJsonLd),
+        }}
+      />
+      {/* BreadcrumbList 结构化数据 */}
+      <Script
+        id="ld-json-breadcrumb-qa"
+        type="application/ld+json"
+        strategy="afterInteractive"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(breadcrumbJsonLd),
+        }}
+      />
       {/* Header */}
       <SimpleHeader />
 

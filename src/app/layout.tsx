@@ -41,6 +41,9 @@ export const metadata: Metadata = {
   },
   description: "Phigros Query是一个由空间站「塔弦」主导制作的一个Phigros游戏成绩查询工具，全内容由LLM开发，并提供RKS查看、Best N查询、Best N 成绩图表生成和数据分析服务，支持多种登录方式。",
   keywords: ["Phigros", "成绩查询", "RKS", "Best N", "图片生成", "塔弦"],
+  alternates: {
+    canonical: '/',
+  },
   openGraph: {
     type: "website",
     url: "/",
@@ -103,6 +106,9 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <head>
+        {/* 主题色 - 用于浏览器地址栏和移动端 */}
+        <meta name="theme-color" content="#2563eb" media="(prefers-color-scheme: light)" />
+        <meta name="theme-color" content="#1e40af" media="(prefers-color-scheme: dark)" />
         {/* 预连接到本站源 */}
         <link rel="preconnect" href={originHref} crossOrigin="anonymous" />
         <link rel="preconnect" href="https://cloud.umami.is" crossOrigin="anonymous" />

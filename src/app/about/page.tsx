@@ -1,8 +1,17 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import Script from 'next/script';
 import { SimpleHeader } from '../components/SimpleHeader';
 import { getPrecompiledAssetServer, hasPrecompiledAsset } from '../lib/precompiled-server';
 import { AboutClientSections } from './components/AboutClientSections';
+
+// 获取站点 URL
+const rawSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+const SITE_URL = rawSiteUrl
+  ? (rawSiteUrl.startsWith('http://') || rawSiteUrl.startsWith('https://')
+      ? rawSiteUrl
+      : `https://${rawSiteUrl}`)
+  : 'https://lilith.xtower.site';
 
 // 支持链接数据（静态）
 const supportLinks = [
@@ -67,8 +76,64 @@ export default async function AboutPage() {
     aboutError = e instanceof Error ? e.message : String(e);
   }
 
+  // BreadcrumbList 结构化数据
+  const breadcrumbJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: '首页',
+        item: SITE_URL,
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: '关于',
+        item: `${SITE_URL}/about`,
+      },
+    ],
+  };
+
+  // Person 结构化数据 - 开发者信息
+  const personJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Person',
+    name: '弦塔',
+    jobTitle: 'Phigros Query 主要维护者',
+    url: `${SITE_URL}/about`,
+    image: `${SITE_URL}/about/avatar.png`,
+    sameAs: [
+      'https://github.com/Sczr0',
+    ],
+    worksFor: {
+      '@type': 'Organization',
+      name: 'Phigros Query',
+      url: SITE_URL,
+    },
+  };
+
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950 text-gray-900 dark:text-gray-50">
+      {/* BreadcrumbList 结构化数据 */}
+      <Script
+        id="ld-json-breadcrumb-about"
+        type="application/ld+json"
+        strategy="afterInteractive"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(breadcrumbJsonLd),
+        }}
+      />
+      {/* Person 结构化数据 */}
+      <Script
+        id="ld-json-person"
+        type="application/ld+json"
+        strategy="afterInteractive"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(personJsonLd),
+        }}
+      />
       {/* Header */}
       <SimpleHeader />
 
