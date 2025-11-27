@@ -10,6 +10,7 @@ export default function ContributePage() {
   const { isAuthenticated, isLoading } = useAuth();
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   async function handleSubmit(formData: FormData) {
     setMessage(null);
@@ -20,9 +21,10 @@ export default function ContributePage() {
         text: result.message,
       });
       if (result.success) {
-        // 清空表单
+        // 清空表单并收起高级选项
         const form = document.getElementById('tip-form') as HTMLFormElement;
         form?.reset();
+        setShowAdvanced(false);
       }
     });
   }
@@ -111,6 +113,37 @@ export default function ContributePage() {
                 <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 text-right">
                   支持纯文本，请勿包含敏感信息
                 </p>
+              </div>
+
+              <div className="space-y-3 pt-2 border-t border-dashed border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">需要附加信息？可在高级选项里填写。</p>
+                  <button
+                    type="button"
+                    onClick={() => setShowAdvanced((open) => !open)}
+                    className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-300 dark:hover:text-blue-200 font-medium"
+                  >
+                    {showAdvanced ? '收起高级选项' : '展开高级选项'}
+                  </button>
+                </div>
+
+                {showAdvanced && (
+                  <div className="space-y-2">
+                    <label htmlFor="author" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      投稿人（可选）
+                    </label>
+                    <input
+                      id="author"
+                      name="author"
+                      maxLength={30}
+                      placeholder="例如：鱼丸，或留空匿名投稿"
+                      className="w-full px-4 py-2.5 rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 text-right">
+                      不填默认显示“匿名投稿”，最长 30 字
+                    </p>
+                  </div>
+                )}
               </div>
 
               {message && (
