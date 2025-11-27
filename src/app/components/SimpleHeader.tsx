@@ -29,6 +29,12 @@ export function SimpleHeader({ showLogin = true }: SimpleHeaderProps) {
         >
           常见问题
         </Link>
+        <Link
+          href="/contribute"
+          className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
+        >
+          投稿
+        </Link>
         {showLogin && (
           <Link
             href="/login"

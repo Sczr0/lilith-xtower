@@ -17,6 +17,7 @@ export function HomeHeader() {
       <nav className="ml-auto flex items-center gap-4">
         <Link href="/sponsors" className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">赞助者</Link>
         <Link href="/qa" className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">常见问题</Link>
+        <Link href="/contribute" className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">投稿</Link>
         {!isAuthenticated && (
           <Link href="/login" className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">登录</Link>
         )}

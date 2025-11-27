@@ -75,6 +75,13 @@ export function DashboardHeader({ onOpenAnnouncements, onOpenMenu }: DashboardHe
         </a>
 
         <a
+          href="/contribute"
+          className="hidden lg:block text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
+        >
+          投稿
+        </a>
+
+        <a
           href="/debug-auth"
           className="hidden lg:block text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
         >
