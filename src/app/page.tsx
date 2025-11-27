@@ -1,29 +1,35 @@
-'use client';
-
 import Link from 'next/link';
 import Script from 'next/script';
-import { RotatingTips } from './components/RotatingTips';
-import { ThemeToggle } from './components/ThemeToggle';
-import { useAuth } from './contexts/AuthContext';
-// 主页不再需要副作用跳转逻辑
+import { HomeHeader } from './components/HomeHeader';
 
+// 获取站点 URL
+const rawSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+const SITE_URL = rawSiteUrl
+  ? (rawSiteUrl.startsWith('http://') || rawSiteUrl.startsWith('https://')
+      ? rawSiteUrl
+      : `https://${rawSiteUrl}`)
+  : 'https://lilith.xtower.site';
+
+/**
+ * 首页 - SSG 静态生成
+ * 静态内容在服务端渲染，Header 由客户端组件处理认证状态
+ */
 export default function Home() {
-  const { isAuthenticated, isLoading } = useAuth();
-
-  // 性能优化：不再在主页对已登录用户执行自动跳转
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-white dark:bg-neutral-950 flex items-center justify-center">
-        <div className="flex flex-col items-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
-          <RotatingTips />
-        </div>
-      </div>
-    );
-  }
-
-  // 已登录用户也保留在主页，移除原来的空白返回
+  // 结构化数据 JSON-LD
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: 'Phigros Query',
+    url: SITE_URL,
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: {
+        '@type': 'EntryPoint',
+        urlTemplate: `${SITE_URL}/qa?q={search_term_string}`,
+      },
+      'query-input': 'required name=search_term_string',
+    },
+  };
 
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950 text-gray-900 dark:text-gray-50">
@@ -32,41 +38,14 @@ export default function Home() {
         type="application/ld+json"
         strategy="afterInteractive"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            '@context': 'https://schema.org',
-            '@type': 'WebSite',
-            name: 'Phigros Query',
-            url: (process.env.NEXT_PUBLIC_SITE_URL && (process.env.NEXT_PUBLIC_SITE_URL.startsWith('http://') || process.env.NEXT_PUBLIC_SITE_URL.startsWith('https://')))
-              ? process.env.NEXT_PUBLIC_SITE_URL
-              : `https://${process.env.NEXT_PUBLIC_SITE_URL ?? 'lilith.xtower.site'}`,
-            potentialAction: {
-              '@type': 'SearchAction',
-              target: {
-                '@type': 'EntryPoint',
-                urlTemplate: ((process.env.NEXT_PUBLIC_SITE_URL && (process.env.NEXT_PUBLIC_SITE_URL.startsWith('http://') || process.env.NEXT_PUBLIC_SITE_URL.startsWith('https://')))
-                  ? process.env.NEXT_PUBLIC_SITE_URL
-                  : `https://${process.env.NEXT_PUBLIC_SITE_URL ?? 'lilith.xtower.site'}`) + '/qa?q={search_term_string}',
-              },
-              'query-input': 'required name=search_term_string',
-            },
-          }),
+          __html: JSON.stringify(jsonLd),
         }}
       />
-      {/* 头部：对齐 About 页的极简导航 */}
-      <header className="sticky top-0 z-40 h-14 border-b border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 px-4 lg:px-6 flex items-center">
-        <Link href="/" className="text-base font-semibold">Phigros 查询</Link>
-        <nav className="ml-auto flex items-center gap-4">
-          <Link href="/sponsors" className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">赞助者</Link>
-          <Link href="/qa" className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">常见问题</Link>
-          {!isAuthenticated && (
-            <Link href="/login" className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">登录</Link>
-          )}
-          <Link href="/dashboard" className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100">控制台</Link>
-          <ThemeToggle />
-        </nav>
-      </header>
+      
+      {/* 头部：客户端组件处理认证状态 */}
+      <HomeHeader />
 
-      {/* 主体：收敛为简洁排版与黑白灰蓝配色 */}
+      {/* 主体：静态内容，服务端渲染 */}
       <main className="px-4 py-10 sm:py-14">
         <div className="mx-auto max-w-4xl space-y-10">
           {/* 简洁 Hero */}

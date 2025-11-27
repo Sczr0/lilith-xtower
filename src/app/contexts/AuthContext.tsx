@@ -25,52 +25,77 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-export function AuthProvider({ children }: AuthProviderProps) {
-  const [authState, setAuthState] = useState<AuthState>({
+/**
+ * 同步读取 localStorage 中的凭证（仅在客户端执行）
+ * 用于初始化时立即获取认证状态，避免阻塞首屏渲染
+ */
+function getInitialAuthState(): AuthState {
+  if (typeof window === 'undefined') {
+    // SSR 时返回默认状态
+    return {
+      isAuthenticated: false,
+      credential: null,
+      isLoading: false,
+      error: null,
+    };
+  }
+  
+  try {
+    const credential = AuthStorage.getCredential();
+    if (credential) {
+      return {
+        isAuthenticated: true,
+        credential,
+        isLoading: false,
+        error: null,
+      };
+    }
+  } catch (error) {
+    console.error('读取凭证失败:', error);
+  }
+  
+  return {
     isAuthenticated: false,
     credential: null,
-    isLoading: true,
+    isLoading: false,
     error: null,
-  });
+  };
+}
+
+export function AuthProvider({ children }: AuthProviderProps) {
+  // 乐观渲染：同步读取 localStorage，不阻塞首屏
+  const [authState, setAuthState] = useState<AuthState>(getInitialAuthState);
   const [showAgreement, setShowAgreement] = useState(false);
   const [agreementHtml, setAgreementHtml] = useState<string>('');
   const setPendingCredential = useState<AuthCredential | null>(null)[1];
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // 当出现“服务器暂时无法访问/网络错误”时，轮询健康端点，恢复后移除横幅
+  // 当出现"服务器暂时无法访问/网络错误"时，轮询健康端点，恢复后移除横幅
   const shouldPollStatus = !!authState.error && (/服务器暂时无法访问/.test(authState.error || '') || /网络错误/.test(authState.error || ''));
   useServiceReachability({
     shouldPoll: shouldPollStatus,
     onReachable: () => setAuthState(prev => ({ ...prev, error: null })),
   });
 
-  // 初始化时检查本地存储中的凭证（轻量化：仅做健康检查，不再触发 /save）
+  // 客户端 hydration 后进行后台健康检查（不阻塞渲染）
   useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        const credential = AuthStorage.getCredential();
+    if (isInitialized) return;
+    setIsInitialized(true);
 
-        if (credential) {
-          // 直接恢复登录状态，避免触发 /save 重负载；后台做一次健康检查
-          setAuthState({ isAuthenticated: true, credential, isLoading: false, error: null });
-
-          // 后台健康检查，仅用于提示“服务器暂时无法访问/网络错误”，不校验凭证有效性
-          try {
-            const ok = await AuthAPI.checkHealth();
-            if (!ok) {
-              setAuthState(prev => ({ ...prev, error: '服务器暂时无法访问，请稍后再试' }));
-            }
-          } catch {}
-        } else {
-          setAuthState(prev => ({ ...prev, isLoading: false }));
-        }
-      } catch (error) {
-        console.error('初始化认证状态失败', error);
-        setAuthState({ isAuthenticated: false, credential: null, isLoading: false, error: '初始化认证状态失败' });
-      }
-    };
-
-    initializeAuth();
-  }, []);
+    // 如果已登录，后台进行健康检查
+    if (authState.isAuthenticated && authState.credential) {
+      // 异步健康检查，不阻塞 UI
+      AuthAPI.checkHealth()
+        .then(ok => {
+          if (!ok) {
+            setAuthState(prev => ({ ...prev, error: '服务器暂时无法访问，请稍后再试' }));
+          }
+        })
+        .catch(() => {
+          // 忽略健康检查错误，不影响用户体验
+        });
+    }
+  }, [isInitialized, authState.isAuthenticated, authState.credential]);
 
   const proceedLogin = async (credential: AuthCredential) => {
     try {

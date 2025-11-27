@@ -1,10 +1,10 @@
-'use client';
-
 import Link from 'next/link';
-import { ThemeToggle } from '../components/ThemeToggle';
-import { useState, useEffect } from 'react';
-import { Markdown } from '../components/Markdown';
-import { useAuth } from '../contexts/AuthContext';
+import { SimpleHeader } from '../components/SimpleHeader';
+import { QAList } from './components/QAList';
+import { getAllQA } from '../lib/qa';
+
+// ISR: 每小时重新验证一次
+export const revalidate = 3600;
 
 interface QAItem {
   id: string;
@@ -77,83 +77,26 @@ const defaultQAData: QAItem[] = [
   },
 ];
 
-const categories = {
-  login: { name: '登录相关', color: 'blue' },
-  usage: { name: '使用指南', color: 'green' },
-  technical: { name: '技术问题', color: 'purple' },
-  security: { name: '安全隐私', color: 'red' },
-};
-
-export default function QAPage() {
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [qaData, setQaData] = useState<QAItem[]>(defaultQAData);
-  const { isAuthenticated, isLoading } = useAuth();
-
-  useEffect(() => {
-    // 从 API 加载 QA 数据
-    fetch('/api/qa')
-      .then(res => res.json())
-      .then(data => {
-        if (data && Array.isArray(data)) {
-          setQaData(data);
-        }
-      })
-      .catch(err => {
-        console.error('Failed to load QA data:', err);
-        // 使用默认数据
-      })
-      .finally(() => {});
-  }, []);
-
-  const filteredQA = selectedCategory
-    ? qaData.filter((item) => item.category === selectedCategory)
-    : qaData;
-
-  const getCategoryColor = (category: string) => {
-    const colors = {
-      blue: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-      green: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-      purple: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
-      red: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
-    };
-    return colors[category as keyof typeof colors] || colors.blue;
-  };
+/**
+ * 常见问题页面 - SSR + ISR
+ * 在服务端获取 QA 数据，每小时重新验证
+ */
+export default async function QAPage() {
+  // 在服务端获取 QA 数据
+  let qaData: QAItem[];
+  
+  try {
+    const data = getAllQA();
+    qaData = data && data.length > 0 ? data : defaultQAData;
+  } catch (error) {
+    console.error('Failed to load QA data:', error);
+    qaData = defaultQAData;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-950">
       {/* Header */}
-      <header className="relative z-10 px-4 lg:px-6 h-16 flex items-center justify-between backdrop-blur-sm bg-white/30 dark:bg-gray-900/30 border-b border-gray-200/50 dark:border-gray-700/50">
-        <Link href="/" className="flex items-center justify-center">
-          <span className="text-xl font-bold">Phigros 查询</span>
-        </Link>
-        <div className="flex items-center gap-4">
-          <Link
-            href="/about"
-            className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
-          >
-            关于
-          </Link>
-          {!isLoading && (
-            isAuthenticated ? (
-              <Link
-                href="/dashboard"
-                className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
-              >
-                仪表盘
-              </Link>
-            ) : (
-              <Link
-                href="/login"
-                className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
-              >
-                登录
-              </Link>
-            )
-          )}
-          <ThemeToggle />
-        </div>
-      </header>
+      <SimpleHeader />
 
       {/* Main Content */}
       <main className="relative z-10 flex-1 p-4 sm:p-6 lg:p-8">
@@ -168,88 +111,8 @@ export default function QAPage() {
             </p>
           </div>
 
-          {/* Category Filter */}
-          <div className="mb-6 bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-xl p-4 border border-gray-200/50 dark:border-gray-700/50">
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setSelectedCategory(null)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  selectedCategory === null
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
-              >
-                全部
-              </button>
-              {Object.entries(categories).map(([key, { name }]) => (
-                <button
-                  key={key}
-                  onClick={() => setSelectedCategory(key)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    selectedCategory === key
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  {name}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* QA List */}
-          <div className="space-y-4">
-            {filteredQA.map((item) => (
-              <div
-                key={item.id}
-                className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-xl border border-gray-200/50 dark:border-gray-700/50 overflow-hidden transition-all duration-200 hover:shadow-lg"
-              >
-                <button
-                  onClick={() => setExpandedId(expandedId === item.id ? null : item.id)}
-                  className="w-full px-6 py-4 flex items-start justify-between gap-4 text-left"
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span
-                        className={`px-2 py-1 rounded text-xs font-medium ${getCategoryColor(
-                          categories[item.category].color
-                        )}`}
-                      >
-                        {categories[item.category].name}
-                      </span>
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                      {item.question}
-                    </h3>
-                  </div>
-                  <svg
-                    className={`w-5 h-5 text-gray-500 dark:text-gray-400 flex-shrink-0 transition-transform ${
-                      expandedId === item.id ? 'rotate-180' : ''
-                    }`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
-                </button>
-                {expandedId === item.id && (
-                  <div className="px-6 pb-4">
-                    <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                      <div className="text-gray-700 dark:text-gray-300 prose prose-sm dark:prose-invert max-w-none">
-                        <Markdown>{item.answer}</Markdown>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+          {/* QA List (客户端交互组件) */}
+          <QAList qaData={qaData} />
 
           {/* Contact Section */}
           <div className="mt-8 bg-blue-50 dark:bg-blue-900/20 rounded-xl p-6 border border-blue-200 dark:border-blue-800">
@@ -259,17 +122,15 @@ export default function QAPage() {
             <p className="text-blue-700 dark:text-blue-300 mb-4">
               如果您的问题没有在这里找到答案，欢迎通过以下方式联系我们：
             </p>
-          <div className="mb-4 text-sm">
-          </div>
             <div className="flex flex-col sm:flex-row gap-3">
-            <a
-              href="https://qm.qq.com/q/pbbOzU72aA"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-            >
-              加入官方群聊 空间站「索终」
-            </a>
+              <a
+                href="https://qm.qq.com/q/pbbOzU72aA"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+              >
+                加入官方群聊 空间站「索终」
+              </a>
               <Link
                 href="/about"
                 className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
