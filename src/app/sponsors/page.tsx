@@ -36,6 +36,13 @@ export default function SponsorsPage() {
             >
               用户协议
             </Link>
+            {' · '}
+            <Link
+              href="/privacy"
+              className="hover:text-blue-600 dark:hover:text-blue-400"
+            >
+              隐私协议
+            </Link>
           </footer>
         </div>
       </main>

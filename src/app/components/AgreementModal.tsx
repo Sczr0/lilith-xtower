@@ -85,11 +85,15 @@ export function AgreementModal({ html, onAgree, onClose }: AgreementModalProps) 
                 <a href="/agreement" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 underline decoration-dotted underline-offset-4">
                   用户协议
                 </a>
+                {' '}和{' '}
+                <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 underline decoration-dotted underline-offset-4">
+                  隐私协议
+                </a>
                 ，并同意按照协议规则使用本服务。
               </span>
             </label>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              注：可点击“用户协议”在新窗口查看全文。
+              注：可点击"用户协议"或"隐私协议"在新窗口查看全文。
             </p>
           </div>
 

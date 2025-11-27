@@ -1,8 +1,12 @@
 {
   "pages": {
     "agreement": {
-      "html": "agreement.a69ba517.html",
-      "toc": "agreement.a69ba517.toc.json"
+      "html": "agreement.062ad0da.html",
+      "toc": "agreement.062ad0da.toc.json"
+    },
+    "privacy": {
+      "html": "privacy.348261e1.html",
+      "toc": "privacy.348261e1.toc.json"
     },
     "about": {
       "html": "about.0f89538b.html",
@@ -10,7 +14,7 @@
     }
   },
   "agreement": {
-    "html": "agreement.a69ba517.html",
-    "toc": "agreement.a69ba517.toc.json"
+    "html": "agreement.062ad0da.html",
+    "toc": "agreement.062ad0da.toc.json"
   }
 }

@@ -12,12 +12,19 @@ interface TocItem {
 interface AgreementContentProps {
   htmlContent: string;
   tocItems: TocItem[];
+  title?: string;
+  subtitle?: string;
 }
 
 /**
  * 客户端组件：处理滚动监听和目录高亮等交互逻辑
  */
-export function AgreementContent({ htmlContent, tocItems }: AgreementContentProps) {
+export function AgreementContent({
+  htmlContent,
+  tocItems,
+  title = '用户协议',
+  subtitle = '请在使用服务前仔细阅读以下条款。'
+}: AgreementContentProps) {
   const [activeSection, setActiveSection] = useState('');
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -61,10 +68,9 @@ export function AgreementContent({ htmlContent, tocItems }: AgreementContentProp
             <section className="rounded-lg border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-6 py-6 shadow-sm">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between">
                 <div>
-                  <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-50">用户协议</h1>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">请在使用服务前仔细阅读以下条款。</p>
+                  <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-50">{title}</h1>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{subtitle}</p>
                 </div>
-                <span className="text-xs text-gray-500 dark:text-gray-400">最近更新：2025-10-28</span>
               </div>
             </section>
 

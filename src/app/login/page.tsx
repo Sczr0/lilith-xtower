@@ -231,6 +231,10 @@ export default function LoginPage() {
               <a href="/agreement" target="_blank" rel="noopener noreferrer" className="font-medium text-blue-600 hover:underline dark:text-blue-400">
                 用户协议
               </a>
+              {' '}和{' '}
+              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-medium text-blue-600 hover:underline dark:text-blue-400">
+                隐私协议
+              </a>
               。
             </p>
           </div>

@@ -142,7 +142,7 @@ export default async function AboutPage() {
 
           {/* 简短页脚 */}
           <footer className="pt-4 border-t border-gray-200 dark:border-neutral-800 text-sm text-gray-500 dark:text-gray-400">
-            © 2025 Phigros Query · <Link href="/agreement" className="hover:text-blue-600 dark:hover:text-blue-400">用户协议</Link>
+            © 2025 Phigros Query · <Link href="/agreement" className="hover:text-blue-600 dark:hover:text-blue-400">用户协议</Link> · <Link href="/privacy" className="hover:text-blue-600 dark:hover:text-blue-400">隐私协议</Link>
           </footer>
         </div>
       </main>

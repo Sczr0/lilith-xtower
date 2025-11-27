@@ -133,6 +133,7 @@ async function main() {
   const outDir = path.join(cwd, 'public', 'precompiled');
   const targets = [
     { key: 'agreement', mdPath: path.join(cwd, 'src', 'app', 'agreement', 'agreement.md') },
+    { key: 'privacy', mdPath: path.join(cwd, 'src', 'app', 'privacy', 'privacy.md') },
     { key: 'about', mdPath: path.join(cwd, 'public', 'about', 'custom.md') },
   ];
 
