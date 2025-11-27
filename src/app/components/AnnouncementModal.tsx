@@ -64,22 +64,32 @@ export function AnnouncementModal({ announcements, onClose, showAll = false }: A
     maintenance: '🔧'
   } as const;
 
-  // 关闭当前公告；若勾选“不再提示”且可关闭，则写入本地
+  // 关闭当前公告；若勾选"不再提示"且可关闭，则写入本地
   const handleClose = (applyDontShow: boolean) => {
+    // 计算是否是最后一条（在更新 state 之前）
+    const isLastVisible = visibleIndex + 1 >= visibleAnnouncements.length;
+    
     if (current && !showAll && applyDontShow && current.dismissible) {
       const next = new Set(dismissedIds);
       next.add(current.id);
+      // 如果是最后一条，先关闭弹窗再更新 localStorage
+      if (isLastVisible) {
+        onClose?.();
+        setDismissedIds(next);
+        try {
+          localStorage.setItem('dismissed_announcements', JSON.stringify([...next]));
+        } catch {}
+        return;
+      }
       setDismissedIds(next);
       try {
         localStorage.setItem('dismissed_announcements', JSON.stringify([...next]));
       } catch {}
     }
 
-    // 前进到下一条；若无则关闭弹窗
-    const nextIndex = visibleIndex + 1;
     setDontShowAgain(false);
-    if (nextIndex < visibleAnnouncements.length) {
-      setVisibleIndex(nextIndex);
+    if (!isLastVisible) {
+      setVisibleIndex(visibleIndex + 1);
     } else {
       onClose?.();
     }
