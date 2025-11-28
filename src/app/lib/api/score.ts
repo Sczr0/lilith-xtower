@@ -1,6 +1,7 @@
 import { AuthCredential } from '../types/auth';
 import {
   RksResponse,
+  RksHistoryResponse,
   ServiceStatsFeature,
   ServiceStatsResponse,
   StatsSummaryApiResponse,
@@ -107,6 +108,47 @@ export class ScoreAPI {
       data: { records },
     };
     return result;
+  }
+
+  /**
+   * 获取用户 RKS 历史变化记录
+   */
+  static async getRksHistory(
+    credential: AuthCredential,
+    options?: { limit?: number; offset?: number }
+  ): Promise<RksHistoryResponse> {
+    const requestBody = {
+      auth: buildAuthRequestBody(credential),
+      limit: options?.limit ?? 50,
+      offset: options?.offset ?? 0,
+    };
+
+    const response = await fetch(`${BASE_URL}/rks/history`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      let message = '获取 RKS 历史记录失败';
+      try {
+        const data = await response.json();
+        if (data?.message) message = data.message;
+      } catch (error) {
+        console.error('解析 RKS 历史记录错误信息失败:', error);
+      }
+      throw new Error(message);
+    }
+
+    const data = await response.json();
+    return {
+      items: data.items || [],
+      total: data.total || 0,
+      current_rks: data.current_rks || 0,
+      peak_rks: data.peak_rks || 0,
+    };
   }
 
   static async getServiceStats(): Promise<ServiceStatsResponse> {

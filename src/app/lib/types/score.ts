@@ -51,3 +51,17 @@ export interface ServiceStatsResponse {
     byKind: [string, number][];
   };
 }
+
+// RKS 历史记录相关类型
+export interface RksHistoryItem {
+  rks: number;           // 当时的 RKS 值
+  rks_jump: number;      // RKS 变化量
+  created_at: string;    // ISO 8601 时间戳
+}
+
+export interface RksHistoryResponse {
+  items: RksHistoryItem[];  // 历史记录列表（按时间倒序）
+  total: number;            // 总记录数
+  current_rks: number;      // 当前 RKS
+  peak_rks: number;         // 历史最高 RKS
+}
