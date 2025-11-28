@@ -112,6 +112,27 @@ export function RksHistoryPanel({ showTitle = true }: RksHistoryPanelProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [loadedCount, setLoadedCount] = useState(20);
 
+  // 所有 useMemo hooks 必须在条件返回之前调用
+  const items = historyData?.items ?? [];
+  const total = historyData?.total ?? 0;
+  const current_rks = historyData?.current_rks ?? 0;
+  const peak_rks = historyData?.peak_rks ?? 0;
+  const gap = peak_rks - current_rks;
+  
+  // 只保留有实际变化的记录（rks_jump !== 0）
+  const changedItems = useMemo(() => items.filter(item => item.rks_jump !== 0), [items]);
+  const displayItems = isExpanded ? changedItems.slice(0, loadedCount) : changedItems.slice(0, 5);
+  
+  // 计算距离上次变化的时间
+  const lastChangeTime = changedItems.length > 0 ? changedItems[0].created_at : null;
+  const daysSinceLastChange = useMemo(() => {
+    if (!lastChangeTime) return null;
+    const lastDate = new Date(lastChangeTime);
+    const now = new Date();
+    const diffMs = now.getTime() - lastDate.getTime();
+    return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  }, [lastChangeTime]);
+
   useEffect(() => {
     if (!credential) return;
 
@@ -180,23 +201,6 @@ export function RksHistoryPanel({ showTitle = true }: RksHistoryPanelProps) {
       </div>
     );
   }
-
-  const { current_rks, peak_rks, items, total } = historyData;
-  const gap = peak_rks - current_rks;
-  
-  // 只保留有实际变化的记录（rks_jump !== 0）
-  const changedItems = useMemo(() => items.filter(item => item.rks_jump !== 0), [items]);
-  const displayItems = isExpanded ? changedItems.slice(0, loadedCount) : changedItems.slice(0, 5);
-  
-  // 计算距离上次变化的时间
-  const lastChangeTime = changedItems.length > 0 ? changedItems[0].created_at : null;
-  const daysSinceLastChange = useMemo(() => {
-    if (!lastChangeTime) return null;
-    const lastDate = new Date(lastChangeTime);
-    const now = new Date();
-    const diffMs = now.getTime() - lastDate.getTime();
-    return Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  }, [lastChangeTime]);
 
   return (
     <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md border border-gray-200/60 dark:border-gray-700/60 rounded-2xl p-6 shadow-lg mb-6">
