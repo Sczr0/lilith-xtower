@@ -10,6 +10,7 @@ import dynamic from 'next/dynamic';
 const AgreementModal = dynamic(() => import('../components/AgreementModal').then(m => m.AgreementModal), { ssr: false, loading: () => null });
 
 import { useServiceReachability } from '../hooks/useServiceReachability';
+import { runPostLoginPreload, clearPrefetchCache } from '../lib/utils/preload';
 
 const AGREEMENT_KEY = 'phigros_agreement_accepted';
 
@@ -111,6 +112,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       setAuthState({ isAuthenticated: true, credential, isLoading: false, error: null });
 
+      // 登录成功后预加载关键数据
+      runPostLoginPreload(credential);
+
       if (typeof window !== 'undefined') {
         window.location.href = '/dashboard';
       }
@@ -180,6 +184,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       localStorage.removeItem('cache_bestn_meta_v1');
       localStorage.removeItem('cache_song_image_meta_v1');
     } catch {}
+    // 清除预取缓存
+    clearPrefetchCache();
     setAuthState({ isAuthenticated: false, credential: null, isLoading: false, error: null });
 
     if (typeof window !== 'undefined') {

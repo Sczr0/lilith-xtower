@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Script from 'next/script';
 import { HomeHeader } from './components/HomeHeader';
+import { PreloadLinks } from './components/PreloadLinks';
 
 // 获取站点 URL
 const rawSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
@@ -73,6 +74,9 @@ export default function Home() {
           __html: JSON.stringify(jsonLd),
         }}
       />
+      
+      {/* 预加载关键路由和资源 */}
+      <PreloadLinks />
       
       {/* 头部：客户端组件处理认证状态 */}
       <HomeHeader />

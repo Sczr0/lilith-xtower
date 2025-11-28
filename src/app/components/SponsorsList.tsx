@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { preloadImages, shouldPreload } from '../lib/utils/preload';
 
 type SponsorUser = {
   user_id: string;
@@ -28,6 +29,7 @@ export default function SponsorsList({ initialPerPage = 12 }: { initialPerPage?:
   const [totalPage, setTotalPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const preloadedRef = useRef<Set<string>>(new Set());
 
   const load = async (nextPage: number, perPage = initialPerPage) => {
     setLoading(true);
@@ -36,9 +38,34 @@ export default function SponsorsList({ initialPerPage = 12 }: { initialPerPage?:
       const res = await fetch(`/internal/sponsors?page=${nextPage}&per_page=${perPage}`, { cache: 'no-store' });
       const data: ApiResponse = await res.json();
       if (data.ec !== 200 || !data.data) throw new Error(data.em || '加载失败');
-      setItems((prev) => (nextPage === 1 ? (data.data!.list || []) : [...prev, ...(data.data!.list || [])]));
+      const newItems = data.data!.list || [];
+      setItems((prev) => (nextPage === 1 ? newItems : [...prev, ...newItems]));
       setTotalPage(data.data.total_page || 1);
       setPage(nextPage);
+      
+      // 预加载头像图片（首批立即加载，后续批次延迟加载）
+      if (shouldPreload() && newItems.length > 0) {
+        const avatarUrls = newItems
+          .map((it) => it.user.avatar)
+          .filter((url) => url && !preloadedRef.current.has(url));
+        
+        if (avatarUrls.length > 0) {
+          // 首批（前6个）立即预加载，其余延迟
+          const immediate = avatarUrls.slice(0, 6);
+          const deferred = avatarUrls.slice(6);
+          
+          // 标记为已预加载
+          avatarUrls.forEach((url) => preloadedRef.current.add(url));
+          
+          // 立即预加载首批
+          preloadImages(immediate, 3);
+          
+          // 延迟预加载其余
+          if (deferred.length > 0) {
+            setTimeout(() => preloadImages(deferred, 2), 1000);
+          }
+        }
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {

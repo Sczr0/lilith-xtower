@@ -13,6 +13,7 @@ import { AuthDetailsModal } from '../components/AuthDetailsModal';
 import { useAuth } from '../contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { AuthStorage } from '../lib/storage/auth';
+import { preloadTapTapQr, runWhenIdle, shouldPreload, prefetchPage } from '../lib/utils/preload';
 
 export default function LoginPage() {
   const [activeMethod, setActiveMethod] = useState<AuthMethod>('qrcode');
@@ -23,17 +24,31 @@ export default function LoginPage() {
   const [taptapVersion, setTaptapVersion] = useState<'cn' | 'global'>('cn');
   const userSelectedVersionRef = useRef(false);
 
-  // 读取TapTap版本配置
+  // 读取TapTap版本配置并预加载二维码
   useEffect(() => {
     const savedVersion = AuthStorage.getTapTapVersion();
     setTaptapVersion(savedVersion);
+    
+    // 预加载二维码数据（在空闲时执行）
+    if (shouldPreload()) {
+      runWhenIdle(() => {
+        preloadTapTapQr(savedVersion);
+        // 预取 dashboard 页面
+        prefetchPage('/dashboard');
+      });
+    }
   }, []);
 
-  // 保存TapTap版本配置
+  // 保存TapTap版本配置并预加载对应版本的二维码
   const handleVersionChange = (version: 'cn' | 'global') => {
     userSelectedVersionRef.current = true;
     setTaptapVersion(version);
     AuthStorage.saveTapTapVersion(version);
+    
+    // 切换版本时预加载新版本的二维码
+    if (shouldPreload()) {
+      preloadTapTapQr(version);
+    }
   };
 
   // 读取是否已同意用户协议，仅在同意后才自动跳转至仪表盘

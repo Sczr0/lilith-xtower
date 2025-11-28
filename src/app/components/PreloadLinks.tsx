@@ -1,0 +1,54 @@
+'use client';
+
+import { useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import {
+  runWhenIdle,
+  shouldPreload,
+  prefetchPage,
+  preconnect,
+  dnsPrefetch,
+  prefetchLeaderboard,
+  prefetchServiceStats,
+} from '../lib/utils/preload';
+
+/**
+ * 预加载链接组件
+ * 在首页加载时预取关键路由和资源
+ */
+export function PreloadLinks() {
+  const { isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    if (!shouldPreload()) return;
+
+    runWhenIdle(() => {
+      // 预连接到 TapTap API 域名
+      preconnect('https://accounts.tapapis.cn');
+      preconnect('https://accounts.tapapis.com');
+      dnsPrefetch('//accounts.tapapis.cn');
+      dnsPrefetch('//accounts.tapapis.com');
+
+      // 预取登录页面（未登录用户最可能访问）
+      if (!isAuthenticated) {
+        prefetchPage('/login');
+      }
+
+      // 预取常用页面
+      prefetchPage('/qa');
+      prefetchPage('/about');
+
+      // 如果已登录，预取 dashboard 和相关数据
+      if (isAuthenticated) {
+        prefetchPage('/dashboard');
+        // 预取排行榜数据
+        prefetchLeaderboard(20);
+        // 预取服务统计
+        prefetchServiceStats();
+      }
+    }, 3000); // 延迟 3 秒，确保首屏渲染完成
+  }, [isAuthenticated]);
+
+  // 此组件不渲染任何内容
+  return null;
+}

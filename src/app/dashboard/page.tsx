@@ -8,6 +8,7 @@ import dynamic from 'next/dynamic';
 import { AnnouncementModal } from '../components/AnnouncementModal';
 import { ServiceStats } from '../components/ServiceStats';
 import { MenuGuide } from './components/MenuGuide';
+import { getPrefetchedData, prefetchRksData, prefetchLeaderboard, prefetchServiceStats, runWhenIdle, shouldPreload, prefetchPage } from '../lib/utils/preload';
 
 // 按需动态加载各功能组件，避免首屏加载与执行过多 JS
 const BnImageGenerator = dynamic(() => import('../components/BnImageGenerator').then(m => m.BnImageGenerator), { ssr: false, loading: () => null });
@@ -35,37 +36,77 @@ export default function Dashboard() {
     try { return localStorage.getItem(AGREEMENT_KEY) === 'true'; } catch { return false; }
   });
 
-  // 在首屏完成交互后，空闲时预热其它 Tab 的动态 chunk，避免首次切换时卡顿
-  // 使用 requestIdleCallback（回退到 setTimeout），确保不阻塞首屏渲染
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const idle = (cb: () => void) => {
-      try {
-        // 在浏览器空闲时执行；优先使用 requestIdleCallback，回退到 setTimeout
-        const ric = (window as any).requestIdleCallback;
-        return typeof ric === 'function' ? ric(cb) : setTimeout(cb, 0);
-      } catch {
-        return setTimeout(cb, 0);
-      }
-    };
-    try {
-      // 遵循省流偏好设置，避免在用户要求节省数据时进行预热下载
-      // 与品牌字体加载逻辑保持一致
-      const nav: any = (navigator as any);
-      if (nav && nav.connection && nav.connection.saveData) return;
-      if (window.matchMedia && window.matchMedia('(prefers-reduced-data: reduce)').matches) return;
-    } catch {}
+  // 预取关键数据（如果尚未预取）
+  const { credential } = useAuth();
 
-    idle(() => {
-      // 与 dynamic import 的路径保持一致，保证共享相同的分包 chunk
+  // 分阶段预加载策略：
+  // 阶段1（立即）：预热当前 Tab 相关组件
+  // 阶段2（500ms后）：预热其他 Tab 组件
+  // 阶段3（1500ms后）：预取 API 数据
+  // 阶段4（3000ms后）：预取其他页面
+  useEffect(() => {
+    if (typeof window === 'undefined' || !shouldPreload()) return;
+
+    // 阶段1：立即预热当前 Tab（best-n）相关组件
+    runWhenIdle(() => {
       import('../components/BnImageGenerator');
-      import('../components/SongSearchGenerator');
-      import('../components/RksRecordsList');
-      import('../components/SongUpdateCard');
-      import('../components/PlayerScoreRenderer');
-      import('../components/LeaderboardPanel');
-    });
-  }, []);
+    }, 100);
+
+    // 阶段2：500ms 后预热其他 Tab 组件
+    const stage2Timer = setTimeout(() => {
+      runWhenIdle(() => {
+        // 按使用频率排序预加载
+        import('../components/RksRecordsList');      // RKS 列表 - 常用
+        import('../components/SongSearchGenerator'); // 单曲查询 - 常用
+        import('../components/LeaderboardPanel');    // 排行榜 - 常用
+        import('../components/SongUpdateCard');      // 新曲速递 - 较少用
+        import('../components/PlayerScoreRenderer'); // 玩家成绩渲染 - 较少用
+      });
+    }, 500);
+
+    // 阶段3：1500ms 后预取 API 数据
+    const stage3Timer = setTimeout(() => {
+      if (!isAuthenticated || !credential) return;
+      
+      runWhenIdle(() => {
+        // 预取 RKS 数据
+        const rksKey = `rks_${credential.type}`;
+        if (!getPrefetchedData(rksKey)) {
+          prefetchRksData(credential);
+        }
+
+        // 预取排行榜数据
+        const leaderboardKey = 'leaderboard_top_20';
+        if (!getPrefetchedData(leaderboardKey)) {
+          prefetchLeaderboard(20);
+        }
+
+        // 预取服务统计数据
+        const statsKey = 'service_stats';
+        if (!getPrefetchedData(statsKey)) {
+          prefetchServiceStats();
+        }
+      });
+    }, 1500);
+
+    // 阶段4：3000ms 后预取其他页面
+    const stage4Timer = setTimeout(() => {
+      runWhenIdle(() => {
+        // 预取用户可能访问的其他页面
+        prefetchPage('/about');
+        prefetchPage('/qa');
+        prefetchPage('/sponsors');
+        prefetchPage('/privacy');
+        prefetchPage('/agreement');
+      });
+    }, 3000);
+
+    return () => {
+      clearTimeout(stage2Timer);
+      clearTimeout(stage3Timer);
+      clearTimeout(stage4Timer);
+    };
+  }, [isAuthenticated, credential]);
 
   useEffect(() => {
     // 与 AuthContext 中的 AGREEMENT_KEY 保持一致

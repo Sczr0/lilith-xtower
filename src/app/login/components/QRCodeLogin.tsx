@@ -11,6 +11,7 @@ import {
   requestTapTapDeviceCode,
 } from '../../lib/taptap/qrLogin';
 import QRCode from 'qrcode';
+import { getPreloadedQrData, clearPreloadedQrData } from '../../lib/utils/preload';
 
 interface QRCodeLoginProps {
   taptapVersion: TapTapVersion;
@@ -51,7 +52,16 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
       const controller = new AbortController();
       pollAbortRef.current = controller;
 
-      const codeData: QrCodeData = await requestTapTapDeviceCode(version, controller.signal);
+      // 尝试使用预加载的二维码数据
+      let codeData: QrCodeData;
+      const preloadedData = getPreloadedQrData(version);
+      if (preloadedData && typeof preloadedData === 'object' && 'deviceCode' in preloadedData) {
+        codeData = preloadedData as QrCodeData;
+        // 清除已使用的预加载数据
+        clearPreloadedQrData(version);
+      } else {
+        codeData = await requestTapTapDeviceCode(version, controller.signal);
+      }
 
       setQrCodeImage(codeData.qrcodeUrl);
       try {
