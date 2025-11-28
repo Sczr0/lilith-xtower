@@ -183,7 +183,20 @@ export function RksHistoryPanel({ showTitle = true }: RksHistoryPanelProps) {
 
   const { current_rks, peak_rks, items, total } = historyData;
   const gap = peak_rks - current_rks;
-  const displayItems = isExpanded ? items.slice(0, loadedCount) : items.slice(0, 5);
+  
+  // 只保留有实际变化的记录（rks_jump !== 0）
+  const changedItems = useMemo(() => items.filter(item => item.rks_jump !== 0), [items]);
+  const displayItems = isExpanded ? changedItems.slice(0, loadedCount) : changedItems.slice(0, 5);
+  
+  // 计算距离上次变化的时间
+  const lastChangeTime = changedItems.length > 0 ? changedItems[0].created_at : null;
+  const daysSinceLastChange = useMemo(() => {
+    if (!lastChangeTime) return null;
+    const lastDate = new Date(lastChangeTime);
+    const now = new Date();
+    const diffMs = now.getTime() - lastDate.getTime();
+    return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  }, [lastChangeTime]);
 
   return (
     <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md border border-gray-200/60 dark:border-gray-700/60 rounded-2xl p-6 shadow-lg mb-6">
@@ -215,15 +228,30 @@ export function RksHistoryPanel({ showTitle = true }: RksHistoryPanelProps) {
         </div>
       </div>
 
-      {/* 趋势图 */}
+      {/* 距上次变化提示 */}
+      {daysSinceLastChange !== null && daysSinceLastChange > 0 && (
+        <div className="mb-4 px-4 py-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
+          <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="text-sm">
+              距离上次 RKS 变化已过去 <strong>{daysSinceLastChange}</strong> 天
+              {daysSinceLastChange >= 7 && '，继续加油！'}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* 趋势图 - 只使用有变化的数据点 */}
       <div className="mb-6">
         <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">RKS 趋势</div>
         <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-4">
-          <RksLineChart items={items.slice(0, 30)} />
+          <RksLineChart items={changedItems.slice(0, 30)} />
         </div>
       </div>
 
-      {/* 历史记录列表 */}
+      {/* 历史记录列表 - 只显示有变化的记录 */}
       <div>
         <button
           onClick={() => setIsExpanded(!isExpanded)}
@@ -237,44 +265,60 @@ export function RksHistoryPanel({ showTitle = true }: RksHistoryPanelProps) {
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
-          最近变化记录 (共 {total} 条)
+          RKS 变化记录 (共 {changedItems.length} 次变化)
         </button>
 
-        <div className={`space-y-2 overflow-hidden transition-all duration-300 ${isExpanded ? 'max-h-[500px] overflow-y-auto' : 'max-h-[200px]'}`}>
-          {displayItems.map((item, index) => (
-            <div
-              key={`${item.created_at}-${index}`}
-              className="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-gray-900/30 rounded-lg"
-            >
-              <div className="text-sm text-gray-600 dark:text-gray-400">
-                {formatTime(item.created_at)}
-              </div>
-              <div className="flex items-center gap-4">
-                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                  {item.rks.toFixed(2)}
-                </span>
-                <span className={`text-sm font-medium ${
-                  item.rks_jump > 0 
-                    ? 'text-green-600 dark:text-green-400' 
-                    : item.rks_jump < 0 
-                      ? 'text-red-600 dark:text-red-400' 
-                      : 'text-gray-500 dark:text-gray-400'
-                }`}>
-                  {item.rks_jump > 0 ? '+' : ''}{item.rks_jump.toFixed(2)}
-                </span>
-              </div>
+        {changedItems.length === 0 ? (
+          <div className="text-center py-4 text-gray-500 dark:text-gray-400 text-sm">
+            暂无 RKS 变化记录
+          </div>
+        ) : (
+          <>
+            <div className={`space-y-2 overflow-hidden transition-all duration-300 ${isExpanded ? 'max-h-[500px] overflow-y-auto' : 'max-h-[200px]'}`}>
+              {displayItems.map((item, index) => (
+                <div
+                  key={`${item.created_at}-${index}`}
+                  className="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-gray-900/30 rounded-lg"
+                >
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    {formatTime(item.created_at)}
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {item.rks.toFixed(2)}
+                    </span>
+                    <span className={`text-sm font-medium ${
+                      item.rks_jump > 0
+                        ? 'text-green-600 dark:text-green-400'
+                        : 'text-red-600 dark:text-red-400'
+                    }`}>
+                      {item.rks_jump > 0 ? '+' : ''}{item.rks_jump.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
 
-        {/* 加载更多按钮 */}
-        {isExpanded && loadedCount < total && items.length < total && (
-          <button
-            onClick={loadMore}
-            className="w-full mt-3 py-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
-          >
-            加载更多
-          </button>
+            {/* 加载更多按钮 */}
+            {isExpanded && loadedCount < changedItems.length && (
+              <button
+                onClick={() => setLoadedCount(prev => prev + 20)}
+                className="w-full mt-3 py-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
+              >
+                显示更多
+              </button>
+            )}
+            
+            {/* 如果已加载的变化记录不够，且还有更多原始数据可加载 */}
+            {isExpanded && changedItems.length < total && items.length < total && (
+              <button
+                onClick={loadMore}
+                className="w-full mt-3 py-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
+              >
+                加载更多历史数据
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>
