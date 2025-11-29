@@ -384,7 +384,73 @@ export function LeaderboardPanel() {
           </div>
         )}
 
-        <div className="mt-4 overflow-x-auto">
+        {/* 移动端卡片列表 */}
+        <div className="mt-4 space-y-3 md:hidden">
+          {topItems.map((item) => (
+            <div
+              key={`mobile-${item.rank}-${item.user}`}
+              className="rounded-xl border border-gray-200 bg-white/80 p-4 transition-colors hover:border-blue-300 dark:border-neutral-700 dark:bg-neutral-900/60 dark:hover:border-blue-700/60"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  {renderRankBadge(item.rank)}
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className={`text-sm font-medium truncate ${
+                        item.alias
+                          ? 'text-gray-900 dark:text-gray-100'
+                          : 'text-gray-400 dark:text-gray-500'
+                      }`}
+                    >
+                      {item.alias ?? '未设置别名'}
+                    </p>
+                    <code className="mt-1 inline-block rounded-md bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600 dark:bg-neutral-800 dark:text-gray-300">
+                      {`${item.user.substring(0, 8)}…`}
+                    </code>
+                  </div>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-lg font-semibold text-blue-600 dark:text-blue-400">
+                    {item.score.toFixed(4)}
+                  </p>
+                  {item.rank <= 3 && (
+                    <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-600 dark:border-blue-800/60 dark:bg-blue-900/20 dark:text-blue-200">
+                      TOP {item.rank}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="mt-3 flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <span>最近同步 {formatDateTime(item.updated_at)}</span>
+              </div>
+            </div>
+          ))}
+
+          {topItems.length === 0 && !isTopLoading && (
+            <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-gray-200 bg-white/60 px-4 py-12 text-center text-sm text-gray-500 dark:border-neutral-700 dark:bg-neutral-900/40 dark:text-gray-400">
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M9 17v-6m6 6V5M5 21h14M13 13l2-2m0 0l2 2m-2-2v8"
+                />
+              </svg>
+              暂无排行榜数据，请稍后重试
+            </div>
+          )}
+        </div>
+
+        {/* 桌面端表格 */}
+        <div className="mt-4 hidden overflow-x-auto md:block">
           <table className="min-w-full text-sm">
             <thead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
               <tr className="border-b border-gray-200/70 dark:border-neutral-800/70">
@@ -398,7 +464,7 @@ export function LeaderboardPanel() {
             <tbody className="divide-y divide-gray-100/70 dark:divide-neutral-800/70">
               {topItems.map((item) => (
                 <tr
-                  key={`${item.rank}-${item.user}`}
+                  key={`desktop-${item.rank}-${item.user}`}
                   className="bg-white/80 transition-colors hover:bg-blue-50/60 dark:bg-neutral-900/60 dark:hover:bg-blue-900/20"
                 >
                   <td className="px-4 py-3">
@@ -566,13 +632,13 @@ export function LeaderboardPanel() {
               value={aliasInput}
               onChange={(event) => setAliasInput(event.target.value)}
               placeholder="输入新的别名"
-              className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-gray-100"
+              className="flex-1 min-w-0 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-gray-100"
             />
             <button
               type="button"
               onClick={handleAliasUpdate}
               disabled={isAliasUpdating}
-              className={buttonStyles.secondary}
+              className={`${buttonStyles.secondary} flex-shrink-0 whitespace-nowrap`}
             >
               {isAliasUpdating ? (
                 <>
