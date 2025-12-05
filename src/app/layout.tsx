@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import fs from "node:fs";
-import path from "node:path";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "./components/ThemeProvider";
@@ -14,7 +12,7 @@ import Script from "next/script";
 import WebVitals from "./components/WebVitals";
 import { TipsProvider } from "./components/TipsProvider";
 import { PromoBanner } from "./components/PromoBanner";
-// Removed fs/path – agreement HTML now loaded on demand in AuthProvider via manifest
+import { SITE_URL } from "./utils/site-url";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -26,36 +24,33 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const rawSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-const SITE_URL = rawSiteUrl
-  ? (rawSiteUrl.startsWith('http://') || rawSiteUrl.startsWith('https://')
-      ? rawSiteUrl
-      : `https://${rawSiteUrl}`)
-  : "https://lilith.xtower.site";
-
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
     default: "Phigros Query",
     template: "%s | Phigros Query",
   },
-  description: "Phigros Query是一个由空间站「塔弦」主导制作的一个Phigros游戏成绩查询工具，全内容由LLM开发，并提供RKS查看、Best N查询、Best N 成绩图表生成和数据分析服务，支持多种登录方式。",
-  keywords: ["Phigros", "成绩查询", "RKS", "Best N", "图片生成", "塔弦"],
+  description:
+    "Phigros Query 是面向 Phigros 玩家的成绩查询与数据分析工具，提供 RKS 计算、Best N 成绩卡生成、单曲成绩查看与分享。",
+  keywords: ["Phigros", "RKS 计算", "Best N", "成绩查询", "成绩卡片", "谱面数据", "成绩导出", "玩家工具"],
   alternates: {
-    canonical: '/',
+    canonical: "/",
   },
   openGraph: {
     type: "website",
     url: "/",
     title: "Phigros Query",
-    description: "Phigros Query是一个由空间站「塔弦」主导制作的一个Phigros游戏成绩查询工具，全内容由LLM开发，并提供RKS查看、Best N查询、Best N 成绩图表生成和数据分析服务，支持多种登录方式。",
+    description:
+      "Phigros Query 是面向 Phigros 玩家的成绩查询与数据分析工具，提供 RKS 计算、Best N 成绩卡生成、单曲成绩查看与分享。",
     siteName: "Phigros Query",
+    locale: "zh_CN",
     images: [{ url: "/og", width: 1200, height: 630 }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Phigros Query",
-    description: "Phigros Query是一个由空间站「塔弦」主导制作的一个Phigros游戏成绩查询工具，全内容由LLM开发，并提供RKS查看、Best N查询、Best N 成绩图表生成和数据分析服务，支持多种登录方式。",
+    description:
+      "Phigros Query 是面向 Phigros 玩家的成绩查询与数据分析工具，提供 RKS 计算、Best N 成绩卡生成、单曲成绩查看与分享。",
     images: ["/og"],
   },
 };
@@ -65,39 +60,7 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // 允许通过环境变量逗号分隔指定需要预加载的 CSS 路径（部署期注入，以避免哈希失配）
-  const cssPreloadRaw = process.env.NEXT_PUBLIC_PRELOAD_CSS || "";
-  const cssPreloads = cssPreloadRaw
-    .split(",")
-    .map((s) => s.trim())
-    .filter((s) => s && s.startsWith("/"));
-
-  // 如未通过环境变量提供，则优先读取构建阶段生成的 .next/static/preload-css.json（与当前构建强一致）
-  if (cssPreloads.length === 0) {
-    try {
-      const pNext = path.join(process.cwd(), ".next", "static", "preload-css.json");
-      if (fs.existsSync(pNext)) {
-        const raw = fs.readFileSync(pNext, "utf8");
-        const json = JSON.parse(raw);
-        const arr = Array.isArray(json?.css) ? json.css : [];
-        for (const href of arr) if (typeof href === "string" && href.startsWith("/")) cssPreloads.push(href);
-      }
-    } catch {}
-  }
-  // 仍未获得，则尝试 public/preload-css.json（兼容旧版本，但存在与构建不同步风险）
-  if (cssPreloads.length === 0) {
-    try {
-      const pPub = path.join(process.cwd(), "public", "preload-css.json");
-      if (fs.existsSync(pPub)) {
-        const raw = fs.readFileSync(pPub, "utf8");
-        const json = JSON.parse(raw);
-        const arr = Array.isArray(json?.css) ? json.css : [];
-        for (const href of arr) if (typeof href === "string" && href.startsWith("/")) cssPreloads.push(href);
-      }
-    } catch {}
-  }
-
-  // 站点源用于 preconnect（提前完成 DNS/TLS/TCP）
+  // 预连接站点与统计域名，减少 DNS/TLS/TCP 开销
   let originHref = SITE_URL;
   try {
     originHref = new URL(SITE_URL).origin;
@@ -106,19 +69,17 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <head>
-        {/* 主题色 - 用于浏览器地址栏和移动端 */}
+        {/* 设置主题色，匹配亮/暗模式 */}
         <meta name="theme-color" content="#2563eb" media="(prefers-color-scheme: light)" />
         <meta name="theme-color" content="#1e40af" media="(prefers-color-scheme: dark)" />
-        {/* 预连接到本站源 */}
+        {/* 关键域名预连接/预获取 */}
         <link rel="preconnect" href={originHref} crossOrigin="anonymous" />
         <link rel="preconnect" href="https://cloud.umami.is" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="//cloud.umami.is" />
-        {/* Umami Cloud API Gateway 预连接，避免 CSP 拦截与提前握手 */}
+        {/* Umami Cloud API Gateway */}
         <link rel="preconnect" href="https://api-gateway.umami.dev" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="//api-gateway.umami.dev" />
-        {/* 预加载本地自托管字体，提升首屏渲染 */}
         {/* font preload removed to reduce blocking download */}
-        {/* 指定 host-url 以避免脚本转发到 api-gateway 导致的跨域问题 */}
         <Script
           src="https://cloud.umami.is/script.js"
           data-website-id="fcb3f5e6-8b71-4abe-bf83-684c3690b476"
@@ -126,11 +87,6 @@ export default function RootLayout({
           data-domains="lilith.xtower.site"
           strategy="lazyOnload"
         />
-        {/* 按需预加载首屏关键 CSS（仅当设置 NEXT_PUBLIC_PRELOAD_CSS 时注入） */}
-        {cssPreloads.map((href) => (
-          <link key={href} rel="preload" as="style" href={href} />
-        ))}
-        {/* 延迟加载中文网字计划生成的本地分片 CSS，避免进入 LCP 关键路径 */}
         <Script id="brand-font-loader" strategy="afterInteractive">
           {`
           (function(){

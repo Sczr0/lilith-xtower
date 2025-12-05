@@ -4,10 +4,9 @@
           "private": true,
           "scripts": {
                     "predev": "node scripts/precompile-md.mjs && node scripts/precompile-tips.mjs",
-                    "dev": "next dev --turbopack",
+                    "dev": "next dev",
                     "prebuild": "node scripts/precompile-md.mjs && node scripts/precompile-tips.mjs",
                     "build": "next build",
-                    "postbuild": "node scripts/generate-preload-css.mjs",
                     "preanalyze": "node scripts/precompile-md.mjs && node scripts/precompile-tips.mjs",
                     "analyze": "cross-env ANALYZE=true next build",
                     "start": "next start",
