@@ -1,9 +1,9 @@
 'use client';
 
 import { useAuth } from '../contexts/AuthContext';
-import { ThemeToggle } from '../components/ThemeToggle';
 import Link from 'next/link';
 import { useState } from 'react';
+import { SimpleHeader } from '../components/SimpleHeader';
 
 export default function DebugAuthPage() {
   const { isAuthenticated, credential, isLoading, logout, validateCurrentCredential } = useAuth();
@@ -187,26 +187,7 @@ export default function DebugAuthPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-950">
       {/* Header */}
-      <header className="px-4 lg:px-6 h-14 flex items-center justify-between backdrop-blur-sm bg-white/30 dark:bg-gray-900/30">
-        <div className="flex items-center space-x-4">
-          <Link className="flex items-center justify-center" href="/">
-            <span className="text-lg font-semibold">Phigros 查询</span>
-          </Link>
-          <Link 
-            href="/qa" 
-            className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
-          >
-            常见问题
-          </Link>
-          <Link 
-            href="/login" 
-            className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
-          >
-            登录页面
-          </Link>
-        </div>
-        <ThemeToggle />
-      </header>
+      <SimpleHeader />
 
       {/* Main Content */}
       <main className="flex-1 p-4">

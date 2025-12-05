@@ -1,19 +1,18 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 import { AuthMethod } from '../lib/types/auth';
 import { QRCodeLogin } from './components/QRCodeLogin';
 import { ManualLogin } from './components/ManualLogin';
 import { APILogin } from './components/APILogin';
 import { PlatformLogin } from './components/PlatformLogin';
-import { ThemeToggle } from '../components/ThemeToggle';
 import { AuthStatusBanner } from '../components/AuthStatusBanner';
 import { AuthDetailsModal } from '../components/AuthDetailsModal';
 import { useAuth } from '../contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { AuthStorage } from '../lib/storage/auth';
 import { preloadTapTapQr, runWhenIdle, shouldPreload, prefetchPage } from '../lib/utils/preload';
+import { SimpleHeader } from '../components/SimpleHeader';
 
 export default function LoginPage() {
   const [activeMethod, setActiveMethod] = useState<AuthMethod>('qrcode');
@@ -126,26 +125,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-950 text-gray-900 dark:text-gray-50">
       {/* Header */}
-      <header className="relative z-10 px-4 lg:px-6 h-16 flex items-center justify-between backdrop-blur-sm bg-white/30 dark:bg-gray-900/30 border-b border-gray-200/50 dark:border-gray-700/50">
-        <Link href="/" className="flex items-center justify-center">
-          <span className="text-xl font-bold">Phigros 查询</span>
-        </Link>
-        <div className="flex items-center gap-4">
-          <Link
-            href="/qa"
-            className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
-          >
-            常见问题
-          </Link>
-          <Link
-            href="/about"
-            className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
-          >
-            关于
-          </Link>
-          <ThemeToggle />
-        </div>
-      </header>
+      <SimpleHeader showLogin={false} />
 
       {/* Main Content */}
       <main className="relative z-10 flex-1 flex items-center justify-center p-4 sm:p-6 min-h-[calc(100vh-8rem)]">

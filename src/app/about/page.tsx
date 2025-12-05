@@ -141,7 +141,7 @@ export default async function AboutPage() {
       <main className="px-4 py-10 sm:py-14">
         <div className="mx-auto max-w-4xl space-y-10">
           {/* 顶部：头像 + 昵称（聊天软件风格） */}
-          <section className="flex items-center gap-4">
+          <section className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
             <div className="h-16 w-16 rounded-full overflow-hidden bg-gray-100 dark:bg-neutral-800">
               <Image
                 src={AVATAR_SRC}
@@ -152,7 +152,7 @@ export default async function AboutPage() {
                 priority
               />
             </div>
-            <div>
+            <div className="text-center sm:text-left">
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">弦塔</h1>
               <p className="text-sm text-gray-600 dark:text-gray-400">Phigros 查询 · 主要（现在是唯一）维护者</p>
             </div>

@@ -1,13 +1,10 @@
 'use client';
 
-import Link from 'next/link';
-import { ThemeToggle } from '../components/ThemeToggle';
-import { useAuth } from '../contexts/AuthContext';
 import { useState, useTransition } from 'react';
 import { submitTip } from './actions';
+import { SimpleHeader } from '../components/SimpleHeader';
 
 export default function ContributePage() {
-  const { isAuthenticated, isLoading } = useAuth();
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -32,43 +29,7 @@ export default function ContributePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-950">
       {/* Header */}
-      <header className="relative z-10 px-4 lg:px-6 h-16 flex items-center justify-between backdrop-blur-sm bg-white/30 dark:bg-gray-900/30 border-b border-gray-200/50 dark:border-gray-700/50">
-        <Link href="/" className="flex items-center justify-center">
-          <span className="text-xl font-bold">Phigros 查询</span>
-        </Link>
-        <div className="flex items-center gap-4">
-          <Link
-            href="/qa"
-            className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
-          >
-            常见问题
-          </Link>
-          <Link
-            href="/about"
-            className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
-          >
-            关于
-          </Link>
-          {!isLoading && (
-            isAuthenticated ? (
-              <Link
-                href="/dashboard"
-                className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
-              >
-                仪表盘
-              </Link>
-            ) : (
-              <Link
-                href="/login"
-                className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
-              >
-                登录
-              </Link>
-            )
-          )}
-          <ThemeToggle />
-        </div>
-      </header>
+      <SimpleHeader />
 
       {/* Main Content */}
       <main className="relative z-10 flex-1 p-4 sm:p-6 lg:p-8">
