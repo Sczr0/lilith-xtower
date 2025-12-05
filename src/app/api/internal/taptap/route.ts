@@ -20,13 +20,45 @@ type LeanCloudUserResponse = {
   sessionToken?: string;
 };
 
+type DeviceCodeApiData = {
+  device_code?: string;
+  user_code?: string;
+  qrcode_url?: string;
+  verification_url?: string;
+  interval?: number;
+  expires_in?: number;
+  msg?: string;
+  error?: string;
+};
+
+type DeviceCodeApiResponse = {
+  success?: boolean;
+  data?: DeviceCodeApiData;
+};
+
+type TokenApiResponse = {
+  success?: boolean;
+  data?: TokenResponse & { error?: string; msg?: string };
+};
+
+type TapRequestBody = {
+  action: Action;
+  version?: TapTapVersion;
+  deviceCode?: string;
+  deviceId?: string;
+  interval?: number;
+  timeoutMs?: number;
+  token?: TokenResponse;
+  profile?: TapTapProfile;
+};
+
 // 需要 Node 环境以使用 crypto/hmac 并允许外部网络
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const body = (await req.json()) as TapRequestBody;
     const action: Action = body.action;
     const version: TapTapVersion = body.version || 'cn';
     const config = getTapConfig(version);
@@ -36,8 +68,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(data);
     }
 
-    if (action === 'poll_token') {
-      const data = await pollTokenOnceServer(config, body.deviceCode, body.deviceId);
+  if (action === 'poll_token') {
+    if (!body.deviceCode || !body.deviceId) {
+      return NextResponse.json({ error: 'deviceCode/deviceId required' }, { status: 400 });
+    }
+    const data = await pollTokenOnceServer(config, body.deviceCode, body.deviceId);
       return NextResponse.json(data);
     }
 
@@ -51,13 +86,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ sessionToken });
     }
 
-    if (action === 'complete') {
-      const data = await completeServer(config, body.deviceCode, body.deviceId, body.interval ?? 1000, body.timeoutMs ?? 120000);
-      return NextResponse.json(data);
+  if (action === 'complete') {
+    if (!body.deviceCode || !body.deviceId) {
+      return NextResponse.json({ error: 'deviceCode/deviceId required' }, { status: 400 });
     }
+    const data = await completeServer(config, body.deviceCode, body.deviceId, body.interval ?? 1000, body.timeoutMs ?? 120000);
+    return NextResponse.json(data);
+  }
 
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
-  } catch (err: any) {
+  } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
     return NextResponse.json({ error: msg }, { status: 500 });
   }
@@ -79,18 +117,18 @@ async function requestDeviceCodeServer(config: ReturnType<typeof getTapConfig>):
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: form.toString(),
   });
-  const json: any = await res.json().catch(() => ({}));
+  const json = (await res.json().catch(() => ({}))) as DeviceCodeApiResponse;
   if (!res.ok || !json?.data?.device_code) {
     throw new Error(json?.data?.msg || '获取设备码失败');
   }
-  const data = json.data as any;
+  const data = json.data;
   return {
-    deviceCode: data.device_code,
-    userCode: data.user_code,
-    qrcodeUrl: data.qrcode_url || data.verification_url,
-    verificationUrl: data.verification_url,
-    interval: data.interval ?? 1,
-    expiresIn: data.expires_in ?? 300,
+    deviceCode: data?.device_code ?? '',
+    userCode: data?.user_code ?? '',
+    qrcodeUrl: data?.qrcode_url || data?.verification_url || '',
+    verificationUrl: data?.verification_url ?? '',
+    interval: data?.interval ?? 1,
+    expiresIn: data?.expires_in ?? 300,
     deviceId,
   };
 }
@@ -115,7 +153,7 @@ async function pollTokenOnceServer(
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: form.toString(),
   });
-  const json: any = await res.json().catch(() => ({}));
+  const json = (await res.json().catch(() => ({}))) as TokenApiResponse;
   if (json?.success === true && json?.data) {
     return { status: 'ok', token: json.data as TokenResponse };
   }
@@ -186,12 +224,17 @@ async function loginLeanCloudServer(
   const base = config.leancloudBaseUrl.replace(/\/$/, '');
   const url = base.endsWith('/1.1') ? `${base}/users` : `${base}/1.1/users`;
 
+  const profileWithIds = profile as TapTapProfile & {
+    data?: { openid?: string; unionid?: string };
+    openid?: string;
+    unionid?: string;
+  };
   const openid =
-    (profile as any)?.data?.openid ??
-    (profile as any)?.openid ??
-    (profile as any)?.id;
+    profileWithIds?.data?.openid ??
+    profileWithIds?.openid ??
+    profileWithIds?.id;
   const unionid =
-    (profile as any)?.data?.unionid ?? (profile as any)?.unionid ?? undefined;
+    profileWithIds?.data?.unionid ?? profileWithIds?.unionid ?? undefined;
 
   const authPayload = {
     openid,

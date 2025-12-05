@@ -55,7 +55,7 @@ export function PromoBanner() {
     if (hovering || paused) return;
 
     const ms = promoBannerConfig.autoAdvanceMs ?? 5200;
-    autoPlayTimer.current && clearInterval(autoPlayTimer.current);
+    if (autoPlayTimer.current) clearInterval(autoPlayTimer.current);
     autoPlayTimer.current = setInterval(() => {
       setCurrent((idx) => (idx + 1) % slides.length);
     }, ms);
@@ -72,7 +72,7 @@ export function PromoBanner() {
     if (!slides[current]) return;
 
     const ms = resolveAutoHideMs(slides[current], promoBannerConfig);
-    autoHideTimer.current && clearTimeout(autoHideTimer.current);
+    if (autoHideTimer.current) clearTimeout(autoHideTimer.current);
     autoHideTimer.current = setTimeout(() => setCollapsed(true), ms);
 
     return () => {

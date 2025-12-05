@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { DetailedHTMLProps, HTMLAttributes } from 'react';
 import { RotatingTips } from './RotatingTips';
 import { ScoreAPI } from '../lib/api/score';
 import type { ServiceStatsFeature, ServiceStatsResponse } from '../lib/types/score';

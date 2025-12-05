@@ -163,8 +163,8 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
               { label: 'IN', value: 'IN' },
               { label: 'AT', value: 'AT' },
             ]}
-            value={filterDifficulty as any}
-            onValueChange={(v) => setFilterDifficulty(v)}
+            value={filterDifficulty}
+            onValueChange={(v: string) => setFilterDifficulty(v)}
             placeholder="选择难度"
           />
         </div>
@@ -178,8 +178,8 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
               { label: '准确率', value: 'acc' },
               { label: '谱面定数', value: 'difficulty_value' },
             ]}
-            value={sortBy as any}
-            onValueChange={(v) => setSortBy(v as 'rks' | 'acc' | 'difficulty_value')}
+            value={sortBy}
+            onValueChange={(v: 'rks' | 'acc' | 'difficulty_value') => setSortBy(v)}
             placeholder="选择排序字段"
           />
         </div>
@@ -192,8 +192,8 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
               { label: '降序 (高→低)', value: 'desc' },
               { label: '升序 (低→高)', value: 'asc' },
             ]}
-            value={sortOrder as any}
-            onValueChange={(v) => setSortOrder(v as 'asc' | 'desc')}
+            value={sortOrder}
+            onValueChange={(v: 'asc' | 'desc') => setSortOrder(v)}
             placeholder="选择排序方向"
           />
         </div>

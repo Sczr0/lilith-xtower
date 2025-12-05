@@ -7,7 +7,6 @@ import { useGenerationBusy, useGenerationManager, useGenerationResult } from '..
 import { getOwnerKey } from '../lib/utils/cache';
 import { searchSongId } from '../lib/api/song';
 import { LoadingPlaceholder, LoadingSpinner } from './LoadingIndicator';
-import { RotatingTips } from './RotatingTips';
 
 // 支持通过 showDescription 隐藏组件内的描述，避免与外层重复
 export function SongSearchGenerator({ showTitle = true, showDescription = true }: { showTitle?: boolean; showDescription?: boolean }) {

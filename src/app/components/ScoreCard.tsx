@@ -1,4 +1,5 @@
 import React from 'react';
+import type { CSSProperties } from 'react';
 import { RksRecord } from '../lib/types/score';
 import { DIFFICULTY_BADGE } from '../lib/constants/difficultyColors';
 
@@ -10,7 +11,7 @@ interface ScoreCardProps {
 
 export function ScoreCard({ record, rank, nameMaxLines = 1 }: ScoreCardProps) {
   const nameMultiline = nameMaxLines && nameMaxLines > 1;
-  const nameStyle: any = nameMultiline
+  const nameStyle: CSSProperties | undefined = nameMultiline
     ? { display: '-webkit-box', WebkitLineClamp: nameMaxLines, WebkitBoxOrient: 'vertical', overflow: 'hidden' }
     : undefined;
   return (

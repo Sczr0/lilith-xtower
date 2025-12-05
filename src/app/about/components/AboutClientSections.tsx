@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { ServiceStats } from '../../components/ServiceStats';
-import SponsorsList from '../../components/SponsorsList';
 
 /**
  * About 页面的客户端动态部分

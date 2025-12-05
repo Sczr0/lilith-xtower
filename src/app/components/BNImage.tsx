@@ -126,7 +126,7 @@ export function BNImage({ svgContent, n, onClear }: BNImageProps) {
               { label: '3x (超高清)', value: '3' },
               { label: '4x (极致)', value: '4' },
             ]}
-            value={String(downloadScale) as any}
+            value={String(downloadScale)}
             onValueChange={(v) => setDownloadScale(Number(v))}
             placeholder="选择分辨率"
             disabled={isDownloading}

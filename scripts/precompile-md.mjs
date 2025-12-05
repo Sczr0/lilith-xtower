@@ -5,13 +5,10 @@
 import fs from 'fs';
 import fsp from 'fs/promises';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { createHash } from 'node:crypto';
 import { marked } from 'marked';
 import sanitizeHtml from 'sanitize-html';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 async function ensureDir(dir) {
   await fsp.mkdir(dir, { recursive: true });

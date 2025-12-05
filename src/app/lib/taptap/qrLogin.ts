@@ -231,12 +231,17 @@ export async function loginLeanCloudWithTapTap(
   profile: TapTapProfile,
   token: TokenResponse,
 ): Promise<string> {
+  const profileWithIds = profile as TapTapProfile & {
+    data?: { openid?: string; unionid?: string };
+    openid?: string;
+    unionid?: string;
+  };
   const openid =
-    (profile as any)?.data?.openid ??
-    (profile as any)?.openid ??
-    (profile as any)?.id;
+    profileWithIds?.data?.openid ??
+    profileWithIds?.openid ??
+    profileWithIds?.id;
   const unionid =
-    (profile as any)?.data?.unionid ?? (profile as any)?.unionid ?? undefined;
+    profileWithIds?.data?.unionid ?? profileWithIds?.unionid ?? undefined;
 
   const authPayload = {
     openid,

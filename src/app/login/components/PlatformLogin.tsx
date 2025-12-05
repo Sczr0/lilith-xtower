@@ -84,8 +84,8 @@ export function PlatformLogin() {
               { label: 'OneBotv11', value: 'OneBotv11' },
               { label: 'QQBot', value: 'QQBot' },
             ]}
-            value={formData.platform as any}
-            onValueChange={(v) =>
+            value={formData.platform}
+            onValueChange={(v: string) =>
               setFormData((prev) => ({ ...prev, platform: v }))
             }
             placeholder="选择平台"

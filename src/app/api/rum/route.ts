@@ -13,8 +13,8 @@ export async function POST(req: NextRequest) {
 
     // 基本字段校验与瘦身
     const cleaned = (() => {
-      const d: any = typeof raw === "object" && raw ? raw : {};
-      const name: string = d.name;
+      const d = (typeof raw === "object" && raw !== null ? raw : {}) as Record<string, unknown>;
+      const name = typeof d.name === "string" ? d.name : undefined;
       const value: number | undefined = typeof d.value === "number" ? d.value : undefined;
       const rating: string | undefined = typeof d.rating === "string" ? d.rating : undefined;
       const id: string | undefined = typeof d.id === "string" ? d.id : undefined;
@@ -24,12 +24,13 @@ export async function POST(req: NextRequest) {
       const t: number | undefined = typeof d.t === "number" ? d.t : Date.now();
       const delta: number | undefined = typeof d.delta === "number" ? d.delta : undefined;
       const attribution = (() => {
-        const a: any = d.attribution;
+        const a = d.attribution;
         if (!a || typeof a !== "object") return undefined;
+        const attr = a as Record<string, unknown>;
         const out: Record<string, unknown> = {};
         const take = (k: string, max = 512) => {
-          if (!(k in a)) return;
-          const v = a[k];
+          if (!(k in attr)) return;
+          const v = attr[k];
           if (typeof v === "string") out[k] = v.length > max ? v.slice(0, max) : v;
           else out[k] = v;
         };
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest) {
     })();
 
     // 丢弃非法/异常数据
-    if (!allowedNames.has(cleaned.name as any)) return new Response(null, { status: 204 });
+    if (!cleaned.name || !allowedNames.has(cleaned.name)) return new Response(null, { status: 204 });
     if (typeof cleaned.value !== "number" || Number.isNaN(cleaned.value)) return new Response(null, { status: 204 });
     if (cleaned.path && cleaned.path.length > 1024) cleaned.path = cleaned.path.slice(0, 1024);
 
@@ -62,8 +63,8 @@ export async function POST(req: NextRequest) {
       console.log(
         `[web-vitals] ${cleaned.name}=${cleaned.value} (${cleaned.rating ?? ""}) ${cleaned.path ?? ""} ua=${ua.slice(0,80)} country=${country ?? ""}`
       );
-    } catch (_) {}
-  } catch (_) {}
+    } catch {}
+  } catch {}
   // 无正文 204，便于 sendBeacon 快速返回
   return new Response(null, { status: 204 });
 }

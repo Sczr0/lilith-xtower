@@ -1,10 +1,9 @@
 import { AuthCredential } from '../types/auth';
 import { buildAuthRequestBody } from './auth';
 
-// In browser use same-origin rewrite "/api" to avoid CORS preflight; allow env on server only
-const BASE_URL: string = typeof window !== 'undefined'
-  ? '/api'
-  : ((process.env.NEXT_PUBLIC_API as string) ?? '/api');
+// 在浏览器端使用同源 /api 避免 CORS 预检；仅在服务端允许环境变量覆盖
+const BASE_URL: string =
+  typeof window !== 'undefined' ? '/api' : (process.env.NEXT_PUBLIC_API as string) ?? '/api';
 const DEFAULT_TIMEOUT_MS = 30000;
 
 export type BestNTheme = 'dark' | 'white';
@@ -15,7 +14,7 @@ export class ImageAPI {
     n: number,
     credential: AuthCredential,
     theme: BestNTheme = 'dark',
-    _format: ImageFormat = 'png'
+    format: ImageFormat = 'png',
   ): Promise<Blob> {
     if (!Number.isInteger(n) || n <= 0) {
       throw new Error('N 值必须为正整数');
@@ -25,9 +24,10 @@ export class ImageAPI {
     const body = {
       ...auth,
       n,
-      // 后端主题：white/black；兼容前端值
+      // 后端主题：white/black；兼容前端枚举
       theme: theme === 'white' ? 'white' : 'black',
-    } as any;
+      format,
+    };
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
     const response = await fetch(`${BASE_URL}/image/bn`, {
@@ -59,7 +59,7 @@ export class ImageAPI {
   static async generateBestNSVG(
     n: number,
     credential: AuthCredential,
-    theme: BestNTheme = 'dark'
+    theme: BestNTheme = 'dark',
   ): Promise<string> {
     const blob = await ImageAPI.generateBestNImage(n, credential, theme, 'png');
     // 返回一个 data URL 作为占位
@@ -68,7 +68,7 @@ export class ImageAPI {
 
   static async generateSongImage(
     songQuery: string,
-    credential: AuthCredential
+    credential: AuthCredential,
   ): Promise<Blob> {
     if (!songQuery.trim()) {
       throw new Error('歌曲关键词不能为空');
@@ -78,7 +78,7 @@ export class ImageAPI {
     const body = {
       ...auth,
       song: songQuery,
-    } as any;
+    };
 
     const response = await fetch(`${BASE_URL}/image/song`, {
       method: 'POST',
