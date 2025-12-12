@@ -5,6 +5,7 @@
 
 import type { AuthCredential } from '../types/auth';
 import { buildAuthRequestBody } from '../api/auth';
+import { LeaderboardAPI } from '../api/leaderboard';
 
 // 预取缓存，避免重复请求
 const prefetchCache = new Map<string, { data: unknown; timestamp: number }>();
@@ -138,12 +139,7 @@ export async function prefetchLeaderboard(limit = 20): Promise<void> {
   
   const key = `leaderboard_top_${limit}`;
   await prefetchData(key, async () => {
-    const response = await fetch(`/api/leaderboard/rks/top?limit=${limit}`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    if (!response.ok) throw new Error('Failed to prefetch leaderboard');
-    return response.json();
+    return LeaderboardAPI.getTop({ limit });
   });
 }
 

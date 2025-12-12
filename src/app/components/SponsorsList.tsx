@@ -35,7 +35,7 @@ export default function SponsorsList({ initialPerPage = 12 }: { initialPerPage?:
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/internal/sponsors?page=${nextPage}&per_page=${perPage}`, { cache: 'no-store' });
+      const res = await fetch(`/internal/sponsors?page=${nextPage}&per_page=${perPage}`);
       const data: ApiResponse = await res.json();
       if (data.ec !== 200 || !data.data) throw new Error(data.em || '加载失败');
       const newItems = data.data!.list || [];
