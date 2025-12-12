@@ -31,7 +31,7 @@ const supportLinks = [
   {
     title: '服务监控',
     links: [
-      { name: '数据访问统计', url: 'https://cloud.umami.is/share/GquXbTjndnY5H0ts', external: true },
+      { name: '数据访问统计', url: 'https://cloud.umami.is/share/NsykwU9OjIWMYsb8', external: true },
       { name: '服务可用性监控', url: 'https://stats.uptimerobot.com/cTTBFmsBaZ', external: true }
     ],
     icon: (
