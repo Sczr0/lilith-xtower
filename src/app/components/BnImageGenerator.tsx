@@ -127,7 +127,9 @@ export function BnImageGenerator({
             return url;
           }
 
-          return `/api/internal/svg-resource?url=${encodeURIComponent(url)}`;
+          const base =
+            typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '';
+          return `${base}/api/internal/svg-resource?url=${encodeURIComponent(url)}`;
         });
         return new Blob([rewritten], { type: 'image/svg+xml;charset=utf-8' });
       });

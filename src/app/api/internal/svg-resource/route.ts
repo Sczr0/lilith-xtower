@@ -47,6 +47,10 @@ export async function GET(request: NextRequest) {
         'Content-Type': contentType,
         // 让浏览器以内联方式处理图片资源
         'Content-Disposition': 'inline',
+        // 某些浏览器在 <img src="blob:...svg"> 里加载 <image href> 时会更严格；
+        // 放宽资源策略，避免被 CORP/跨域策略误拦截（资源本身仍由 allowlist 控制）。
+        'Access-Control-Allow-Origin': '*',
+        'Cross-Origin-Resource-Policy': 'cross-origin',
         // next.config.ts 对 /api/:path* 默认 no-store，这里显式设置也保持一致
         'Cache-Control': 'no-store',
       },
@@ -55,4 +59,3 @@ export async function GET(request: NextRequest) {
     return Response.json({ message: 'upstream fetch failed' }, { status: 502 });
   }
 }
-
