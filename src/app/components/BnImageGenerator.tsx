@@ -7,6 +7,7 @@ import { useGenerationBusy, useGenerationManager, useGenerationResult } from '..
 import { getOwnerKey } from '../lib/utils/cache';
 import { StyledSelect } from './ui/Select';
 import { LoadingPlaceholder, LoadingSpinner } from './LoadingIndicator';
+import { rewriteSvgImageHrefs } from '../utils/svgRewrite';
 
 const DEFAULT_N = 27;
 
@@ -112,9 +113,24 @@ export function BnImageGenerator({
 
     try {
       // 使用全局任务管理，避免页面切换中断并阻止同类重复请求；结果由上下文保存
-      await startTask('best-n', () =>
-        ImageAPI.generateBestNImage(parsed, credential, theme, format)
-      );
+      await startTask('best-n', async () => {
+        const blob = await ImageAPI.generateBestNImage(parsed, credential, theme, format);
+        if (format !== 'svg') return blob;
+
+        const svgText = await blob.text();
+        const rewritten = rewriteSvgImageHrefs(svgText, (url) => {
+          // 仅代理已知资源域名，避免错误重写导致更多失败
+          try {
+            const parsed = new URL(url);
+            if (parsed.hostname !== 'somnia.xtower.site') return url;
+          } catch {
+            return url;
+          }
+
+          return `/api/internal/svg-resource?url=${encodeURIComponent(url)}`;
+        });
+        return new Blob([rewritten], { type: 'image/svg+xml;charset=utf-8' });
+      });
       setGeneratedN(parsed);
 
       // 成功展示结果后再开始冷却计时
