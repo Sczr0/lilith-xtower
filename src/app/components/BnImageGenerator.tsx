@@ -212,7 +212,7 @@ export function BnImageGenerator({
     try {
       const blob = await SVGRenderer.renderToImage(
         svgText,
-        { format: 'png', scale: 2, quality: 0.95 },
+        { format: 'png', scale: 2, quality: 0.95, embedImages: 'object', embedImageMaxCount: 500 },
         (p) => setExportProgress(p),
       );
 
