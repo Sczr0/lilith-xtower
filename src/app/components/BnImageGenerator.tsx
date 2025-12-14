@@ -157,6 +157,17 @@ export function BnImageGenerator({
     if (format !== 'svg') return null;
     if (!svgSource) return null;
 
+    const injectStyle = (rawSvg: string, css: string) => {
+      // 优先追加到已有 <style>，避免破坏原 SVG 结构；若不存在则插入新的 <style>
+      if (/<style[\s>]/i.test(rawSvg) && /<\/style>/i.test(rawSvg)) {
+        return rawSvg.replace(/<\/style>/i, `${css}\n</style>`);
+      }
+      if (/<defs[\s>]/i.test(rawSvg) && /<\/defs>/i.test(rawSvg)) {
+        return rawSvg.replace(/<\/defs>/i, `<style>\n${css}\n</style>\n</defs>`);
+      }
+      return rawSvg.replace(/<svg\b([^>]*)>/i, `<svg$1><style>\n${css}\n</style>`);
+    };
+
     // 安全兜底：仅用于 demo 内联预览，避免后端 SVG 被注入脚本/外部对象导致 XSS
     const unsafePatterns: RegExp[] = [
       /<script\b/i,
@@ -170,7 +181,16 @@ export function BnImageGenerator({
       return null;
     }
 
-    return svgSource;
+    // 前端渲染与 Rust 渲染差异：浏览器可能对缺失字重的字体做“伪粗体”合成，导致粗体看起来发黑。
+    // 这里禁用 font-synthesis，并把 700 的字重压到 600，尽量接近后端渲染观感（仅影响 demo 的内联预览）。
+    const cssFix = [
+      '/* Frontend demo fix: reduce synthetic bold/heavy rendering */',
+      '* { font-synthesis: none; }',
+      '.text-score, .text-difficulty-badge, .text-fc-ap-badge, .text-rank-tag { font-weight: 600 !important; }',
+      'svg { text-rendering: geometricPrecision; }',
+    ].join('\n');
+
+    return injectStyle(svgSource, cssFix);
   }, [format, svgSource]);
 
   return (
