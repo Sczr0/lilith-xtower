@@ -3,6 +3,7 @@ export interface RenderOptions {
   quality?: number;
   scale?: number;
   backgroundColor?: string;
+  baseUrl?: string;
   // 是否在渲染前将 SVG 内的外链图片(<image href>)抓取并内联为 data:URL
   // 目的：避免导出到 canvas 时外链图片因跨域/安全策略不参与渲染，导致导出缺图。
   //
@@ -32,7 +33,7 @@ export function injectSvgImageCrossOrigin(svgText: string): string {
   // 只对带 http(s) href/xlink:href 且未声明 crossorigin 的 <image> 注入。
   return svgText.replace(/<image\b[^>]*>/gi, (tag) => {
     if (/\bcrossorigin\s*=/i.test(tag)) return tag;
-    if (!/\b(?:href|xlink:href)\s*=\s*["']https?:\/\//i.test(tag)) return tag;
+    if (!/\b(?:href|xlink:href)\s*=\s*["'](?:https?:\/\/|\/\/)/i.test(tag)) return tag;
     return tag.replace(/<image\b/i, '<image crossorigin="anonymous"');
   });
 }
@@ -54,19 +55,69 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 }
 
 type SvgImageRef = {
-  url: string;
+  originalUrl: string;
+  fetchUrl: string;
 };
 
-function collectExternalSvgImages(svgText: string): SvgImageRef[] {
-  const urls = new Set<string>();
+function normalizeSvgImageHref(rawHref: string, baseUrl?: string): string | null {
+  const href = rawHref.trim();
+  if (!href) return null;
+  if (/^(data:|blob:)/i.test(href)) return null;
+  if (href.startsWith('#')) return null;
+  if (/^https?:\/\//i.test(href)) return href;
+  if (/^\/\//.test(href)) {
+    const protocol =
+      typeof window !== 'undefined' && window.location?.protocol ? window.location.protocol : 'https:';
+    return `${protocol}${href}`;
+  }
+
+  const effectiveBase =
+    baseUrl ??
+    (typeof document !== 'undefined' && document.baseURI ? document.baseURI : undefined);
+  if (!effectiveBase) return null;
+
+  try {
+    return new URL(href, effectiveBase).toString();
+  } catch {
+    return null;
+  }
+}
+
+function getFetchInitForUrl(url: string): RequestInit {
+  // æ³¨æ„ï¼šåŒæºèµ„æºå¯èƒ½éœ€è¦ cookie/å‡­è¯æ‰èƒ½è®¿é—®ï¼ˆä¾‹å¦‚ /api ä»£ç†å±‚ï¼‰ï¼Œè¿™é‡Œä¼˜å…ˆåŒæºå¸¦å‡­è¯ã€?
+  if (typeof window === 'undefined') {
+    return { method: 'GET' };
+  }
+
+  try {
+    const target = new URL(url);
+    if (target.origin === window.location.origin) {
+      return { method: 'GET', mode: 'same-origin', credentials: 'include' };
+    }
+    return { method: 'GET', mode: 'cors', credentials: 'omit' };
+  } catch {
+    return { method: 'GET' };
+  }
+}
+
+function collectExternalSvgImages(svgText: string, baseUrl?: string): SvgImageRef[] {
+  const seenOriginal = new Set<string>();
+  const refs: SvgImageRef[] = [];
   const regex = /<image\b[^>]*\s(?:href|xlink:href)\s*=\s*(["'])([^"']+)\1[^>]*>/gi;
   let match: RegExpExecArray | null;
   while ((match = regex.exec(svgText))) {
-    const url = match[2] ?? '';
-    if (/^https?:\/\//i.test(url)) urls.add(url);
+    const originalUrl = match[2] ?? '';
+    if (!originalUrl) continue;
+    if (seenOriginal.has(originalUrl)) continue;
+
+    const fetchUrl = normalizeSvgImageHref(originalUrl, baseUrl);
+    if (!fetchUrl) continue;
+
+    seenOriginal.add(originalUrl);
+    refs.push({ originalUrl, fetchUrl });
   }
 
-  return Array.from(urls).map((url) => ({ url }));
+  return refs;
 }
 
 function escapeRegExp(input: string): string {
@@ -75,15 +126,15 @@ function escapeRegExp(input: string): string {
 
 export async function inlineSvgExternalImages(
   svgText: string,
-  options: { maxCount: number; onProgress?: (done: number, total: number) => void },
+  options: { maxCount: number; baseUrl?: string; onProgress?: (done: number, total: number) => void },
 ): Promise<string> {
-  const refs = collectExternalSvgImages(svgText);
+  const refs = collectExternalSvgImages(svgText, options.baseUrl);
   if (refs.length === 0) return svgText;
   if (refs.length > options.maxCount) {
     throw new Error(`SVG 外链图片过多（${refs.length}），请降低 N 或关闭内联导出。`);
   }
 
-  const cache = new Map<string, string>(); // url -> dataURL
+  const cache = new Map<string, string>(); // fetchUrl -> dataURL
   let done = 0;
   const total = refs.length;
 
@@ -98,18 +149,18 @@ export async function inlineSvgExternalImages(
 
   let out = svgText;
 
-  for (const { url } of refs) {
-    if (!cache.has(url)) {
-      const res = await fetch(url, { method: 'GET', mode: 'cors', credentials: 'omit' });
-      if (!res.ok) throw new Error(`抓取图片失败：${res.status} ${url}`);
+  for (const { originalUrl, fetchUrl } of refs) {
+    if (!cache.has(fetchUrl)) {
+      const res = await fetch(fetchUrl, getFetchInitForUrl(fetchUrl));
+      if (!res.ok) throw new Error(`抓取图片失败：${res.status} ${fetchUrl}`);
       const contentType = res.headers.get('content-type') ?? 'application/octet-stream';
       const buf = await res.arrayBuffer();
       const b64 = arrayBufferToBase64(buf);
-      cache.set(url, `data:${contentType};base64,${b64}`);
+      cache.set(fetchUrl, `data:${contentType};base64,${b64}`);
     }
 
-    const dataUrl = cache.get(url)!;
-    out = replaceUrl(out, url, dataUrl);
+    const dataUrl = cache.get(fetchUrl)!;
+    out = replaceUrl(out, originalUrl, dataUrl);
 
     done += 1;
     options.onProgress?.(done, total);
@@ -123,6 +174,7 @@ export async function embedSvgExternalImagesAsObjectUrls(
   options: {
     maxCount: number;
     concurrency: number;
+    baseUrl?: string;
     onProgress?: (done: number, total: number) => void;
   },
 ): Promise<{ svgText: string; revoke: () => void }> {
@@ -130,7 +182,7 @@ export async function embedSvgExternalImagesAsObjectUrls(
     throw new Error('当前环境不支持 URL.createObjectURL');
   }
 
-  const refs = collectExternalSvgImages(svgText);
+  const refs = collectExternalSvgImages(svgText, options.baseUrl);
   if (refs.length === 0) return { svgText, revoke: () => {} };
   if (refs.length > options.maxCount) {
     throw new Error(`SVG 外链图片过多（${refs.length}），请降低 N 或改用分页导出。`);
@@ -139,7 +191,8 @@ export async function embedSvgExternalImagesAsObjectUrls(
   const concurrency = Math.max(1, Math.min(16, Math.floor(options.concurrency)));
 
   const objectUrls: string[] = [];
-  const mapping = new Map<string, string>(); // url -> blobUrl
+  const blobByFetchUrl = new Map<string, string>(); // fetchUrl -> blobUrl
+  const blobByOriginalUrl = new Map<string, string>(); // originalUrl -> blobUrl
 
   let done = 0;
   const total = refs.length;
@@ -159,23 +212,28 @@ export async function embedSvgExternalImagesAsObjectUrls(
     );
 
   // 简单并发池
-  const queue = refs.map((r) => r.url);
+  const queue = refs.slice();
   const workers = Array.from({ length: concurrency }, async () => {
     while (queue.length) {
-      const url = queue.shift();
-      if (!url) return;
-      if (mapping.has(url)) {
+      const ref = queue.shift();
+      if (!ref) return;
+      const { originalUrl, fetchUrl } = ref;
+      if (blobByOriginalUrl.has(originalUrl)) {
         done += 1;
         options.onProgress?.(done, total);
         continue;
       }
 
-      const res = await fetch(url, { method: 'GET', mode: 'cors', credentials: 'omit' });
-      if (!res.ok) throw new Error(`抓取图片失败：${res.status} ${url}`);
-      const blob = await res.blob();
-      const objUrl = URL.createObjectURL(blob);
-      objectUrls.push(objUrl);
-      mapping.set(url, objUrl);
+      if (!blobByFetchUrl.has(fetchUrl)) {
+        const res = await fetch(fetchUrl, getFetchInitForUrl(fetchUrl));
+        if (!res.ok) throw new Error(`抓取图片失败：${res.status} ${fetchUrl}`);
+        const blob = await res.blob();
+        const objUrl = URL.createObjectURL(blob);
+        objectUrls.push(objUrl);
+        blobByFetchUrl.set(fetchUrl, objUrl);
+      }
+
+      blobByOriginalUrl.set(originalUrl, blobByFetchUrl.get(fetchUrl)!);
 
       done += 1;
       options.onProgress?.(done, total);
@@ -185,7 +243,7 @@ export async function embedSvgExternalImagesAsObjectUrls(
   try {
     await Promise.all(workers);
     let out = svgText;
-    for (const [from, to] of mapping.entries()) {
+    for (const [from, to] of blobByOriginalUrl.entries()) {
       out = replaceAll(out, from, to);
     }
     return { svgText: out, revoke };
@@ -276,6 +334,7 @@ export class SVGRenderer {
       quality = 0.95,
       scale = 2,
       backgroundColor,
+      baseUrl,
       inlineImages = false,
       inlineImageMaxCount = 300,
       embedImages = 'data',
@@ -294,6 +353,7 @@ export class SVGRenderer {
       onProgress?.({ stage: 'fetching-images', progress: 10 });
       normalizedSvgText = await inlineSvgExternalImages(svgText, {
         maxCount: inlineImages ? inlineImageMaxCount : embedImageMaxCount,
+        baseUrl,
         onProgress: (done, total) => {
           const p = 10 + Math.round((done / Math.max(1, total)) * 35);
           onProgress?.({ stage: 'fetching-images', progress: Math.min(45, p) });
@@ -304,6 +364,7 @@ export class SVGRenderer {
       const embedded = await embedSvgExternalImagesAsObjectUrls(svgText, {
         maxCount: embedImageMaxCount,
         concurrency: embedImageConcurrency,
+        baseUrl,
         onProgress: (done, total) => {
           const p = 10 + Math.round((done / Math.max(1, total)) * 35);
           onProgress?.({ stage: 'fetching-images', progress: Math.min(45, p) });
