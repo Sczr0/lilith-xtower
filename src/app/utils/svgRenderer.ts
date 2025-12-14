@@ -278,8 +278,8 @@ export class SVGRenderer {
       backgroundColor,
       inlineImages = false,
       inlineImageMaxCount = 300,
-      embedImages = 'none',
-      embedImageConcurrency = 10,
+      embedImages = 'data',
+      embedImageConcurrency = 50,
       embedImageMaxCount = 500,
     } = options;
 
