@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseSvgDimensions } from '../svgRenderer';
+import { injectSvgImageCrossOrigin, parseSvgDimensions } from '../svgRenderer';
 
 describe('parseSvgDimensions', () => {
   it('parses width/height attributes', () => {
@@ -17,3 +17,23 @@ describe('parseSvgDimensions', () => {
   });
 });
 
+describe('injectSvgImageCrossOrigin', () => {
+  it('injects crossorigin for external image href', () => {
+    const svg =
+      '<svg xmlns="http://www.w3.org/2000/svg"><image href="https://somnia.xtower.site/a.png" /></svg>';
+    const patched = injectSvgImageCrossOrigin(svg);
+    expect(patched).toContain('<image crossorigin="anonymous"');
+  });
+
+  it('does not touch data urls', () => {
+    const svg =
+      '<svg xmlns="http://www.w3.org/2000/svg"><image href="data:image/png;base64,xxx" /></svg>';
+    expect(injectSvgImageCrossOrigin(svg)).toEqual(svg);
+  });
+
+  it('does not overwrite existing crossorigin', () => {
+    const svg =
+      '<svg xmlns="http://www.w3.org/2000/svg"><image crossorigin="use-credentials" href="https://somnia.xtower.site/a.png" /></svg>';
+    expect(injectSvgImageCrossOrigin(svg)).toContain('crossorigin="use-credentials"');
+  });
+});

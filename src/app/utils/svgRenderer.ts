@@ -10,6 +10,16 @@ export interface RenderProgress {
   progress: number;
 }
 
+export function injectSvgImageCrossOrigin(svgText: string): string {
+  // 将 SVG 内 <image> 的外链资源按 CORS 模式加载，否则 canvas 可能被污染（tainted）导致无法导出。
+  // 只对带 http(s) href/xlink:href 且未声明 crossorigin 的 <image> 注入。
+  return svgText.replace(/<image\b[^>]*>/gi, (tag) => {
+    if (/\bcrossorigin\s*=/i.test(tag)) return tag;
+    if (!/\b(?:href|xlink:href)\s*=\s*["']https?:\/\//i.test(tag)) return tag;
+    return tag.replace(/<image\b/i, '<image crossorigin="anonymous"');
+  });
+}
+
 export function parseSvgDimensions(svgText: string): { width: number; height: number } | null {
   const svgTagMatch = svgText.match(/<svg\b[^>]*>/i);
   if (!svgTagMatch) return null;
@@ -127,7 +137,8 @@ export class SVGRenderer {
       ctx.fillRect(0, 0, width, height);
     }
 
-    const blob = new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' });
+    const patchedSvgText = injectSvgImageCrossOrigin(svgText);
+    const blob = new Blob([patchedSvgText], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
 
     try {
