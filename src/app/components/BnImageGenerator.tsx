@@ -7,6 +7,7 @@ import { useGenerationBusy, useGenerationManager, useGenerationResult } from '..
 import { getOwnerKey } from '../lib/utils/cache';
 import { StyledSelect } from './ui/Select';
 import { LoadingPlaceholder, LoadingSpinner } from './LoadingIndicator';
+import { SVGRenderer, type RenderProgress } from '../utils/svgRenderer';
 
 const DEFAULT_N = 27;
 
@@ -41,6 +42,8 @@ export function BnImageGenerator({
   const [svgSource, setSvgSource] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [nextUpdateAt, setNextUpdateAt] = useState<number | null>(null);
+  const [exportProgress, setExportProgress] = useState<RenderProgress | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -193,6 +196,46 @@ export function BnImageGenerator({
     return injectStyle(svgSource, cssFix);
   }, [format, svgSource]);
 
+  const handleExportPng = async () => {
+    if (format !== 'svg') return;
+    if (!svgSource) {
+      setExportError('未找到 SVG 内容，请先生成一次。');
+      return;
+    }
+
+    // 优先使用注入过 CSS 修正后的版本，保证与预览一致
+    const svgText = safeInlineSvg ?? svgSource;
+
+    setExportError(null);
+    setExportProgress({ stage: 'loading-fonts', progress: 0 });
+
+    try {
+      const blob = await SVGRenderer.renderToImage(
+        svgText,
+        { format: 'png', scale: 2, quality: 0.95 },
+        (p) => setExportProgress(p),
+      );
+
+      const url = URL.createObjectURL(blob);
+      try {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `best-${generatedN}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : '导出失败';
+      // 常见原因：SVG 内嵌图片跨域无 CORS，导致 canvas 被污染（tainted）或加载失败
+      setExportError(`${message}（若含外链封面，请确认图片服务器允许 CORS 且未设置 CORP=same-origin）`);
+    } finally {
+      setExportProgress(null);
+    }
+  };
+
   return (
     <section className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md border border-gray-200/60 dark:border-gray-700/60 rounded-2xl p-6 shadow-lg w-full max-w-4xl mx-auto">
       <div className="mb-6">
@@ -292,6 +335,15 @@ export function BnImageGenerator({
             >
               {downloadLabel}
             </a>
+            {format === 'svg' && (
+              <button
+                onClick={handleExportPng}
+                disabled={!!exportProgress}
+                className="inline-flex items-center justify-center rounded-lg border border-green-600 px-4 py-2 text-green-700 hover:bg-green-50 disabled:opacity-60 disabled:cursor-not-allowed dark:text-green-300 dark:hover:bg-green-900/20"
+              >
+                {exportProgress ? `导出中：${exportProgress.stage}` : '导出 PNG（本地渲染）'}
+              </button>
+            )}
             <button
               onClick={() => {
                 clearResult('best-n');
@@ -301,6 +353,18 @@ export function BnImageGenerator({
               清除结果
             </button>
           </div>
+
+          {exportError && (
+            <div className="rounded-lg border border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+              {exportError}
+            </div>
+          )}
+
+          {exportProgress && (
+            <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-950/30 px-4 py-3 text-sm text-gray-700 dark:text-gray-200">
+              {`导出进度：${exportProgress.stage}（${exportProgress.progress}%）`}
+            </div>
+          )}
 
           {format === 'svg' && showSvgSource && (
             <details className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 px-4 py-3">

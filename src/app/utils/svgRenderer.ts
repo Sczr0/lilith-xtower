@@ -10,6 +10,48 @@ export interface RenderProgress {
   progress: number;
 }
 
+export function parseSvgDimensions(svgText: string): { width: number; height: number } | null {
+  const svgTagMatch = svgText.match(/<svg\b[^>]*>/i);
+  if (!svgTagMatch) return null;
+
+  const svgTag = svgTagMatch[0];
+
+  const parseSvgLength = (raw: string | undefined): number => {
+    if (!raw) return Number.NaN;
+    const v = raw.trim();
+    // 百分比在 SVG 里属于相对单位，无法直接映射到像素；这里回退到 viewBox
+    if (/%$/.test(v)) return Number.NaN;
+    // 允许纯数字或带 px 的场景（parseFloat 会正确解析）
+    const n = Number.parseFloat(v);
+    if (!Number.isFinite(n)) return Number.NaN;
+    return n;
+  };
+
+  const widthMatch = svgTag.match(/\bwidth\s*=\s*["']([^"']+)["']/i);
+  const heightMatch = svgTag.match(/\bheight\s*=\s*["']([^"']+)["']/i);
+  const viewBoxMatch = svgTag.match(/\bviewBox\s*=\s*["']([^"']+)["']/i);
+
+  const width = parseSvgLength(widthMatch?.[1]);
+  const height = parseSvgLength(heightMatch?.[1]);
+  if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+    return { width, height };
+  }
+
+  if (viewBoxMatch) {
+    const parts = viewBoxMatch[1]
+      .trim()
+      .split(/[\s,]+/)
+      .map((v) => Number.parseFloat(v));
+    if (parts.length === 4 && parts.every((v) => Number.isFinite(v))) {
+      const vbWidth = parts[2];
+      const vbHeight = parts[3];
+      if (vbWidth > 0 && vbHeight > 0) return { width: vbWidth, height: vbHeight };
+    }
+  }
+
+  return null;
+}
+
 const DEFAULT_FONTS = [
   'system-ui',
   '-apple-system',
@@ -65,8 +107,9 @@ export class SVGRenderer {
       throw new Error('Invalid SVG: ' + parserError.textContent);
     }
 
-    const width = parseFloat(svgElement.getAttribute('width') || '800');
-    const height = parseFloat(svgElement.getAttribute('height') || '600');
+    const parsedDimensions = parseSvgDimensions(svgText);
+    const width = parsedDimensions?.width ?? parseFloat(svgElement.getAttribute('width') || '800');
+    const height = parsedDimensions?.height ?? parseFloat(svgElement.getAttribute('height') || '600');
 
     const canvas = document.createElement('canvas');
     canvas.width = width * scale;
@@ -89,6 +132,9 @@ export class SVGRenderer {
 
     try {
       const img = new Image();
+      // 作为 SVG 渲染到 canvas 的兜底：在部分浏览器中可避免被视为“带凭证的跨域资源”
+      img.crossOrigin = 'anonymous';
+      img.decoding = 'async';
       img.width = width;
       img.height = height;
 
