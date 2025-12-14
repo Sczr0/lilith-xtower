@@ -8,6 +8,7 @@ export interface RenderOptions {
   debug?: boolean;
   // 调试日志前缀，便于在控制台过滤
   debugTag?: string;
+  waitBeforeDrawMs?: number;
   // 是否在渲染前将 SVG 内的外链图片(<image href>)抓取并内联为 data:URL
   // 目的：避免导出到 canvas 时外链图片因跨域/安全策略不参与渲染，导致导出缺图。
   //
@@ -57,7 +58,7 @@ function dgroup(
   const prefix = debugPrefix(options);
   try {
     // eslint-disable-next-line no-console
-    console.groupCollapsed(`${prefix} ${title}`);
+    console.group(`${prefix} ${title}`);
     fn();
     // eslint-disable-next-line no-console
     console.groupEnd();
@@ -465,6 +466,7 @@ export class SVGRenderer {
       baseUrl,
       debug = false,
       debugTag = 'SVGRenderer',
+      waitBeforeDrawMs = 0,
       inlineImages = false,
       inlineImageMaxCount = 300,
       embedImages = 'data',
@@ -481,6 +483,7 @@ export class SVGRenderer {
         scale,
         backgroundColor,
         baseUrl,
+        waitBeforeDrawMs,
         inlineImages,
         inlineImageMaxCount,
         embedImages,
@@ -597,6 +600,12 @@ export class SVGRenderer {
         img.src = url;
       });
       dlog(debugOptions, 'svg image loaded', { ms: Math.round(nowMs() - start) });
+
+      if (waitBeforeDrawMs > 0) {
+        dlog(debugOptions, 'waitBeforeDraw:start', { waitBeforeDrawMs });
+        await new Promise<void>((resolve) => setTimeout(resolve, waitBeforeDrawMs));
+        dlog(debugOptions, 'waitBeforeDraw:done', { waitedMs: waitBeforeDrawMs });
+      }
 
       onProgress?.({ stage: 'rendering', progress: 60 });
 
