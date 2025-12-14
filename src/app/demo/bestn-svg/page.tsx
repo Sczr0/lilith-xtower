@@ -16,8 +16,7 @@ export default function Page() {
         </p>
       </header>
 
-      <BnImageGenerator showTitle={false} showDescription={false} format="svg" showSvgSource />
+      <BnImageGenerator showTitle={false} showDescription={false} format="svg" showSvgSource debugExport />
     </div>
   );
 }
-

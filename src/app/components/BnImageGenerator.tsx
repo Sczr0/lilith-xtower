@@ -19,6 +19,8 @@ type BnImageGeneratorProps = {
   format?: ImageFormat;
   // 仅当 format=svg 时生效：展示 SVG 源码用于排查渲染问题（默认关闭）
   showSvgSource?: boolean;
+  // 仅当 format=svg 时生效：导出 PNG 时在控制台输出极其详细的渲染/抓取日志（默认关闭）
+  debugExport?: boolean;
 };
 
 export function BnImageGenerator({
@@ -26,6 +28,7 @@ export function BnImageGenerator({
   showDescription = true,
   format = 'png',
   showSvgSource = false,
+  debugExport = false,
 }: BnImageGeneratorProps) {
   const { credential } = useAuth();
   const [nInput, setNInput] = useState(`${DEFAULT_N}`);
@@ -212,7 +215,16 @@ export function BnImageGenerator({
     try {
       const blob = await SVGRenderer.renderToImage(
         svgText,
-        { format: 'png', scale: 2, quality: 0.95, embedImages: 'object', embedImageMaxCount: 500 },
+        {
+          format: 'png',
+          scale: 2,
+          quality: 0.95,
+          embedImages: 'object',
+          embedImageMaxCount: 500,
+          baseUrl: typeof window !== 'undefined' ? window.location.href : undefined,
+          debug: debugExport,
+          debugTag: 'BestNExport',
+        },
         (p) => setExportProgress(p),
       );
 
