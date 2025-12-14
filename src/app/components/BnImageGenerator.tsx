@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { ImageAPI, BestNTheme } from '../lib/api/image';
+import { ImageAPI, BestNTheme, type ImageFormat } from '../lib/api/image';
 import { useGenerationBusy, useGenerationManager, useGenerationResult } from '../contexts/GenerationContext';
 import { getOwnerKey } from '../lib/utils/cache';
 import { StyledSelect } from './ui/Select';
@@ -11,7 +11,21 @@ import { LoadingPlaceholder, LoadingSpinner } from './LoadingIndicator';
 const DEFAULT_N = 27;
 
 // 支持通过 showDescription 隐藏组件内的描述，避免与外层重复
-export function BnImageGenerator({ showTitle = true, showDescription = true }: { showTitle?: boolean; showDescription?: boolean }) {
+type BnImageGeneratorProps = {
+  showTitle?: boolean;
+  showDescription?: boolean;
+  // 默认 png；demo 页面可传 svg 用于测试后端 SVG 输出与前端渲染
+  format?: ImageFormat;
+  // 仅当 format=svg 时生效：展示 SVG 源码用于排查渲染问题（默认关闭）
+  showSvgSource?: boolean;
+};
+
+export function BnImageGenerator({
+  showTitle = true,
+  showDescription = true,
+  format = 'png',
+  showSvgSource = false,
+}: BnImageGeneratorProps) {
   const { credential } = useAuth();
   const [nInput, setNInput] = useState(`${DEFAULT_N}`);
   const [generatedN, setGeneratedN] = useState(DEFAULT_N);
@@ -24,6 +38,7 @@ export function BnImageGenerator({ showTitle = true, showDescription = true }: {
   // 跨页面读取最近一次生成结果（Blob）并转为 URL 展示
   const resultBlob = useGenerationResult<Blob>('best-n');
   const imageUrl = useMemo(() => (resultBlob ? URL.createObjectURL(resultBlob) : null), [resultBlob]);
+  const [svgSource, setSvgSource] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [nextUpdateAt, setNextUpdateAt] = useState<number | null>(null);
 
@@ -34,6 +49,27 @@ export function BnImageGenerator({ showTitle = true, showDescription = true }: {
       }
     };
   }, [imageUrl]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!resultBlob || format !== 'svg') {
+      setSvgSource(null);
+      return;
+    }
+
+    resultBlob
+      .text()
+      .then((text) => {
+        if (!cancelled) setSvgSource(text);
+      })
+      .catch(() => {
+        if (!cancelled) setSvgSource(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [resultBlob, format]);
 
   const handleGenerate = async () => {
     if (!credential) {
@@ -57,7 +93,7 @@ export function BnImageGenerator({ showTitle = true, showDescription = true }: {
 
     // 组合参数键，区分不同 N/主题/格式
     const ownerKey = getOwnerKey(credential);
-    const paramKey = `n:${parsed}|theme:${theme}|fmt:png`;
+    const paramKey = `n:${parsed}|theme:${theme}|fmt:${format}`;
     try {
       if (ownerKey) {
         const metaRaw = localStorage.getItem(BESTN_META_KEY);
@@ -77,7 +113,7 @@ export function BnImageGenerator({ showTitle = true, showDescription = true }: {
     try {
       // 使用全局任务管理，避免页面切换中断并阻止同类重复请求；结果由上下文保存
       await startTask('best-n', () =>
-        ImageAPI.generateBestNImage(parsed, credential, theme, 'png')
+        ImageAPI.generateBestNImage(parsed, credential, theme, format)
       );
       setGeneratedN(parsed);
 
@@ -106,17 +142,28 @@ export function BnImageGenerator({ showTitle = true, showDescription = true }: {
     setTheme(value === 'white' ? 'white' : 'dark');
   };
 
+  const titleText = format === 'svg' ? 'Best N SVG 生成' : 'Best N 图片生成';
+  const descriptionText =
+    format === 'svg'
+      ? '选择生成的歌曲数量和主题，点击生成即可获取 SVG（用于测试前端渲染）。'
+      : '选择生成的歌曲数量和主题，点击生成即可获取图片。';
+  const downloadName = `best-${generatedN}.${format}`;
+  const downloadLabel = format === 'svg' ? '下载 SVG' : '下载图片';
+  const placeholderText = format === 'svg' ? '正在生成 SVG...' : '正在生成图片...';
+  const emptyText = format === 'svg' ? '生成后的 SVG 将显示在这里。' : '生成后的图片将显示在这里。';
+  const generateButtonText = format === 'svg' ? '生成 SVG' : '生成图片';
+
   return (
     <section className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md border border-gray-200/60 dark:border-gray-700/60 rounded-2xl p-6 shadow-lg w-full max-w-4xl mx-auto">
       <div className="mb-6">
         {showTitle && (
           <h2 className="text-2xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
-            Best N 图片生成
+            {titleText}
           </h2>
         )}
         {showDescription && (
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            选择生成的歌曲数量和主题，点击生成即可获取图片。
+            {descriptionText}
           </p>
         )}
         {nextUpdateAt && (
@@ -163,7 +210,7 @@ export function BnImageGenerator({ showTitle = true, showDescription = true }: {
               // 生成请求等待动画（按钮内小尺寸旋转圈）
               <LoadingSpinner size="sm" text="生成中..." />
             ) : (
-              '生成图片'
+              generateButtonText
             )}
           </button>
         </div>
@@ -187,10 +234,10 @@ export function BnImageGenerator({ showTitle = true, showDescription = true }: {
           <div className="flex flex-wrap gap-3">
             <a
               href={imageUrl}
-              download={`best-${generatedN}.png`}
+              download={downloadName}
               className="inline-flex items-center justify-center rounded-lg border border-blue-500 px-4 py-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30"
             >
-              下载图片
+              {downloadLabel}
             </a>
             <button
               onClick={() => {
@@ -201,13 +248,30 @@ export function BnImageGenerator({ showTitle = true, showDescription = true }: {
               清除结果
             </button>
           </div>
+
+          {format === 'svg' && showSvgSource && (
+            <details className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 px-4 py-3">
+              <summary className="cursor-pointer select-none text-sm font-medium text-gray-800 dark:text-gray-200">
+                查看 SVG 源码（调试用）
+              </summary>
+              <div className="mt-3">
+                {svgSource ? (
+                  <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950 p-3 text-xs text-gray-700 dark:text-gray-200">
+                    {svgSource}
+                  </pre>
+                ) : (
+                  <p className="text-xs text-gray-500 dark:text-gray-400">SVG 源码解析中...</p>
+                )}
+              </div>
+            </details>
+          )}
         </div>
       ) : isLoading ? (
         // 图片生成请求等候阶段的加载动画占位
-        <LoadingPlaceholder text="正在生成图片..." />
+        <LoadingPlaceholder text={placeholderText} />
       ) : (
         <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-8 text-center text-sm text-gray-500 dark:text-gray-400">
-          生成后的图片将显示在这里。
+          {emptyText}
         </div>
       )}
     </section>

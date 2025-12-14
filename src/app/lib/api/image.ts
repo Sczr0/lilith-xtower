@@ -26,11 +26,16 @@ export class ImageAPI {
       n,
       // 后端主题：white/black；兼容前端枚举
       theme: theme === 'white' ? 'white' : 'black',
-      format,
     };
+
+    // 后端图片格式使用 Query Param 传递，便于缓存系统区分不同输出
+    const query = new URLSearchParams();
+    query.set('format', format);
+    const url = `${BASE_URL}/image/bn?${query.toString()}`;
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
-    const response = await fetch(`${BASE_URL}/image/bn`, {
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -55,15 +60,13 @@ export class ImageAPI {
     return response.blob();
   }
 
-  // 新后端暂不提供 SVG 渲染，保留占位实现以避免调用方崩溃
   static async generateBestNSVG(
     n: number,
     credential: AuthCredential,
     theme: BestNTheme = 'dark',
   ): Promise<string> {
-    const blob = await ImageAPI.generateBestNImage(n, credential, theme, 'png');
-    // 返回一个 data URL 作为占位
-    return URL.createObjectURL(blob);
+    const blob = await ImageAPI.generateBestNImage(n, credential, theme, 'svg');
+    return blob.text();
   }
 
   static async generateSongImage(
