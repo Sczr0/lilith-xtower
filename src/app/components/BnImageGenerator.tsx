@@ -171,6 +171,26 @@ export function BnImageGenerator({
   const emptyText = format === 'svg' ? '生成后的 SVG 将显示在这里。' : '生成后的图片将显示在这里。';
   const generateButtonText = format === 'svg' ? '生成 SVG' : '生成图片';
 
+  const safeInlineSvg = useMemo(() => {
+    if (format !== 'svg') return null;
+    if (!svgSource) return null;
+
+    // 安全兜底：仅用于 demo 内联预览，避免后端 SVG 被注入脚本/外部对象导致 XSS
+    const unsafePatterns: RegExp[] = [
+      /<script\b/i,
+      /<foreignObject\b/i,
+      /\bon\w+\s*=/i,
+      /\bhref\s*=\s*["']\s*javascript:/i,
+      /\bxlink:href\s*=\s*["']\s*javascript:/i,
+    ];
+
+    if (unsafePatterns.some((re) => re.test(svgSource))) {
+      return null;
+    }
+
+    return svgSource;
+  }, [format, svgSource]);
+
   return (
     <section className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md border border-gray-200/60 dark:border-gray-700/60 rounded-2xl p-6 shadow-lg w-full max-w-4xl mx-auto">
       <div className="mb-6">
@@ -243,11 +263,24 @@ export function BnImageGenerator({
       {imageUrl ? (
         <div className="space-y-4">
           <div className="relative w-full overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-            <img
-              src={imageUrl}
-              alt={`Best ${generatedN} 成绩图片`}
-              className="w-full h-auto"
-            />
+            {format === 'svg' ? (
+              !svgSource ? (
+                <div className="p-6 text-sm text-gray-600 dark:text-gray-300">SVG 解析中...</div>
+              ) : safeInlineSvg ? (
+                // 关键：SVG 内联到 DOM 后，<image href> 子资源才会正常发起请求（可配合同源代理验证封面加载）
+                <div className="w-full [&>svg]:w-full [&>svg]:h-auto" dangerouslySetInnerHTML={{ __html: safeInlineSvg }} />
+              ) : (
+                <div className="p-6 text-sm text-gray-600 dark:text-gray-300">
+                  SVG 包含不安全内容，已阻止内联渲染；可使用下方下载查看原文件。
+                </div>
+              ) 
+            ) : (
+              <img
+                src={imageUrl}
+                alt={`Best ${generatedN} 成绩图片`}
+                className="w-full h-auto"
+              />
+            )}
           </div>
           <div className="flex flex-wrap gap-3">
             <a
