@@ -298,7 +298,7 @@ export async function embedSvgExternalImagesAsObjectUrls(
 
   const refs = collectExternalSvgImages(svgText, options.baseUrl);
   dlog(options, 'collected refs =', refs);
-  if (refs.length === 0) return { svgText, revoke: () => {} };
+  if (refs.length === 0) return { svgText, objectUrls: [], revoke: () => {} };
   if (refs.length > options.maxCount) {
     throw new Error(`SVG 外链图片过多（${refs.length}），请降低 N 或改用分页导出。`);
   }
