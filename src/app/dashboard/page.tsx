@@ -35,6 +35,18 @@ export default function Dashboard() {
     if (typeof window === 'undefined') return false;
     try { return localStorage.getItem(AGREEMENT_KEY) === 'true'; } catch { return false; }
   });
+  const [debugExport, setDebugExport] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const p = new URLSearchParams(window.location.search);
+      const v = p.get('debug');
+      setDebugExport(v === '1' || v === 'true');
+    } catch {
+      setDebugExport(false);
+    }
+  }, []);
 
   // 预取关键数据（如果尚未预取）
   const { credential } = useAuth();
@@ -203,7 +215,7 @@ export default function Dashboard() {
                 生成您的最佳 N 首歌曲成绩汇总图片，支持自定义主题和数量。
               </p>
             </div>
-            <BnImageGenerator showTitle={false} showDescription={false} />
+            <BnImageGenerator showTitle={false} showDescription={false} format="svg" debugExport={debugExport} />
           </div>
         );
       case 'single-query':

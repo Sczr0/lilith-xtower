@@ -20,29 +20,29 @@ export interface MaintenanceConfig {
 
 export const maintenanceConfig: MaintenanceConfig = {
   // 是否启用维护模式检查（true: 启用, false: 禁用）
-  enabled: false,
+  enabled: true,
 
   // 维护开始时间（ISO 8601 格式：YYYY-MM-DDTHH:mm:ss）
   // 示例：'2025-01-20T09:00:00' 表示 2025年1月20日 09:00
-  startTime: '2025-10-31T17:00:00',
+  startTime: '2025-12-19T17:00:00',
 
   // 维护结束时间（ISO 8601 格式）
-  endTime: '2025-10-31T19:00:00',
+  endTime: '2025-12-19T17:30:00',
 
   // 提前多少天显示维护预告横幅（例如：3 表示提前3天显示）
   preNoticeDays: 7,
 
   // 维护期间显示的标题
-  title: '10.31-维护预告-游戏更新',
+  title: '12.15-维护预告-游戏更新',
 
   // 维护期间显示的消息内容（支持 HTML）
   message: `
-受Phigros更新影响，本服务于<strong>2025年10月31日 17:00（UTC+8）</strong>开始例行维护。<br>预计恢复时间：<strong>2025年10月31日 19:00（UTC+8）</strong>，<br>若遇Phigros延迟更新情况，维护恢复时间将顺延。
+受Phigros更新影响，本服务于<strong>2025年12月19日 17:00（UTC+8）</strong>开始例行维护。<br>预计恢复时间：<strong>2025年12月19日 17:30（UTC+8）</strong>，<br>若遇Phigros延迟更新情况，维护恢复时间将顺延。
   `,
 
   // 维护预告横幅消息（支持 HTML）
   bannerMessage: `
-受Phigros更新影响，本服务将于<strong>2025年10月31日 17:00（UTC+8）</strong>开始例行维护。<br>预计恢复时间：<strong>2025年10月31日 19:00（UTC+8）</strong>，<br>若遇Phigros延迟更新情况，维护恢复时间将顺延。
+受Phigros更新影响，本服务于<strong>2025年12月19日 17:00（UTC+8）</strong>开始例行维护。<br>预计恢复时间：<strong>2025年12月19日 17:30（UTC+8）</strong>，<br>若遇Phigros延迟更新情况，维护恢复时间将顺延。
   `,
 };
 
