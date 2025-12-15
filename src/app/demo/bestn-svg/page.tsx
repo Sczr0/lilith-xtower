@@ -1,7 +1,8 @@
 import React from 'react';
 import { BnImageGenerator } from '../../components/BnImageGenerator';
 
-export default function Page() {
+export default function Page({ searchParams }: { searchParams?: Record<string, string | string[] | undefined> }) {
+  const debug = searchParams?.debug === '1' || searchParams?.debug === 'true';
   return (
     <div className="w-full max-w-5xl mx-auto p-4 sm:p-6 space-y-4">
       <header className="space-y-2">
@@ -16,7 +17,7 @@ export default function Page() {
         </p>
       </header>
 
-      <BnImageGenerator showTitle={false} showDescription={false} format="svg" showSvgSource debugExport />
+      <BnImageGenerator showTitle={false} showDescription={false} format="svg" showSvgSource debugExport={debug} />
     </div>
   );
 }

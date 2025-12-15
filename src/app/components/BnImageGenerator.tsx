@@ -213,13 +213,15 @@ export function BnImageGenerator({
     setExportProgress({ stage: 'loading-fonts', progress: 0 });
 
     try {
+      const embedImages = generatedN <= 40 ? 'data' : 'object';
       const blob = await SVGRenderer.renderToImage(
         svgText,
         {
           format: 'png',
           scale: 2,
           quality: 0.95,
-          embedImages: 'object',
+          embedImages,
+          embedImageConcurrency: 6,
           embedImageMaxCount: 500,
           baseUrl: typeof window !== 'undefined' ? window.location.href : undefined,
           debug: debugExport,

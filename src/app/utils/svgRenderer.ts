@@ -601,7 +601,7 @@ export class SVGRenderer {
 
       // 关键：外链图若被替换为 blob: URL，部分浏览器会在主 SVG onload 后子资源仍未就绪，导致导出缺图。
       // 这里主动预解码这些 blob: 图片，以提高首次导出的稳定性。
-      await preloadObjectUrls(embedded.objectUrls, debugOptions, 4);
+      await preloadObjectUrls(embedded.objectUrls, debugOptions, embedImageConcurrency);
 
       // 将 revoke 绑定到当前渲染周期：在渲染完成后释放 object URL
       // eslint-disable-next-line no-var
@@ -661,6 +661,28 @@ export class SVGRenderer {
         img.src = url;
       });
       dlog(debugOptions, 'svg image loaded', { ms: Math.round(nowMs() - start) });
+
+      try {
+        // 尽量等待主 SVG 完成解码（部分浏览器 decode 能更稳定地等到子资源可绘制）
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const anyImg = img as any;
+        if (typeof anyImg.decode === 'function') {
+          await anyImg.decode();
+          dlog(debugOptions, 'svg image decoded');
+        }
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        dlog(debugOptions, 'svg image decode failed', { message });
+      }
+
+      try {
+        // 再等一帧，让浏览器把 SVG 子资源合成完毕（避免偶发缺图）
+        if (typeof requestAnimationFrame === 'function') {
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+          await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+          dlog(debugOptions, 'post-load raf x2');
+        }
+      } catch {}
 
       if (waitBeforeDrawMs > 0) {
         dlog(debugOptions, 'waitBeforeDraw:start', { waitBeforeDrawMs });
