@@ -213,23 +213,36 @@ export function BnImageGenerator({
     setExportProgress({ stage: 'loading-fonts', progress: 0 });
 
     try {
-      const embedImages = generatedN <= 40 ? 'data' : 'object';
-      const blob = await SVGRenderer.renderToImage(
-        svgText,
-        {
-          format: 'png',
-          scale: 2,
-          quality: 0.95,
-          embedImages,
-          embedImageConcurrency: 6,
-          embedImageMaxCount: 500,
-          baseUrl: typeof window !== 'undefined' ? window.location.href : undefined,
-          debug: debugExport,
-          debugTag: 'BestNExport',
-          waitBeforeDrawMs: 0,
-        },
-        (p) => setExportProgress(p),
-      );
+      const renderWithMode = (embedImages: 'data' | 'object') =>
+        SVGRenderer.renderToImage(
+          svgText,
+          {
+            format: 'png',
+            scale: 2,
+            quality: 0.95,
+            embedImages,
+            embedImageConcurrency: 6,
+            embedImageMaxCount: 500,
+            baseUrl: typeof window !== 'undefined' ? window.location.href : undefined,
+            debug: debugExport,
+            debugTag: 'BestNExport',
+            waitBeforeDrawMs: 0,
+          },
+          (p) => setExportProgress(p),
+        );
+
+      let blob: Blob;
+      try {
+        // 优先稳定模式：把曲绘内联为 data: URL（大 N 也更不容易随机缺图）
+        blob = await renderWithMode('data');
+      } catch (e) {
+        // 兜底：如果内联导致内存/体积问题，则退回 blob: URL 模式
+        if (debugExport) {
+          // eslint-disable-next-line no-console
+          console.warn('[BestNExport] export fallback to embedImages=object:', e);
+        }
+        blob = await renderWithMode('object');
+      }
 
       const url = URL.createObjectURL(blob);
       try {

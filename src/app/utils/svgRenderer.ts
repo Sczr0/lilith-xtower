@@ -175,6 +175,7 @@ export async function inlineSvgExternalImages(
   options: {
     maxCount: number;
     baseUrl?: string;
+    concurrency?: number;
     debug?: boolean;
     debugTag?: string;
     onProgress?: (done: number, total: number) => void;
@@ -219,6 +220,35 @@ export async function inlineSvgExternalImages(
       ),
       `$1${to}$2`,
     );
+
+  // 并发抓取所有外链图片并写入 cache，避免逐个 fetch 导致耗时过长（并发会让导出更稳定）
+  const uniqueFetchUrls = Array.from(new Set(refs.map((r) => r.fetchUrl)));
+  const concurrency = Math.max(1, Math.min(16, Math.floor(options.concurrency ?? 6)));
+  const fetchQueue = uniqueFetchUrls.slice();
+  const fetchWorkers = Array.from(
+    { length: Math.min(concurrency, fetchQueue.length || 1) },
+    async () => {
+      while (fetchQueue.length) {
+        const fetchUrl = fetchQueue.shift();
+        if (!fetchUrl) return;
+        if (cache.has(fetchUrl)) continue;
+
+        dgroup(options, `inline:fetch:${fetchUrl}`, () => {
+          dlog(options, 'fetchInit =', getFetchInitForUrl(fetchUrl));
+        });
+
+        const fetchStart = nowMs();
+        const res = await fetch(fetchUrl, getFetchInitForUrl(fetchUrl));
+        if (!res.ok) throw new Error(`Failed to fetch image: ${res.status} ${fetchUrl}`);
+        dlog(options, 'fetch ok', { status: res.status, ms: Math.round(nowMs() - fetchStart) });
+        const contentType = res.headers.get('content-type') ?? 'application/octet-stream';
+        const buf = await res.arrayBuffer();
+        const b64 = arrayBufferToBase64(buf);
+        cache.set(fetchUrl, `data:${contentType};base64,${b64}`);
+      }
+    },
+  );
+  await Promise.all(fetchWorkers);
 
   let out = svgText;
 
@@ -577,6 +607,7 @@ export class SVGRenderer {
       normalizedSvgText = await inlineSvgExternalImages(svgText, {
         maxCount: inlineImages ? inlineImageMaxCount : embedImageMaxCount,
         baseUrl,
+        concurrency: embedImageConcurrency,
         debug,
         debugTag,
         onProgress: (done, total) => {
