@@ -224,7 +224,7 @@ export function BnImageGenerator({
           baseUrl: typeof window !== 'undefined' ? window.location.href : undefined,
           debug: debugExport,
           debugTag: 'BestNExport',
-          waitBeforeDrawMs: debugExport ? 1500 : 0,
+          waitBeforeDrawMs: 0,
         },
         (p) => setExportProgress(p),
       );

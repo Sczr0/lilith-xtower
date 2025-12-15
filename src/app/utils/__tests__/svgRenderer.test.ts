@@ -109,6 +109,7 @@ describe('embedSvgExternalImagesAsObjectUrls', () => {
       '<svg xmlns="http://www.w3.org/2000/svg"><image href="https://somnia.xtower.site/a.png" /></svg>';
     const embedded = await embedSvgExternalImagesAsObjectUrls(svg, { maxCount: 10, concurrency: 2 });
     expect(embedded.svgText).toContain('href="blob:mock-0"');
+    expect(Array.isArray(embedded.objectUrls)).toBe(true);
     expect(typeof embedded.revoke).toBe('function');
 
     embedded.revoke();
@@ -138,6 +139,7 @@ describe('embedSvgExternalImagesAsObjectUrls', () => {
     const svg = '<svg xmlns="http://www.w3.org/2000/svg"><image href="/a.png" /></svg>';
     const embedded = await embedSvgExternalImagesAsObjectUrls(svg, { maxCount: 10, concurrency: 2, baseUrl: 'https://example.com/demo' });
     expect(embedded.svgText).toContain('href="blob:mock-0"');
+    expect(Array.isArray(embedded.objectUrls)).toBe(true);
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
     embedded.revoke();

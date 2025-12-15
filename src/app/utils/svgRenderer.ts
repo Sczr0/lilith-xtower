@@ -271,7 +271,7 @@ export async function embedSvgExternalImagesAsObjectUrls(
     debugTag?: string;
     onProgress?: (done: number, total: number) => void;
   },
-): Promise<{ svgText: string; revoke: () => void }> {
+): Promise<{ svgText: string; objectUrls: string[]; revoke: () => void }> {
   const start = nowMs();
   dgroup(options, 'embedSvgExternalImagesAsObjectUrls:start', () => {
     dlog(options, 'svgText.length =', svgText.length);
@@ -375,11 +375,68 @@ export async function embedSvgExternalImagesAsObjectUrls(
       ms: Math.round(nowMs() - start),
       outLength: out.length,
     });
-    return { svgText: out, revoke };
+    return { svgText: out, objectUrls: objectUrls.slice(), revoke };
   } catch (e) {
     revoke();
     throw e;
   }
+}
+
+async function preloadObjectUrls(
+  urls: string[],
+  options: { debug?: boolean; debugTag?: string } | undefined,
+  concurrency: number,
+): Promise<void> {
+  if (typeof Image === 'undefined') {
+    dlog(options, 'preloadObjectUrls:skip (no Image)');
+    return;
+  }
+  if (!urls.length) return;
+
+  const limit = Math.max(1, Math.min(12, Math.floor(concurrency)));
+  const queue = urls.slice();
+
+  const loadOne = async (url: string): Promise<void> => {
+    const start = nowMs();
+    await new Promise<void>((resolve, reject) => {
+      const img = new Image();
+      try {
+        img.decoding = 'async';
+      } catch {}
+      img.onload = async () => {
+        try {
+          // 对部分浏览器：decode 可能比 onload 更能保证可绘制
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const anyImg = img as any;
+          if (typeof anyImg.decode === 'function') {
+            await anyImg.decode();
+          }
+        } catch {}
+        resolve();
+      };
+      img.onerror = () => reject(new Error(`preload failed: ${url}`));
+      img.src = url;
+    });
+    dlog(options, 'preload ok', { url, ms: Math.round(nowMs() - start) });
+  };
+
+  const workers = Array.from({ length: limit }, async () => {
+    while (queue.length) {
+      const u = queue.shift();
+      if (!u) return;
+      try {
+        await loadOne(u);
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        dlog(options, 'preload failed', { url: u, message });
+        // 预加载失败不阻塞导出，继续后续流程
+      }
+    }
+  });
+
+  dlog(options, 'preloadObjectUrls:start', { count: urls.length, concurrency: limit });
+  await Promise.all(workers);
+  dlog(options, 'preloadObjectUrls:done');
 }
 
 export function parseSvgDimensions(svgText: string): { width: number; height: number } | null {
@@ -541,6 +598,10 @@ export class SVGRenderer {
         },
       });
       normalizedSvgText = embedded.svgText;
+
+      // 关键：外链图若被替换为 blob: URL，部分浏览器会在主 SVG onload 后子资源仍未就绪，导致导出缺图。
+      // 这里主动预解码这些 blob: 图片，以提高首次导出的稳定性。
+      await preloadObjectUrls(embedded.objectUrls, debugOptions, 4);
 
       // 将 revoke 绑定到当前渲染周期：在渲染完成后释放 object URL
       // eslint-disable-next-line no-var
