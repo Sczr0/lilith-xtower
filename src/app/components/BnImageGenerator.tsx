@@ -224,6 +224,7 @@ export function BnImageGenerator({
             embedImageConcurrency: 6,
             embedImageMaxCount: 500,
             baseUrl: typeof window !== 'undefined' ? window.location.href : undefined,
+            fontPackId: 'source-han-sans-saira-hybrid-5446',
             debug: debugExport,
             debugTag: 'BestNExport',
             waitBeforeDrawMs: 0,

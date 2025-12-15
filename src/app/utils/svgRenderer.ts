@@ -9,6 +9,8 @@ export interface RenderOptions {
   // 调试日志前缀，便于在控制台过滤
   debugTag?: string;
   waitBeforeDrawMs?: number;
+  fontPackId?: 'source-han-sans-saira-hybrid-5446';
+  fontFamily?: string;
   // 是否在渲染前将 SVG 内的外链图片(<image href>)抓取并内联为 data:URL
   // 目的：避免导出到 canvas 时外链图片因跨域/安全策略不参与渲染，导致导出缺图。
   //
@@ -72,6 +74,145 @@ function nowMs(): number {
     if (typeof performance !== 'undefined' && typeof performance.now === 'function') return performance.now();
   } catch {}
   return Date.now();
+}
+
+function injectSvgStyle(rawSvg: string, css: string): string {
+  if (/<style[\s>]/i.test(rawSvg) && /<\/style>/i.test(rawSvg)) {
+    return rawSvg.replace(/<\/style>/i, `${css}\n</style>`);
+  }
+  if (/<defs[\s>]/i.test(rawSvg) && /<\/defs>/i.test(rawSvg)) {
+    return rawSvg.replace(/<\/defs>/i, `<style>\n${css}\n</style>\n</defs>`);
+  }
+  return rawSvg.replace(/<svg\b([^>]*)>/i, `<svg$1><style>\n${css}\n</style>`);
+}
+
+export function rewriteCssRelativeUrls(cssText: string, baseUrl: string): string {
+  const base = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+  const withQuotes = cssText.replace(/url\(\s*(['"])\.\/([^'"]+)\1\s*\)/g, (_m, _q, path) => {
+    return `url("${base}${path}")`;
+  });
+  return withQuotes.replace(/url\(\s*\.\/([^)"'\s]+)\s*\)/g, (_m, path) => {
+    return `url("${base}${path}")`;
+  });
+}
+
+const FONT_PACKS: Record<
+  NonNullable<RenderOptions['fontPackId']>,
+  { dirName: string; defaultFamily: string }
+> = {
+  'source-han-sans-saira-hybrid-5446': {
+    dirName: 'Source Han Sans & Saira Hybrid-Regular #5446',
+    defaultFamily: 'Source Han Sans & Saira Hybrid',
+  },
+};
+
+const cachedFontPackCss: Record<string, Promise<string>> = {};
+const cachedFontPackInjected: Record<string, Promise<void>> = {};
+
+async function getFontPackCss(
+  packId: NonNullable<RenderOptions['fontPackId']>,
+  baseUrl: string | undefined,
+  options: { debug?: boolean; debugTag?: string } | undefined,
+): Promise<{ css: string; family: string }> {
+  const pack = FONT_PACKS[packId];
+  const origin =
+    (() => {
+      if (typeof window !== 'undefined' && window.location?.origin) return window.location.origin;
+      if (baseUrl) {
+        try {
+          return new URL(baseUrl).origin;
+        } catch {}
+      }
+      return '';
+    })();
+  if (!origin) throw new Error('font pack requires window.location.origin or baseUrl');
+
+  const dirPath = `/fonts/${encodeURIComponent(pack.dirName)}/`;
+  const dirUrl = new URL(dirPath, origin).toString();
+  const cssUrl = new URL('result.css', dirUrl).toString();
+  const cacheKey = `${packId}|${cssUrl}`;
+
+  if (!cachedFontPackCss[cacheKey]) {
+    cachedFontPackCss[cacheKey] = (async () => {
+      dlog(options, 'fontPack css fetch', { cssUrl });
+      const res = await fetch(cssUrl, { method: 'GET' });
+      if (!res.ok) throw new Error(`Failed to load font pack css: ${res.status} ${cssUrl}`);
+      const text = await res.text();
+      return rewriteCssRelativeUrls(text, dirUrl);
+    })();
+  }
+
+  return { css: await cachedFontPackCss[cacheKey]!, family: pack.defaultFamily };
+}
+
+function cssStringLiteral(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+function collectSvgTextSample(svgText: string, maxUniqueChars = 600): string {
+  if (typeof DOMParser === 'undefined') return '';
+  try {
+    const parser = new DOMParser();
+    const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
+    const texts = Array.from(svgDoc.querySelectorAll('text'));
+    const set = new Set<string>();
+    for (const el of texts) {
+      const t = el.textContent ?? '';
+      for (const ch of t) {
+        if (!ch.trim()) continue;
+        set.add(ch);
+        if (set.size >= maxUniqueChars) break;
+      }
+      if (set.size >= maxUniqueChars) break;
+    }
+    return Array.from(set).join('');
+  } catch {
+    return '';
+  }
+}
+
+async function ensureFontPackInjectedToDocument(
+  packId: NonNullable<RenderOptions['fontPackId']>,
+  baseUrl: string | undefined,
+  options: { debug?: boolean; debugTag?: string } | undefined,
+): Promise<{ family: string }> {
+  if (typeof document === 'undefined') return { family: FONT_PACKS[packId].defaultFamily };
+
+  const cacheKey = `${packId}|${baseUrl ?? ''}`;
+  if (!cachedFontPackInjected[cacheKey]) {
+    cachedFontPackInjected[cacheKey] = (async () => {
+      const { css } = await getFontPackCss(packId, baseUrl, options);
+      const existing = document.querySelector(`style[data-font-pack="${packId}"]`);
+      if (existing) return;
+      const style = document.createElement('style');
+      style.setAttribute('data-font-pack', packId);
+      style.textContent = css;
+      document.head.appendChild(style);
+      dlog(options, 'fontPack injected into document', { packId });
+    })();
+  }
+
+  await cachedFontPackInjected[cacheKey]!;
+  return { family: FONT_PACKS[packId].defaultFamily };
+}
+
+async function preloadDocumentFont(
+  family: string,
+  sampleText: string,
+  options: { debug?: boolean; debugTag?: string } | undefined,
+): Promise<void> {
+  if (typeof document === 'undefined' || !document.fonts) return;
+  const start = nowMs();
+  try {
+    const sample = (sampleText || '').slice(0, 2048);
+    await document.fonts.load(`16px "${family}"`, sample);
+    await document.fonts.load(`16px "${family}"`, '0123456789APFCIN');
+    await document.fonts.ready;
+    dlog(options, 'font preloaded', { family, ms: Math.round(nowMs() - start), sampleLength: sample.length });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    dlog(options, 'font preload failed', { family, message });
+  }
 }
 
 export function injectSvgImageCrossOrigin(svgText: string): string {
@@ -168,6 +309,22 @@ function collectExternalSvgImages(svgText: string, baseUrl?: string): SvgImageRe
 
 function escapeRegExp(input: string): string {
   return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function collectSvgImageUrlsForPreload(svgText: string): string[] {
+  const urls: string[] = [];
+  const seen = new Set<string>();
+  const regex = /<image\b[^>]*\s(?:href|xlink:href)\s*=\s*(["'])([^"']+)\1[^>]*>/gi;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(svgText))) {
+    const href = (match[2] ?? '').trim();
+    if (!href) continue;
+    if (!/^(data:|blob:)/i.test(href)) continue;
+    if (seen.has(href)) continue;
+    seen.add(href);
+    urls.push(href);
+  }
+  return urls;
 }
 
 export async function inlineSvgExternalImages(
@@ -313,10 +470,10 @@ export async function embedSvgExternalImagesAsObjectUrls(
     try {
       dlog(options, 'location.href =', typeof window !== 'undefined' ? window.location.href : '(no window)');
     } catch {}
-    const imageTagCount = (svgText.match(/<image\\b/gi) ?? []).length;
-    dlog(options, '<image> tags =', imageTagCount);
-    const imageTags = svgText.match(/<image\\b[^>]*>/gi) ?? [];
-    dlog(options, '<image> tag samples =', imageTags.slice(0, 20));
+      const imageTagCount = (svgText.match(/<image\b/gi) ?? []).length;
+      dlog(options, '<image> tags =', imageTagCount);
+      const imageTags = svgText.match(/<image\b[^>]*>/gi) ?? [];
+      dlog(options, '<image> tag samples =', imageTags.slice(0, 20));
     const unquotedHref = svgText.match(/\\b(?:href|xlink:href)\\s*=\\s*[^\"'\\s>]+/gi) ?? [];
     dlog(options, 'unquoted href samples =', unquotedHref.slice(0, 20));
     const urlMatches = svgText.match(/url\\(([^)]+)\\)/gi);
@@ -554,6 +711,8 @@ export class SVGRenderer {
       debug = false,
       debugTag = 'SVGRenderer',
       waitBeforeDrawMs = 0,
+      fontPackId,
+      fontFamily,
       inlineImages = false,
       inlineImageMaxCount = 300,
       embedImages = 'data',
@@ -584,9 +743,9 @@ export class SVGRenderer {
       try {
         dlog(debugOptions, 'location.href =', typeof window !== 'undefined' ? window.location.href : '(no window)');
       } catch {}
-      const imageTagCount = (svgText.match(/<image\\b/gi) ?? []).length;
+      const imageTagCount = (svgText.match(/<image\b/gi) ?? []).length;
       dlog(debugOptions, '<image> tags =', imageTagCount);
-      const imageTags = svgText.match(/<image\\b[^>]*>/gi) ?? [];
+      const imageTags = svgText.match(/<image\b[^>]*>/gi) ?? [];
       dlog(debugOptions, '<image> tag samples =', imageTags.slice(0, 20));
       const unquotedHref = svgText.match(/\\b(?:href|xlink:href)\\s*=\\s*[^\"'\\s>]+/gi) ?? [];
       dlog(debugOptions, 'unquoted href samples =', unquotedHref.slice(0, 20));
@@ -596,6 +755,13 @@ export class SVGRenderer {
 
     onProgress?.({ stage: 'loading-fonts', progress: 0 });
     await this.loadFonts();
+
+    let exportFontFamily: string | undefined;
+    if (fontPackId) {
+      const injected = await ensureFontPackInjectedToDocument(fontPackId, baseUrl, debugOptions);
+      exportFontFamily = fontFamily ?? injected.family;
+      await preloadDocumentFont(exportFontFamily, collectSvgTextSample(svgText), debugOptions);
+    }
 
     let normalizedSvgText = svgText;
     // 兼容：旧参数 inlineImages 默认走 data 内联
@@ -615,6 +781,10 @@ export class SVGRenderer {
           onProgress?.({ stage: 'fetching-images', progress: Math.min(45, p) });
         },
       });
+
+      // 关键：SVG <img> 的 onload 并不保证子 <image> 已完成解码（尤其是数量很多时）。
+      // 这里主动预解码 data:/blob: 图片，显著降低“随机缺曲绘”的概率。
+      await preloadObjectUrls(collectSvgImageUrlsForPreload(normalizedSvgText), debugOptions, embedImageConcurrency);
     } else if (effectiveEmbed === 'object') {
       onProgress?.({ stage: 'fetching-images', progress: 10 });
       const embedded = await embedSvgExternalImagesAsObjectUrls(svgText, {
@@ -640,6 +810,15 @@ export class SVGRenderer {
     }
 
     onProgress?.({ stage: 'rendering', progress: 30 });
+
+    if (exportFontFamily) {
+      const family = cssStringLiteral(exportFontFamily);
+      normalizedSvgText = injectSvgStyle(
+        normalizedSvgText,
+        `svg, text, tspan { font-family: "${family}", sans-serif !important; }`,
+      );
+      dlog(debugOptions, 'font override injected', { exportFontFamily });
+    }
 
     const parser = new DOMParser();
     const svgDoc = parser.parseFromString(normalizedSvgText, 'image/svg+xml');

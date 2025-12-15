@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import { embedSvgExternalImagesAsObjectUrls, injectSvgImageCrossOrigin, inlineSvgExternalImages, parseSvgDimensions } from '../svgRenderer';
+import {
+  embedSvgExternalImagesAsObjectUrls,
+  injectSvgImageCrossOrigin,
+  inlineSvgExternalImages,
+  parseSvgDimensions,
+  rewriteCssRelativeUrls,
+} from '../svgRenderer';
 
 describe('parseSvgDimensions', () => {
   it('parses width/height attributes', () => {
@@ -146,5 +152,21 @@ describe('embedSvgExternalImagesAsObjectUrls', () => {
 
     URL.createObjectURL = originalCreate;
     URL.revokeObjectURL = originalRevoke;
+  });
+});
+
+describe('rewriteCssRelativeUrls', () => {
+  it('rewrites ./ paths with quotes', () => {
+    const css = '@font-face{src:url("./a.woff2") format("woff2");}';
+    expect(rewriteCssRelativeUrls(css, 'https://example.com/fonts/pack/')).toContain(
+      'url("https://example.com/fonts/pack/a.woff2")',
+    );
+  });
+
+  it('rewrites ./ paths without quotes', () => {
+    const css = '@font-face{src:url(./a.woff2) format("woff2");}';
+    expect(rewriteCssRelativeUrls(css, 'https://example.com/fonts/pack')).toContain(
+      'url("https://example.com/fonts/pack/a.woff2")',
+    );
   });
 });
