@@ -96,6 +96,99 @@ export function rewriteCssRelativeUrls(cssText: string, baseUrl: string): string
   });
 }
 
+function decodeXmlCharacterReferences(input: string): string {
+  // 目的：SVG 中 href/xlink:href 可能包含 &amp; 等字符引用；我们在用 fetch 抓取外链图片时需要先解码，
+  // 否则会把 “&amp;” 当作字面量导致请求 URL 错误（而浏览器真实解析 SVG 时会自动解码）。
+  return input.replace(/&(#\d+|#x[0-9a-fA-F]+|amp|lt|gt|quot|apos);/g, (raw, body) => {
+    switch (body) {
+      case 'amp':
+        return '&';
+      case 'lt':
+        return '<';
+      case 'gt':
+        return '>';
+      case 'quot':
+        return '"';
+      case 'apos':
+        return "'";
+    }
+
+    try {
+      if (body.startsWith('#x')) {
+        const codePoint = Number.parseInt(body.slice(2), 16);
+        if (!Number.isFinite(codePoint) || codePoint < 0 || codePoint > 0x10ffff) return raw;
+        return String.fromCodePoint(codePoint);
+      }
+      if (body.startsWith('#')) {
+        const codePoint = Number.parseInt(body.slice(1), 10);
+        if (!Number.isFinite(codePoint) || codePoint < 0 || codePoint > 0x10ffff) return raw;
+        return String.fromCodePoint(codePoint);
+      }
+    } catch {}
+
+    return raw;
+  });
+}
+
+export function sanitizeSvgXmlText(svgText: string): { text: string; fixed: number } {
+  // 目的：DOMParser('image/svg+xml') 对 XML 更严格；若 SVG 含有未转义的 “&” 或未定义实体，会导致解析失败，
+  // 进而出现 “Invalid SVG: ... xmlParseEntityRef: no name” 这类错误并中断导出。
+  //
+  // 策略：
+  // - 仅保留 XML 预定义实体（amp/lt/gt/quot/apos）与数值字符引用（&#...; / &#x...;）
+  // - 其余 “&...;” 视为未定义实体，转义为字面量（即把 '&' 变为 '&amp;'）
+  // - 避免改写 CDATA（CDATA 内允许 '&'，但转义会改变语义）
+  let fixed = 0;
+  let out = '';
+
+  let i = 0;
+  while (i < svgText.length) {
+    if (svgText.startsWith('<![CDATA[', i)) {
+      const end = svgText.indexOf(']]>', i + 9);
+      if (end === -1) {
+        out += svgText.slice(i);
+        break;
+      }
+      out += svgText.slice(i, end + 3);
+      i = end + 3;
+      continue;
+    }
+
+    const ch = svgText[i];
+    if (ch !== '&') {
+      out += ch;
+      i += 1;
+      continue;
+    }
+
+    const semi = svgText.indexOf(';', i + 1);
+    if (semi === -1) {
+      out += '&amp;';
+      fixed += 1;
+      i += 1;
+      continue;
+    }
+
+    const body = svgText.slice(i + 1, semi);
+    const isNumericEntity = /^#\d+$/.test(body) || /^#x[0-9a-fA-F]+$/.test(body);
+    const isPredefined =
+      body === 'amp' || body === 'lt' || body === 'gt' || body === 'quot' || body === 'apos';
+
+    if (isNumericEntity || isPredefined) {
+      out += svgText.slice(i, semi + 1);
+      i = semi + 1;
+      continue;
+    }
+
+    out += '&amp;';
+    fixed += 1;
+    i += 1;
+  }
+
+  if (fixed === 0) return { text: svgText, fixed: 0 };
+  return { text: out, fixed };
+}
+
 const FONT_PACKS: Record<
   NonNullable<RenderOptions['fontPackId']>,
   { dirName: string; defaultFamily: string }
@@ -152,8 +245,9 @@ function cssStringLiteral(value: string): string {
 function collectSvgTextSample(svgText: string, maxUniqueChars = 600): string {
   if (typeof DOMParser === 'undefined') return '';
   try {
+    const sanitized = sanitizeSvgXmlText(svgText);
     const parser = new DOMParser();
-    const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
+    const svgDoc = parser.parseFromString(sanitized.text, 'image/svg+xml');
     const texts = Array.from(svgDoc.querySelectorAll('text'));
     const set = new Set<string>();
     for (const el of texts) {
@@ -247,7 +341,7 @@ type SvgImageRef = {
 };
 
 function normalizeSvgImageHref(rawHref: string, baseUrl?: string): string | null {
-  const href = rawHref.trim();
+  const href = decodeXmlCharacterReferences(rawHref).trim();
   if (!href) return null;
   if (/^(data:|blob:)/i.test(href)) return null;
   if (href.startsWith('#')) return null;
@@ -271,7 +365,6 @@ function normalizeSvgImageHref(rawHref: string, baseUrl?: string): string | null
 }
 
 function getFetchInitForUrl(url: string): RequestInit {
-  // æ³¨æ„ï¼šåŒæºèµ„æºå¯èƒ½éœ€è¦ cookie/å‡­è¯æ‰èƒ½è®¿é—®ï¼ˆä¾‹å¦‚ /api ä»£ç†å±‚ï¼‰ï¼Œè¿™é‡Œä¼˜å…ˆåŒæºå¸¦å‡­è¯ã€?
   if (typeof window === 'undefined') {
     return { method: 'GET' };
   }
@@ -763,14 +856,19 @@ export class SVGRenderer {
       await preloadDocumentFont(exportFontFamily, collectSvgTextSample(svgText), debugOptions);
     }
 
-    let normalizedSvgText = svgText;
+    const sanitized = sanitizeSvgXmlText(svgText);
+    if (sanitized.fixed > 0) {
+      dlog(debugOptions, 'sanitized invalid xml entities', { fixed: sanitized.fixed });
+    }
+
+    let normalizedSvgText = sanitized.text;
     // 兼容：旧参数 inlineImages 默认走 data 内联
     const effectiveEmbed = inlineImages ? 'data' : embedImages;
     dlog(debugOptions, 'effectiveEmbed =', effectiveEmbed);
 
     if (effectiveEmbed === 'data') {
       onProgress?.({ stage: 'fetching-images', progress: 10 });
-      normalizedSvgText = await inlineSvgExternalImages(svgText, {
+      normalizedSvgText = await inlineSvgExternalImages(normalizedSvgText, {
         maxCount: inlineImages ? inlineImageMaxCount : embedImageMaxCount,
         baseUrl,
         concurrency: embedImageConcurrency,
@@ -787,7 +885,7 @@ export class SVGRenderer {
       await preloadObjectUrls(collectSvgImageUrlsForPreload(normalizedSvgText), debugOptions, embedImageConcurrency);
     } else if (effectiveEmbed === 'object') {
       onProgress?.({ stage: 'fetching-images', progress: 10 });
-      const embedded = await embedSvgExternalImagesAsObjectUrls(svgText, {
+      const embedded = await embedSvgExternalImagesAsObjectUrls(normalizedSvgText, {
         maxCount: embedImageMaxCount,
         concurrency: embedImageConcurrency,
         baseUrl,

@@ -5,6 +5,7 @@ import {
   inlineSvgExternalImages,
   parseSvgDimensions,
   rewriteCssRelativeUrls,
+  sanitizeSvgXmlText,
 } from '../svgRenderer';
 
 describe('parseSvgDimensions', () => {
@@ -64,6 +65,23 @@ describe('inlineSvgExternalImages', () => {
 
     const out = await inlineSvgExternalImages(svg, { maxCount: 10 });
     expect(out).toContain('href="data:image/png;base64,');
+  });
+
+  it('decodes xml character references in href before fetching', async () => {
+    const svg =
+      '<svg xmlns="http://www.w3.org/2000/svg"><image href="https://example.com/a.png?x=1&amp;y=2" /></svg>';
+    const fetchMock = vi.fn(async (url: RequestInfo | URL) => {
+      expect(String(url)).toBe('https://example.com/a.png?x=1&y=2');
+      return new Response(new Uint8Array([1, 2, 3]), {
+        status: 200,
+        headers: { 'content-type': 'image/png' },
+      });
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const out = await inlineSvgExternalImages(svg, { maxCount: 10 });
+    expect(out).toContain('href="data:image/png;base64,');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('inlines root-relative href using baseUrl', async () => {
@@ -168,5 +186,28 @@ describe('rewriteCssRelativeUrls', () => {
     expect(rewriteCssRelativeUrls(css, 'https://example.com/fonts/pack')).toContain(
       'url("https://example.com/fonts/pack/a.woff2")',
     );
+  });
+});
+
+describe('sanitizeSvgXmlText', () => {
+  it('escapes bare ampersands', () => {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg"><text>1 & 2</text></svg>';
+    const out = sanitizeSvgXmlText(svg);
+    expect(out.fixed).toBeGreaterThan(0);
+    expect(out.text).toContain('1 &amp; 2');
+  });
+
+  it('escapes undefined named entities', () => {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg"><text>&nbsp;</text></svg>';
+    const out = sanitizeSvgXmlText(svg);
+    expect(out.fixed).toBeGreaterThan(0);
+    expect(out.text).toContain('&amp;nbsp;');
+  });
+
+  it('does not touch CDATA', () => {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg"><style><![CDATA[a&b]]></style></svg>';
+    const out = sanitizeSvgXmlText(svg);
+    expect(out.fixed).toBe(0);
+    expect(out.text).toBe(svg);
   });
 });
