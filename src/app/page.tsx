@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Script from 'next/script';
 import { HomeHeader } from './components/HomeHeader';
+import { HomeStartButton } from './components/HomeStartButton';
 import { PreloadLinks } from './components/PreloadLinks';
 import { SITE_URL } from './utils/site-url';
 
@@ -84,9 +85,7 @@ export default function Home() {
               查询成绩、生成图片、分析数据，欢迎来到空间站「塔弦」旗下的 Phigros Query。
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
-              <Link href="/login" className="inline-flex items-center justify-center px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium">
-                立即开始
-              </Link>
+              <HomeStartButton className="inline-flex items-center justify-center px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium" />
               <a href="#features" className="inline-flex items-center justify-center px-5 py-2.5 rounded-lg border border-blue-600 text-blue-600 dark:text-blue-400 text-sm font-medium hover:bg-blue-50 dark:hover:bg-blue-950/30">
                 了解更多
               </a>
