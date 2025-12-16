@@ -76,14 +76,15 @@ function nowMs(): number {
   return Date.now();
 }
 
-function injectSvgStyle(rawSvg: string, css: string): string {
+export function injectSvgStyle(rawSvg: string, css: string): string {
+  const safeCss = sanitizeSvgXmlText(css).text;
   if (/<style[\s>]/i.test(rawSvg) && /<\/style>/i.test(rawSvg)) {
-    return rawSvg.replace(/<\/style>/i, `${css}\n</style>`);
+    return rawSvg.replace(/<\/style>/i, `${safeCss}\n</style>`);
   }
   if (/<defs[\s>]/i.test(rawSvg) && /<\/defs>/i.test(rawSvg)) {
-    return rawSvg.replace(/<\/defs>/i, `<style>\n${css}\n</style>\n</defs>`);
+    return rawSvg.replace(/<\/defs>/i, `<style>\n${safeCss}\n</style>\n</defs>`);
   }
-  return rawSvg.replace(/<svg\b([^>]*)>/i, `<svg$1><style>\n${css}\n</style>`);
+  return rawSvg.replace(/<svg\b([^>]*)>/i, `<svg$1><style>\n${safeCss}\n</style>`);
 }
 
 export function rewriteCssRelativeUrls(cssText: string, baseUrl: string): string {

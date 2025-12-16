@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   embedSvgExternalImagesAsObjectUrls,
+  injectSvgStyle,
   injectSvgImageCrossOrigin,
   inlineSvgExternalImages,
   parseSvgDimensions,
@@ -49,6 +50,21 @@ describe('injectSvgImageCrossOrigin', () => {
     const svg =
       '<svg xmlns="http://www.w3.org/2000/svg"><image crossorigin="use-credentials" href="https://somnia.xtower.site/a.png" /></svg>';
     expect(injectSvgImageCrossOrigin(svg)).toContain('crossorigin="use-credentials"');
+  });
+});
+
+describe('injectSvgStyle', () => {
+  it('escapes ampersands in injected css for xml parser', () => {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg"></svg>';
+    const out = injectSvgStyle(svg, 'svg{font-family:"A & B";}');
+    expect(out).toContain('A &amp; B');
+  });
+
+  it('does not double-escape existing entities', () => {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg"></svg>';
+    const out = injectSvgStyle(svg, 'svg{font-family:"A &amp; B";}');
+    expect(out).toContain('A &amp; B');
+    expect(out).not.toContain('&amp;amp;');
   });
 });
 
