@@ -502,7 +502,12 @@ export async function inlineSvgExternalImages(
 
   let out = svgText;
 
-  for (const { originalUrl, fetchUrl } of refs) {
+  // 关键：按 URL 长度降序排列，优先替换长 URL。
+  // 避免短 URL 是长 URL 的前缀/子串时，先替换短 URL 导致长 URL 被破坏（例如变成 "data:...?param=val"），
+  // 进而导致 XML 解析错误（如 "xmlParseEntityRef: no name"，因为破坏后的 URL 可能包含裸露的 '&'）。
+  const sortedRefs = refs.slice().sort((a, b) => b.originalUrl.length - a.originalUrl.length);
+
+  for (const { originalUrl, fetchUrl } of sortedRefs) {
     dgroup(options, `inline:image:${originalUrl}`, () => {
       dlog(options, 'fetchUrl =', fetchUrl);
       dlog(options, 'fetchInit =', getFetchInitForUrl(fetchUrl));
@@ -647,7 +652,14 @@ export async function embedSvgExternalImagesAsObjectUrls(
   try {
     await Promise.all(workers);
     let out = svgText;
-    for (const [from, to] of blobByOriginalUrl.entries()) {
+
+    // 关键：按 URL 长度降序排列，优先替换长 URL。
+    // 并发 fetch 完成顺序不确定，若直接遍历 Map，可能先替换短 URL 导致长 URL 被破坏。
+    const replacements = Array.from(blobByOriginalUrl.entries()).sort(
+      (a, b) => b[0].length - a[0].length,
+    );
+
+    for (const [from, to] of replacements) {
       out = replaceAll(out, from, to);
     }
     dlog(options, 'embedSvgExternalImagesAsObjectUrls:done', {
