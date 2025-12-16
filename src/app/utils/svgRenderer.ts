@@ -11,6 +11,12 @@ export interface RenderOptions {
   waitBeforeDrawMs?: number;
   fontPackId?: 'source-han-sans-saira-hybrid-5446';
   fontFamily?: string;
+  // 是否将字体包内的字体文件嵌入到 SVG（data: URL），用于解决“SVG 作为 blob/img 渲染时字体不生效”的问题
+  // 说明：blob/data URL 的 SVG 子资源请求通常会带 Origin: null，若字体文件未放行 CORS，会导致字体加载失败；
+  // 嵌入 data: 可避免跨域与时序问题，但会增大 SVG 字符串体积。
+  embedFonts?: 'none' | 'data';
+  // embedFonts='data' 时最多嵌入的字体文件数量（防止极端情况下体积/内存失控）
+  embedFontMaxFiles?: number;
   // 是否在渲染前将 SVG 内的外链图片(<image href>)抓取并内联为 data:URL
   // 目的：避免导出到 canvas 时外链图片因跨域/安全策略不参与渲染，导致导出缺图。
   //
@@ -203,6 +209,111 @@ const FONT_PACKS: Record<
 const cachedFontPackCss: Record<string, Promise<string>> = {};
 const cachedFontPackInjected: Record<string, Promise<void>> = {};
 
+type UnicodeRange = { start: number; end: number };
+
+function parseUnicodeRangeList(raw: string): UnicodeRange[] {
+  // 示例：U+4E00,U+4E0A-4E0B,U+FF01-U+FF5E
+  const ranges: UnicodeRange[] = [];
+  const parts = raw
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean);
+  for (const part of parts) {
+    const m = /^U\+([0-9A-Fa-f]{1,6})(?:-([0-9A-Fa-f]{1,6}))?$/.exec(part);
+    if (!m) continue;
+    const start = Number.parseInt(m[1]!, 16);
+    const end = Number.parseInt((m[2] ?? m[1])!, 16);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) continue;
+    if (start < 0 || end < 0 || start > 0x10ffff || end > 0x10ffff) continue;
+    ranges.push({ start: Math.min(start, end), end: Math.max(start, end) });
+  }
+  return ranges;
+}
+
+function collectSvgUsedCodePoints(svgText: string): Set<number> {
+  // 目的：只嵌入本次导出真正用到的字体子集（unicode-range），避免把整个字体包塞进 data:URL。
+  const used = new Set<number>();
+  if (typeof DOMParser === 'undefined') return used;
+  try {
+    const sanitized = sanitizeSvgXmlText(svgText);
+    const parser = new DOMParser();
+    const svgDoc = parser.parseFromString(sanitized.text, 'image/svg+xml');
+    const texts = Array.from(svgDoc.querySelectorAll('text'));
+    for (const el of texts) {
+      const t = el.textContent ?? '';
+      for (const ch of t) {
+        if (!ch.trim()) continue;
+        used.add(ch.codePointAt(0)!);
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return used;
+}
+
+function cssFontMimeTypeFromUrl(url: string, contentType: string | null): string {
+  const lower = url.toLowerCase();
+  if (contentType && /^font\//i.test(contentType)) return contentType.split(';')[0]!;
+  if (contentType && /woff2/i.test(contentType)) return 'font/woff2';
+  if (contentType && /woff/i.test(contentType)) return 'font/woff';
+  if (lower.endsWith('.woff2')) return 'font/woff2';
+  if (lower.endsWith('.woff')) return 'font/woff';
+  if (lower.endsWith('.otf')) return 'font/otf';
+  if (lower.endsWith('.ttf')) return 'font/ttf';
+  return 'application/octet-stream';
+}
+
+function extractFontFaceBlocks(cssText: string): string[] {
+  // result.css 是 minify 的多个 @font-face{...} 拼接，简单正则即可拆分
+  return cssText.match(/@font-face\s*{[^}]*}/g) ?? [];
+}
+
+function pickFontFaceBlocksForCodePoints(fontFaceBlocks: string[], usedCodePoints: Set<number>): string[] {
+  if (fontFaceBlocks.length === 0) return [];
+  // 若 SVG 没有文字，仍然返回空（避免无意义地塞字体）
+  if (usedCodePoints.size === 0) return [];
+
+  const used = Array.from(usedCodePoints.values());
+  const picked: string[] = [];
+
+  for (const block of fontFaceBlocks) {
+    const m = /unicode-range\s*:\s*([^;]+)\s*;/i.exec(block);
+    // 没有 unicode-range 的规则：保守起见跳过（否则可能把整套字体塞进去）
+    if (!m) continue;
+    const ranges = parseUnicodeRangeList(m[1] ?? '');
+    if (ranges.length === 0) continue;
+
+    let hit = false;
+    for (const cp of used) {
+      for (const r of ranges) {
+        if (cp >= r.start && cp <= r.end) {
+          hit = true;
+          break;
+        }
+      }
+      if (hit) break;
+    }
+
+    if (hit) picked.push(block);
+  }
+
+  return picked;
+}
+
+function extractCssUrls(block: string): string[] {
+  const urls: string[] = [];
+  const re = /url\(\s*(['"]?)([^"')]+)\1\s*\)/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(block))) {
+    const u = (m[2] ?? '').trim();
+    if (!u) continue;
+    if (/^(data:|blob:)/i.test(u)) continue;
+    urls.push(u);
+  }
+  return urls;
+}
+
 async function getFontPackCss(
   packId: NonNullable<RenderOptions['fontPackId']>,
   baseUrl: string | undefined,
@@ -289,6 +400,63 @@ async function ensureFontPackInjectedToDocument(
 
   await cachedFontPackInjected[cacheKey]!;
   return { family: FONT_PACKS[packId].defaultFamily };
+}
+
+async function buildEmbeddedFontCssForSvg(
+  svgText: string,
+  packId: NonNullable<RenderOptions['fontPackId']>,
+  baseUrl: string | undefined,
+  options: { debug?: boolean; debugTag?: string } | undefined,
+  maxFiles: number,
+): Promise<{ css: string; embeddedFiles: number }> {
+  // 目的：把字体包的 @font-face 规则与字体文件内联到 SVG，确保 blob/data URL 渲染时字体也能生效。
+  const { css } = await getFontPackCss(packId, baseUrl, options);
+
+  const blocks = extractFontFaceBlocks(css);
+  const used = collectSvgUsedCodePoints(svgText);
+  const picked = pickFontFaceBlocksForCodePoints(blocks, used);
+  if (picked.length === 0) return { css: '', embeddedFiles: 0 };
+
+  const urls = Array.from(new Set(picked.flatMap(extractCssUrls)));
+  if (urls.length === 0) return { css: picked.join('\n'), embeddedFiles: 0 };
+
+  const limit = Math.max(0, Math.min(256, Math.floor(maxFiles)));
+  if (urls.length > limit) {
+    dlog(options, 'embedFonts skipped: too many font files', { files: urls.length, limit });
+    return { css: '', embeddedFiles: 0 };
+  }
+
+  const dataUrlByUrl = new Map<string, string>();
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, getFetchInitForUrl(url));
+      if (!res.ok) throw new Error(`Failed to fetch font: ${res.status} ${url}`);
+      const buf = await res.arrayBuffer();
+      const mime = cssFontMimeTypeFromUrl(url, res.headers.get('content-type'));
+      const dataUrl = `data:${mime};base64,${arrayBufferToBase64(buf)}`;
+      dataUrlByUrl.set(url, dataUrl);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      dlog(options, 'embedFonts fetch failed', { url, message });
+      // 某个子集失败不应阻断导出：跳过，交给后续 fallback（可能使用系统字体/已有字体）
+    }
+  }
+
+  if (dataUrlByUrl.size === 0) return { css: '', embeddedFiles: 0 };
+
+  const replaceAllUrls = (input: string): string => {
+    let out = input;
+    for (const [from, to] of dataUrlByUrl.entries()) {
+      out = out.replace(
+        new RegExp(`url\\(\\s*(['"]?)${escapeRegExp(from)}\\1\\s*\\)`, 'g'),
+        `url("${to}")`,
+      );
+    }
+    return out;
+  };
+
+  const embeddedCss = picked.map(replaceAllUrls).join('\n');
+  return { css: embeddedCss, embeddedFiles: dataUrlByUrl.size };
 }
 
 async function preloadDocumentFont(
@@ -819,12 +987,16 @@ export class SVGRenderer {
       waitBeforeDrawMs = 0,
       fontPackId,
       fontFamily,
+      embedFonts,
+      embedFontMaxFiles = 200,
       inlineImages = false,
       inlineImageMaxCount = 300,
       embedImages = 'data',
       embedImageConcurrency = 50,
       embedImageMaxCount = 500,
     } = options;
+
+    const effectiveEmbedFonts = embedFonts ?? (fontPackId ? 'data' : 'none');
 
     const debugOptions = { debug, debugTag };
     const start = nowMs();
@@ -836,6 +1008,8 @@ export class SVGRenderer {
         backgroundColor,
         baseUrl,
         waitBeforeDrawMs,
+        embedFonts: effectiveEmbedFonts,
+        embedFontMaxFiles,
         inlineImages,
         inlineImageMaxCount,
         embedImages,
@@ -921,6 +1095,19 @@ export class SVGRenderer {
     }
 
     onProgress?.({ stage: 'rendering', progress: 30 });
+
+    if (fontPackId && effectiveEmbedFonts === 'data') {
+      try {
+        const embedded = await buildEmbeddedFontCssForSvg(svgText, fontPackId, baseUrl, debugOptions, embedFontMaxFiles);
+        if (embedded.embeddedFiles > 0 && embedded.css) {
+          normalizedSvgText = injectSvgStyle(normalizedSvgText, embedded.css);
+          dlog(debugOptions, 'fontPack embedded into svg', { files: embedded.embeddedFiles });
+        }
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        dlog(debugOptions, 'fontPack embed failed (ignored)', { message });
+      }
+    }
 
     if (exportFontFamily) {
       const family = cssStringLiteral(exportFontFamily);
