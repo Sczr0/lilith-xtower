@@ -41,9 +41,10 @@ const supportLinks = [
     )
   },
   {
-    title: '社区资源',
+    title: '友链/赞助',
     links: [
       { name: 'Phi-plugin 使用指引', url: 'https://www.kdocs.cn/l/catqcMM9UR5Y', external: true },
+      { name: 'RankHub —— 跨平台音游数据管理应用', url: 'https://github.com/qianmo2233/RankHub', external: true },
       { name: '爱发电', url: 'https://afdian.com/a/xtower', external: true }
     ],
     icon: (
