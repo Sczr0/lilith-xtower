@@ -88,7 +88,7 @@ const renderChartItems = (items: PublicProfileResponse['ap_top3']) => {
     <ul className="space-y-2">
       {items.map((item, index) => (
         <li
-          key={`${item.song}-${item.difficulty}-${index}`}
+          key={`${item.song}|${item.difficulty}|${item.acc}|${item.rks}`}
           className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white/70 px-4 py-3 text-sm transition-colors hover:border-blue-300 hover:text-blue-700 dark:border-neutral-700 dark:bg-neutral-900/50 dark:hover:border-blue-700/60 dark:hover:text-blue-200"
         >
           <div className="flex items-center gap-3">

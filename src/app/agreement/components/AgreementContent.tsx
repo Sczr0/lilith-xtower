@@ -17,44 +17,89 @@ interface AgreementContentProps {
 }
 
 /**
- * 客户端组件：处理滚动监听和目录高亮等交互逻辑
+ * 客户端组件：处理滚动监听与目录高亮等交互逻辑
+ * - 缓存 headings，避免每次 scroll 都 querySelectorAll
+ * - 使用 requestAnimationFrame 合并滚动更新，降低掉帧风险
+ * - activeSection 未变化时不 setState，减少无意义渲染
  */
 export function AgreementContent({
   htmlContent,
   tocItems,
   title = '用户协议',
-  subtitle = '请在使用服务前仔细阅读以下条款。'
+  subtitle = '请在使用服务前仔细阅读以下条款。',
 }: AgreementContentProps) {
   const [activeSection, setActiveSection] = useState('');
   const contentRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const handleScroll = () => {
-      if (!contentRef.current) return;
+  const headingsRef = useRef<HTMLElement[]>([]);
+  const rafRef = useRef<number | null>(null);
+  const activeTextRef = useRef<string>('');
 
-      const headings = contentRef.current.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6');
-      const scrollPosition = window.scrollY + 120;
+  const updateActiveSection = () => {
+    const headings = headingsRef.current;
+    if (!headings || headings.length === 0) {
+      if (activeTextRef.current !== '') {
+        activeTextRef.current = '';
+        setActiveSection('');
+      }
+      return;
+    }
 
-      for (let i = headings.length - 1; i >= 0; i -= 1) {
-        const element = headings[i];
-        if (element.offsetTop <= scrollPosition) {
-          setActiveSection(element.textContent || '');
-          return;
+    const scrollPosition = window.scrollY + 120;
+
+    for (let i = headings.length - 1; i >= 0; i -= 1) {
+      const element = headings[i];
+      if (element.offsetTop <= scrollPosition) {
+        const next = element.textContent || '';
+        if (next !== activeTextRef.current) {
+          activeTextRef.current = next;
+          setActiveSection(next);
         }
+        return;
       }
+    }
 
-      if (headings.length > 0) {
-        setActiveSection(headings[0].textContent || '');
-      }
-    };
+    const first = headings[0]?.textContent || '';
+    if (first !== activeTextRef.current) {
+      activeTextRef.current = first;
+      setActiveSection(first);
+    }
+  };
 
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll();
+  const scheduleUpdate = () => {
+    if (rafRef.current) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      updateActiveSection();
+    });
+  };
+
+  useEffect(() => {
+    // htmlContent 变更时只做一次 DOM 查询
+    if (!contentRef.current) return;
+    headingsRef.current = Array.from(
+      contentRef.current.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6'),
+    );
+    scheduleUpdate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [htmlContent]);
+
+  useEffect(() => {
+    const onScroll = () => scheduleUpdate();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    scheduleUpdate();
 
     return () => {
-      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
     };
-  }, [htmlContent]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <main className="px-4 py-10 sm:py-14 sm:px-6 lg:px-8">
@@ -92,3 +137,4 @@ export function AgreementContent({
     </main>
   );
 }
+

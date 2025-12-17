@@ -220,7 +220,7 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
           <div className="grid grid-cols-1 gap-3 md:hidden">
             {filteredRecords.map((record, index) => (
               <ScoreCard
-                key={`${record.song_name}-${record.difficulty}-${index}`}
+                key={`${record.song_name}|${record.difficulty}|${record.difficulty_value}|${record.score}`}
                 record={record}
                 rank={index + 1}
                 nameMaxLines={2}
@@ -256,7 +256,7 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
               <tbody>
                 {filteredRecords.map((record, index) => (
                   <tr
-                    key={`${record.song_name}-${record.difficulty}-${index}`}
+                    key={`${record.song_name}|${record.difficulty}|${record.difficulty_value}|${record.score}`}
                     className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors"
                   >
                     <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">
