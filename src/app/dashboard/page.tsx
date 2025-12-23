@@ -188,6 +188,7 @@ export default function Dashboard() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-950 flex items-center justify-center">
         <div className="flex flex-col items-center">
+          <h1 className="sr-only">正在加载个人成绩仪表盘 - Phigros Query</h1>
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
           <RotatingTips />
         </div>

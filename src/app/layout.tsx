@@ -27,11 +27,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "Phigros Query",
+    default: "Phigros Query - 专业的 Phigros 成绩查询与 RKS 数据分析工具",
     template: "%s | Phigros Query",
   },
   description:
-    "Phigros Query 是面向 Phigros 玩家的成绩查询与数据分析工具，提供 RKS 计算、Best N 成绩卡生成、单曲成绩查看与分享。",
+    "Phigros Query 是一个专为 Phigros 玩家打造的综合性成绩查询与数据分析平台。我们提供精准的 RKS 计算、精美的 Best N 成绩卡片生成、详细的单曲表现分析以及便捷的成绩分享功能，帮助玩家更好地记录和提升游戏水平。",
   keywords: ["Phigros", "RKS 计算", "Best N", "成绩查询", "成绩卡片", "谱面数据", "成绩导出", "玩家工具"],
   alternates: {
     canonical: "/",
@@ -39,18 +39,18 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     url: "/",
-    title: "Phigros Query",
+    title: "Phigros Query - 专业的 Phigros 成绩查询与 RKS 数据分析工具",
     description:
-      "Phigros Query 是面向 Phigros 玩家的成绩查询与数据分析工具，提供 RKS 计算、Best N 成绩卡生成、单曲成绩查看与分享。",
+      "Phigros Query 是一个专为 Phigros 玩家打造的综合性成绩查询与数据分析平台。我们提供精准的 RKS 计算、精美的 Best N 成绩卡片生成、详细的单曲表现分析以及便捷的成绩分享功能。",
     siteName: "Phigros Query",
     locale: "zh_CN",
     images: [{ url: "/og", width: 1200, height: 630 }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Phigros Query",
+    title: "Phigros Query - 专业的 Phigros 成绩查询与 RKS 数据分析工具",
     description:
-      "Phigros Query 是面向 Phigros 玩家的成绩查询与数据分析工具，提供 RKS 计算、Best N 成绩卡生成、单曲成绩查看与分享。",
+      "Phigros Query 是一个专为 Phigros 玩家打造的综合性成绩查询与数据分析平台。我们提供精准的 RKS 计算、精美的 Best N 成绩卡片生成、详细的单曲表现分析以及便捷的成绩分享功能。",
     images: ["/og"],
   },
 };

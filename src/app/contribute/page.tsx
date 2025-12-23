@@ -3,6 +3,8 @@
 import { useState, useTransition } from 'react';
 import { submitTip } from './actions';
 import { SimpleHeader } from '../components/SimpleHeader';
+import { PageShell } from '../components/PageShell';
+import { buttonStyles, cardStyles, inputStyles } from '../components/ui/styles';
 
 export default function ContributePage() {
   const [isPending, startTransition] = useTransition();
@@ -27,13 +29,14 @@ export default function ContributePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-950">
-      {/* Header */}
-      <SimpleHeader />
-
-      {/* Main Content */}
-      <main className="relative z-10 flex-1 p-4 sm:p-6 lg:p-8">
-        <div className="max-w-2xl mx-auto space-y-8">
+    <PageShell
+      variant="gradient"
+      header={<SimpleHeader />}
+      footerVariant="rights"
+      footerText="© 2025 Phigros Query. All Rights Reserved."
+      mainClassName="relative z-10 flex-1 p-4 sm:p-6 lg:p-8"
+      containerClassName="max-w-2xl mx-auto space-y-8"
+    >
           {/* Title */}
           <div className="text-center">
             <h1 className="text-3xl sm:text-4xl font-bold mb-4 text-gray-900 dark:text-gray-100">
@@ -45,7 +48,7 @@ export default function ContributePage() {
           </div>
 
           {/* Tip Submission Card */}
-          <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-xl border border-gray-200/50 dark:border-gray-700/50 p-6 sm:p-8 shadow-lg">
+          <div className={cardStyles({ tone: 'glass' })}>
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -68,7 +71,7 @@ export default function ContributePage() {
                   rows={4}
                   maxLength={100}
                   placeholder="输入你想分享的 Tip（限100字）..."
-                  className="w-full px-4 py-3 rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
+                  className={inputStyles({ className: 'resize-none' })}
                   required
                 />
                 <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 text-right">
@@ -76,7 +79,7 @@ export default function ContributePage() {
                 </p>
               </div>
 
-              <div className="space-y-3 pt-2 border-t border-dashed border-gray-200 dark:border-gray-700">
+              <div className="space-y-3 pt-2 border-t border-dashed border-gray-200 dark:border-neutral-800">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm text-gray-600 dark:text-gray-400">需要附加信息？可在高级选项里填写。</p>
                   <button
@@ -98,7 +101,7 @@ export default function ContributePage() {
                       name="author"
                       maxLength={30}
                       placeholder="例如：鱼丸，或留空匿名投稿"
-                      className="w-full px-4 py-2.5 rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
+                      className={inputStyles({ className: 'py-2.5' })}
                     />
                     <p className="text-xs text-gray-500 dark:text-gray-400 text-right">
                       不填默认显示“匿名投稿”，最长 30 字
@@ -120,7 +123,7 @@ export default function ContributePage() {
               <button
                 type="submit"
                 disabled={isPending}
-                className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className={buttonStyles({ fullWidth: true, variant: 'primary' })}
               >
                 {isPending ? (
                   <>
@@ -138,7 +141,13 @@ export default function ContributePage() {
           </div>
 
           {/* Survey Placeholder Card */}
-          <div className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-200/30 dark:border-gray-700/30 p-6 sm:p-8 border-dashed">
+          <div
+            className={cardStyles({
+              tone: 'glass',
+              dashed: true,
+              className: 'bg-white/50 dark:bg-neutral-900/40 border-gray-200/30 dark:border-neutral-800/30 backdrop-blur-sm',
+            })}
+          >
             <div className="flex items-center gap-3 mb-4 opacity-75">
               <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg text-purple-600 dark:text-purple-400">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -152,19 +161,17 @@ export default function ContributePage() {
             <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
               暂时没有正在进行的问卷调查。如果有新的调研活动，我们会在这里发布链接。
             </p>
-            <button disabled className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 rounded-lg text-sm font-medium cursor-not-allowed">
+            <button
+              disabled
+              className={buttonStyles({
+                size: 'sm',
+                variant: 'secondary',
+                className: 'text-gray-400 dark:text-gray-500 cursor-not-allowed hover:bg-gray-100 dark:hover:bg-neutral-800',
+              })}
+            >
               暂无活动
             </button>
           </div>
-        </div>
-      </main>
-
-      {/* Footer */}
-      <footer className="relative z-10 flex items-center justify-center h-16 backdrop-blur-sm bg-white/30 dark:bg-gray-900/30 border-t border-gray-200/50 dark:border-gray-700/50 mt-8">
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          © 2025 Phigros Query. All Rights Reserved.
-        </p>
-      </footer>
-    </div>
+    </PageShell>
   );
 }

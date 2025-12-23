@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import Script from 'next/script';
 import { SimpleHeader } from '../components/SimpleHeader';
+import { PageShell } from '../components/PageShell';
+import { buttonStyles } from '../components/ui/styles';
 import { QAList } from './components/QAList';
 import { getAllQA } from '../lib/qa';
 
@@ -137,7 +139,7 @@ export default async function QAPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-950">
+    <PageShell variant="gradient" main={false}>
       {/* FAQPage 结构化数据 */}
       <Script
         id="ld-json-faq"
@@ -188,19 +190,19 @@ export default async function QAPage() {
                 href="https://qm.qq.com/q/pbbOzU72aA"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                className={buttonStyles({ variant: 'primary' })}
               >
                 加入官方群聊 空间站「索终」
               </a>
               <Link
                 href="/about"
-                className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                className={buttonStyles({ variant: 'primary' })}
               >
                 查看关于页面
               </Link>
               <Link
                 href="/"
-                className="inline-flex items-center justify-center px-4 py-2 bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 font-medium rounded-lg border border-blue-600 dark:border-blue-400 hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors"
+                className={buttonStyles({ variant: 'outline' })}
               >
                 返回主页
               </Link>
@@ -215,6 +217,6 @@ export default async function QAPage() {
           © 2025 Phigros Query. All Rights Reserved.
         </p>
       </footer>
-    </div>
+    </PageShell>
   );
 }

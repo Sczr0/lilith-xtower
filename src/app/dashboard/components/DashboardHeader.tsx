@@ -43,9 +43,9 @@ export function DashboardHeader({ onOpenAnnouncements, onOpenMenu }: DashboardHe
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
-        <h1 className="text-lg lg:text-xl font-bold text-gray-900 dark:text-gray-100">
+        <p className="text-lg lg:text-xl font-bold text-gray-900 dark:text-gray-100">
           Phigros 查询工具
-        </h1>
+        </p>
       </div>
 
       {/* Right Side - User Info (Only show on desktop, mobile uses sidebar) */}
