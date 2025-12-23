@@ -181,15 +181,15 @@ export default async function AboutPage() {
           <section className="space-y-3">
             <h2 className="text-xl font-semibold">服务支持</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {supportLinks.map((section, index) => (
-                <div key={index} className="border border-gray-200 dark:border-neutral-800 rounded-xl p-4">
+              {supportLinks.map((section) => (
+                <div key={section.title} className="border border-gray-200 dark:border-neutral-800 rounded-xl p-4">
                   <div className="mb-3 flex items-center gap-2">
                     <span className="text-gray-500 dark:text-gray-400">{section.icon}</span>
                     <h3 className="text-base font-medium">{section.title}</h3>
                   </div>
                   <ul className="space-y-2">
-                    {section.links.map((link, linkIndex) => (
-                      <li key={linkIndex}>
+                    {section.links.map((link) => (
+                      <li key={link.url}>
                         <a
                           href={link.url}
                           target={link.external ? '_blank' : undefined}

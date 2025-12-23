@@ -80,9 +80,9 @@ export function AboutClientSections() {
         <h2 className="text-xl font-semibold">感谢</h2>
         <p className="text-sm text-gray-600 dark:text-gray-400">感谢以下服务提供商为本站提供的服务：</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          {serviceProviders.map((provider, index) => (
+          {serviceProviders.map((provider) => (
             <a
-              key={index}
+              key={provider.name}
               href={provider.url}
               target="_blank"
               rel="noopener noreferrer"

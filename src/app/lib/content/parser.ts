@@ -8,22 +8,29 @@ import matter from 'gray-matter';
 import { Announcement, SongUpdate } from '../types/content';
 
 const CONTENT_DIR = path.join(process.cwd(), 'src/app/content');
+const ENABLE_PROD_CACHE = process.env.NODE_ENV === 'production';
+
+let cachedAnnouncements: Announcement[] | null = null;
+let cachedSongUpdates: SongUpdate[] | null = null;
 
 /**
  * 获取所有启用的公告
  * @returns 公告列表，按发布时间降序排列
  */
 export function getAnnouncements(): Announcement[] {
+  if (ENABLE_PROD_CACHE && cachedAnnouncements) return cachedAnnouncements;
+
   const dir = path.join(CONTENT_DIR, 'announcements');
   
   if (!fs.existsSync(dir)) {
     console.warn('公告目录不存在:', dir);
+    if (ENABLE_PROD_CACHE) cachedAnnouncements = [];
     return [];
   }
 
   const files = fs.readdirSync(dir).filter(f => f.endsWith('.md'));
   
-  return files
+  const announcements = files
     .map(filename => {
       const filepath = path.join(dir, filename);
       const fileContent = fs.readFileSync(filepath, 'utf-8');
@@ -44,6 +51,9 @@ export function getAnnouncements(): Announcement[] {
     .sort((a, b) => 
       new Date(b.publishDate).getTime() - new Date(a.publishDate).getTime()
     );
+
+  if (ENABLE_PROD_CACHE) cachedAnnouncements = announcements;
+  return announcements;
 }
 
 /**
@@ -59,16 +69,19 @@ export function getAnnouncementById(id: string): Announcement | null {
  * @returns 新曲速递列表，按更新时间降序排列
  */
 export function getSongUpdates(): SongUpdate[] {
+  if (ENABLE_PROD_CACHE && cachedSongUpdates) return cachedSongUpdates;
+
   const dir = path.join(CONTENT_DIR, 'song-updates');
   
   if (!fs.existsSync(dir)) {
     console.warn('新曲速递目录不存在:', dir);
+    if (ENABLE_PROD_CACHE) cachedSongUpdates = [];
     return [];
   }
 
   const files = fs.readdirSync(dir).filter(f => f.endsWith('.md'));
   
-  return files
+  const updates = files
     .map(filename => {
       const filepath = path.join(dir, filename);
       const fileContent = fs.readFileSync(filepath, 'utf-8');
@@ -86,6 +99,9 @@ export function getSongUpdates(): SongUpdate[] {
     .sort((a, b) => 
       new Date(b.updateDate).getTime() - new Date(a.updateDate).getTime()
     );
+
+  if (ENABLE_PROD_CACHE) cachedSongUpdates = updates;
+  return updates;
 }
 
 /**

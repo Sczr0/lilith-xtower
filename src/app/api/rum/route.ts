@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 
 export const runtime = "edge";
 
+const ALLOWED_NAMES = new Set(["LCP", "CLS", "INP", "TTFB", "FCP", "FID"]);
+
 export async function POST(req: NextRequest) {
   try {
     const contentType = req.headers.get("content-type") || "";
@@ -9,7 +11,6 @@ export async function POST(req: NextRequest) {
       return new Response("Bad Request", { status: 400 });
     }
     const raw = await req.json();
-    const allowedNames = new Set(["LCP", "CLS", "INP", "TTFB", "FCP", "FID"]);
 
     // 基本字段校验与瘦身
     const cleaned = (() => {
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
     })();
 
     // 丢弃非法/异常数据
-    if (!cleaned.name || !allowedNames.has(cleaned.name)) return new Response(null, { status: 204 });
+    if (!cleaned.name || !ALLOWED_NAMES.has(cleaned.name)) return new Response(null, { status: 204 });
     if (typeof cleaned.value !== "number" || Number.isNaN(cleaned.value)) return new Response(null, { status: 204 });
     if (cleaned.path && cleaned.path.length > 1024) cleaned.path = cleaned.path.slice(0, 1024);
 

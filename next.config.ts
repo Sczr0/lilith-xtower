@@ -58,7 +58,45 @@ const nextConfig: NextConfig = {
           {
             // 允许边缘/代理缓存 SSR 输出，降低 TTFB
             key: 'Cache-Control',
-            value: 'public, max-age=0, s-maxage=600, stale-while-revalidate',
+            value: 'public, max-age=0, s-maxage=600, stale-while-revalidate=86400',
+          },
+        ],
+      },
+      {
+        // /qa 页面具备更长的 ISR 周期（revalidate=3600），这里同步缓存头，避免被全局 10 分钟策略“截断”
+        source: '/qa',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400',
+          },
+        ],
+      },
+      {
+        // 交互/潜在个性化页面：禁止边缘/代理缓存，避免未来引入 cookies/headers 个性化时发生误缓存
+        source: '/dashboard/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'private, no-store, max-age=0',
+          },
+        ],
+      },
+      {
+        source: '/login/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'private, no-store, max-age=0',
+          },
+        ],
+      },
+      {
+        source: '/debug-auth/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'private, no-store, max-age=0',
           },
         ],
       },

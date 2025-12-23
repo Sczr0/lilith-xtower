@@ -13,10 +13,16 @@ export interface QAItem {
 }
 
 const QA_DIR = path.join(process.cwd(), 'src/app/content/qa');
+const ENABLE_PROD_CACHE = process.env.NODE_ENV === 'production';
+
+let cachedAllQA: QAItem[] | null = null;
 
 export function getAllQA(): QAItem[] {
+  if (ENABLE_PROD_CACHE && cachedAllQA) return cachedAllQA;
+
   try {
     if (!fs.existsSync(QA_DIR)) {
+      if (ENABLE_PROD_CACHE) cachedAllQA = [];
       return [];
     }
 
@@ -39,7 +45,7 @@ export function getAllQA(): QAItem[] {
     });
 
     // 只返回启用的问题，按优先级和创建时间排序
-    return qaItems
+    const result = qaItems
       .filter(item => item.enabled)
       .sort((a, b) => {
         if (a.priority !== b.priority) {
@@ -47,6 +53,9 @@ export function getAllQA(): QAItem[] {
         }
         return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
       });
+
+    if (ENABLE_PROD_CACHE) cachedAllQA = result;
+    return result;
   } catch (error) {
     console.error('Error reading QA files:', error);
     return [];

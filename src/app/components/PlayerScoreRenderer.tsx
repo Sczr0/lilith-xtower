@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { StyledSelect } from './ui/Select';
 
 interface ScoreEntry {
+  id: string;
   song_name: string;
   score: number;
   acc: number;
@@ -13,6 +14,33 @@ interface ScoreEntry {
 import { DIFFICULTY_BADGE } from '../lib/constants/difficultyColors';
 
 const MAX_SCORES = 36;
+const SCORE_STORAGE_KEY_NAME = 'playerScoreRender_playerName';
+const SCORE_STORAGE_KEY_SCORES = 'playerScoreRender_scores';
+
+function createScoreEntryId(): string {
+  try {
+    const c = (globalThis as unknown as { crypto?: { randomUUID?: () => string } }).crypto;
+    if (c?.randomUUID) return c.randomUUID();
+  } catch {}
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function normalizeSavedScores(raw: unknown): ScoreEntry[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const v = item as Partial<ScoreEntry> & Record<string, unknown>;
+      const song_name = typeof v.song_name === 'string' ? v.song_name : '';
+      const score = typeof v.score === 'number' ? v.score : Number.parseInt(String(v.score ?? ''), 10);
+      const acc = typeof v.acc === 'number' ? v.acc : Number.parseFloat(String(v.acc ?? ''));
+      const difficulty = v.difficulty === 'EZ' || v.difficulty === 'HD' || v.difficulty === 'IN' || v.difficulty === 'AT' ? v.difficulty : 'IN';
+      if (!song_name || !Number.isFinite(score) || !Number.isFinite(acc)) return null;
+      const id = typeof v.id === 'string' && v.id ? v.id : createScoreEntryId();
+      return { id, song_name, score, acc, difficulty } satisfies ScoreEntry;
+    })
+    .filter((x): x is ScoreEntry => !!x);
+}
 
 export function PlayerScoreRenderer() {
   const [playerName, setPlayerName] = useState('');
@@ -28,8 +56,8 @@ export function PlayerScoreRenderer() {
 
   // 从 localStorage 加载数据
   useEffect(() => {
-    const savedPlayerName = localStorage.getItem('playerScoreRender_playerName');
-    const savedScores = localStorage.getItem('playerScoreRender_scores');
+    const savedPlayerName = localStorage.getItem(SCORE_STORAGE_KEY_NAME);
+    const savedScores = localStorage.getItem(SCORE_STORAGE_KEY_SCORES);
 
     if (savedPlayerName) {
       setPlayerName(savedPlayerName);
@@ -37,17 +65,30 @@ export function PlayerScoreRenderer() {
 
     if (savedScores) {
       try {
-        setScoresList(JSON.parse(savedScores));
+        const normalized = normalizeSavedScores(JSON.parse(savedScores));
+        setScoresList(normalized);
+
+        // 鏁版嵁杩佺Щ锛氳ˉ榻? id锛堜笉褰卞搷 UI 锛屼絾鑳介伩鍏嶅垪琛ㄩ噸鎺掑鑷寸殑鏃犳剰涔? remount锛?
+        try {
+          localStorage.setItem(SCORE_STORAGE_KEY_SCORES, JSON.stringify(normalized));
+        } catch {}
       } catch (error) {
         console.error('Failed to parse saved scores:', error);
       }
     }
   }, []);
 
+  // 避免 ObjectURL 泄漏：当 resultImage 更新/卸载时回收旧 URL
+  useEffect(() => {
+    return () => {
+      if (resultImage) URL.revokeObjectURL(resultImage);
+    };
+  }, [resultImage]);
+
   // 保存数据到 localStorage
   const saveToLocalStorage = (name: string, scores: ScoreEntry[]) => {
-    localStorage.setItem('playerScoreRender_playerName', name);
-    localStorage.setItem('playerScoreRender_scores', JSON.stringify(scores));
+    localStorage.setItem(SCORE_STORAGE_KEY_NAME, name);
+    localStorage.setItem(SCORE_STORAGE_KEY_SCORES, JSON.stringify(scores));
   };
 
   // 添加成绩
@@ -78,6 +119,7 @@ export function PlayerScoreRenderer() {
     const newScoresList = [
       ...scoresList,
       {
+        id: createScoreEntryId(),
         song_name: songName.trim(),
         score,
         acc,
@@ -96,8 +138,8 @@ export function PlayerScoreRenderer() {
   };
 
   // 删除成绩
-  const removeScore = (index: number) => {
-    const newScoresList = scoresList.filter((_, i) => i !== index);
+  const removeScore = (id: string) => {
+    const newScoresList = scoresList.filter((s) => s.id !== id);
     setScoresList(newScoresList);
     saveToLocalStorage(playerName, newScoresList);
   };
@@ -137,7 +179,12 @@ export function PlayerScoreRenderer() {
         },
         body: JSON.stringify({
           player_name: playerName.trim(),
-          scores: scoresList,
+          scores: scoresList.map((s) => ({
+            song_name: s.song_name,
+            score: s.score,
+            acc: s.acc,
+            difficulty: s.difficulty,
+          })),
         }),
       });
 
@@ -309,9 +356,9 @@ export function PlayerScoreRenderer() {
               </div>
             ) : (
               <div className="space-y-2">
-                {scoresList.map((score, index) => (
+                {scoresList.map((score) => (
                   <div
-                    key={index}
+                    key={score.id}
                     className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-3 flex justify-between items-center"
                   >
                     <div className="flex-grow">
@@ -330,7 +377,7 @@ export function PlayerScoreRenderer() {
                       </div>
                     </div>
                     <button
-                      onClick={() => removeScore(index)}
+                      onClick={() => removeScore(score.id)}
                       className="ml-2 bg-red-500 hover:bg-red-600 text-white p-2 rounded transition-colors"
                       title="删除"
                     >

@@ -22,7 +22,7 @@ import { RotatingTips } from '../components/RotatingTips';
 const AGREEMENT_KEY = 'phigros_agreement_accepted';
 
 export default function Dashboard() {
-  const { isAuthenticated, isLoading, error } = useAuth();
+  const { isAuthenticated, isLoading, error, credential } = useAuth();
   const [activeTab, setActiveTab] = useState<TabId>('best-n');
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [songUpdates, setSongUpdates] = useState<SongUpdate[]>([]);
@@ -49,7 +49,6 @@ export default function Dashboard() {
   }, []);
 
   // 预取关键数据（如果尚未预取）
-  const { credential } = useAuth();
 
   // 分阶段预加载策略：
   // 阶段1（立即）：预热当前 Tab 相关组件
