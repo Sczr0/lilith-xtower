@@ -82,7 +82,7 @@ export default function Home() {
         <div className="mx-auto max-w-4xl space-y-10">
           {/* 简洁 Hero */}
           <section className="text-center space-y-4">
-            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Phigros Query - 专业的成绩查询与数据分析</h1>
+            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Phigros Query - 不专业的成绩查询与数据分析</h1>
             <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
               查询成绩、生成图片、分析数据，欢迎来到空间站「塔弦」旗下的 Phigros Query。
             </p>
