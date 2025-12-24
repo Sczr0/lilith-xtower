@@ -6,6 +6,8 @@ import { SimpleHeader } from '../components/SimpleHeader';
 import { PageShell } from '../components/PageShell';
 import { buttonStyles, cardStyles, inputStyles } from '../components/ui/styles';
 
+const SURVEY_URL = 'https://v.wjx.cn/vm/twyt7dF.aspx#';
+
 export default function ContributePage() {
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -140,7 +142,7 @@ export default function ContributePage() {
             </form>
           </div>
 
-          {/* Survey Placeholder Card */}
+          {/* Survey Card */}
           <div
             className={cardStyles({
               tone: 'glass',
@@ -159,18 +161,20 @@ export default function ContributePage() {
               </h2>
             </div>
             <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
-              暂时没有正在进行的问卷调查。如果有新的调研活动，我们会在这里发布链接。
+              我们正在进行一次用户调研（约 10–15 分钟），用于优化功能优先级与体验细节。
+              问卷不需要任何登录凭证信息，请勿填写 SessionToken/API Token 等敏感内容。
             </p>
-            <button
-              disabled
+            <a
+              href={SURVEY_URL}
+              target="_blank"
+              rel="noopener noreferrer"
               className={buttonStyles({
                 size: 'sm',
-                variant: 'secondary',
-                className: 'text-gray-400 dark:text-gray-500 cursor-not-allowed hover:bg-gray-100 dark:hover:bg-neutral-800',
+                variant: 'primary',
               })}
             >
-              暂无活动
-            </button>
+              立即填写
+            </a>
           </div>
     </PageShell>
   );
