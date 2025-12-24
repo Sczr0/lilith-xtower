@@ -86,7 +86,6 @@ export function PromoBanner() {
 
   const slide = slides[current] ?? slides[0];
   const gradient = slide.gradient ?? "from-slate-900 via-slate-800 to-slate-700";
-  const textColor = slide.textColor ?? "text-white";
 
   const handleDismiss = () => {
     setDismissed(true);
@@ -115,6 +114,7 @@ export function PromoBanner() {
   };
 
   const hasControls = slides.length > 1;
+  const isClickable = !!slide.href;
 
   return (
     <div className="sticky top-0 z-[70] mx-auto w-full">
@@ -123,7 +123,7 @@ export function PromoBanner() {
         <div className="flex justify-center px-3 pt-3">
           <button
             onClick={handleExpand}
-            className="flex items-center gap-2 rounded-full bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 px-4 py-2 shadow-lg border border-white/20 dark:border-black/10"
+            className="flex items-center gap-2 rounded-full bg-white/80 dark:bg-neutral-900/70 text-gray-900 dark:text-gray-100 px-4 py-2 shadow-lg border border-gray-200/60 dark:border-neutral-800/60 backdrop-blur-md hover:bg-white dark:hover:bg-neutral-900 transition-colors"
             aria-label="重新显示活动横幅"
           >
             <Play className="h-4 w-4" />
@@ -138,27 +138,28 @@ export function PromoBanner() {
       >
         <div className="max-w-6xl mx-auto px-3 sm:px-4">
           <div
-            className={`relative overflow-hidden rounded-2xl border border-white/15 dark:border-white/10 shadow-xl bg-gradient-to-r ${gradient} ${textColor}`}
+            className={`relative overflow-hidden rounded-2xl border border-gray-200/60 dark:border-gray-700/60 shadow-lg bg-white/75 dark:bg-gray-800/70 backdrop-blur-md text-gray-900 dark:text-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-neutral-950 ${isClickable ? "cursor-pointer hover:border-blue-300/80 dark:hover:border-blue-700/60" : ""}`}
             onMouseEnter={() => setHovering(true)}
             onMouseLeave={() => setHovering(false)}
             onFocus={() => setHovering(true)}
             onBlur={() => setHovering(false)}
-            role={slide.href ? "button" : "region"}
-            tabIndex={0}
+            role={isClickable ? "button" : "region"}
+            tabIndex={isClickable ? 0 : -1}
             aria-label={`${slide.title}${slide.description ? "：" + slide.description : ""}`}
             onClick={handleClickSlide}
             onKeyDown={handleKeyDown}
           >
-            <div className="absolute inset-0 bg-white/5 dark:bg-black/15 pointer-events-none" />
+            {/* 左侧强调色：沿用 slide.gradient（默认会配置为蓝紫渐变） */}
+            <div className={`absolute left-0 top-0 h-full w-1.5 bg-gradient-to-b ${gradient} opacity-90 pointer-events-none`} />
             <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 px-4 sm:px-6 py-3 sm:py-4">
-              <div className="flex items-center gap-2 text-xs sm:text-sm uppercase tracking-wide bg-white/15 dark:bg-black/20 px-3 py-1 rounded-full">
+              <div className="flex items-center gap-2 text-xs sm:text-sm uppercase tracking-wide bg-gray-100/80 dark:bg-neutral-900/50 px-3 py-1 rounded-full border border-gray-200/60 dark:border-neutral-700/60 text-gray-700 dark:text-gray-200">
                 <span>站内活动</span>
               </div>
 
               <div className="flex-1 min-w-0 space-y-1">
                 <div className="flex items-center gap-2">
                   {hasControls && (
-                    <span className="inline-flex items-center justify-center text-[10px] sm:text-xs px-2 py-1 rounded-full bg-black/20 dark:bg-white/15">
+                    <span className="inline-flex items-center justify-center text-[10px] sm:text-xs px-2 py-1 rounded-full bg-gray-100/80 dark:bg-neutral-900/50 border border-gray-200/60 dark:border-neutral-700/60 text-gray-600 dark:text-gray-300">
                       {current + 1}/{slides.length}
                     </span>
                   )}
@@ -167,29 +168,30 @@ export function PromoBanner() {
                   </p>
                 </div>
                 {slide.description && (
-                  <p className="text-xs sm:text-sm opacity-90 leading-snug line-clamp-2">
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 leading-snug line-clamp-2">
                     {slide.description}
                   </p>
                 )}
               </div>
 
               {slide.cta && (
-                <span
-                  className="inline-flex items-center justify-center px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-white/90 text-neutral-900 hover:bg-white shadow-sm transition"
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-colors"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleClickSlide();
                   }}
                 >
                   {slide.cta}
-                </span>
+                </button>
               )}
 
               <div className="flex items-center gap-2 sm:gap-3 ml-auto">
                 {hasControls && (
                   <div className="flex items-center gap-1">
                     <button
-                      className="p-1 rounded-full bg-white/15 hover:bg-white/25 transition"
+                      className="p-1 rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-700 transition-colors dark:bg-neutral-900/50 dark:hover:bg-neutral-900/70 dark:text-gray-200"
                       onClick={(e) => {
                         e.stopPropagation();
                         setCurrent((idx) => (idx - 1 + slides.length) % slides.length);
@@ -200,7 +202,7 @@ export function PromoBanner() {
                       <ChevronLeft className="h-4 w-4" />
                     </button>
                     <button
-                      className="p-1 rounded-full bg-white/15 hover:bg-white/25 transition"
+                      className="p-1 rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-700 transition-colors dark:bg-neutral-900/50 dark:hover:bg-neutral-900/70 dark:text-gray-200"
                       onClick={(e) => {
                         e.stopPropagation();
                         setPaused((p) => !p);
@@ -211,7 +213,7 @@ export function PromoBanner() {
                       {paused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
                     </button>
                     <button
-                      className="p-1 rounded-full bg-white/15 hover:bg-white/25 transition"
+                      className="p-1 rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-700 transition-colors dark:bg-neutral-900/50 dark:hover:bg-neutral-900/70 dark:text-gray-200"
                       onClick={(e) => {
                         e.stopPropagation();
                         setCurrent((idx) => (idx + 1) % slides.length);
@@ -224,7 +226,7 @@ export function PromoBanner() {
                   </div>
                 )}
                 <button
-                  className="p-1 rounded-full bg-white/15 hover:bg-white/25 transition"
+                  className="p-1 rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-700 transition-colors dark:bg-neutral-900/50 dark:hover:bg-neutral-900/70 dark:text-gray-200"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleDismiss();
