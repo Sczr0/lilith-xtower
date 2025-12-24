@@ -23,45 +23,40 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
   const [filterDifficulty, setFilterDifficulty] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const CACHE_KEY = 'cache_rks_records_v2';
-  const CACHE_TTL_MS = 2 * 60 * 1000; // 2分钟TTL
-  const [nextUpdateAt, setNextUpdateAt] = useState<number | null>(null); // 下次可更新时间
 
   // getOwnerKey 复用工具，按用户隔离缓存
 
   useEffect(() => {
+    let hasCachedRecords = false;
     // 先读缓存渲染（按用户隔离）
     try {
       const ownerKey = getOwnerKey(credential as AuthCredential);
       const cached = localStorage.getItem(CACHE_KEY);
-      let shouldFetch = true;
       if (ownerKey && cached) {
         const map = JSON.parse(cached) as Record<string, { records: RksRecord[]; ts?: number }>;
         const entry = map?.[ownerKey];
         if (entry && Array.isArray(entry.records)) {
           setRecords(entry.records);
-          if (typeof entry.ts === 'number') {
-            setNextUpdateAt(entry.ts + CACHE_TTL_MS);
-          }
-          const fresh = typeof entry.ts === 'number' && Date.now() - entry.ts < CACHE_TTL_MS;
-          if (fresh) shouldFetch = false;
+          hasCachedRecords = true;
         }
       }
-
-      if (credential && shouldFetch) {
-        loadRecords();
-      }
     } catch {}
+
+    if (credential) {
+      void loadRecords({ showLoading: !hasCachedRecords });
+    }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [credential]);
 
-  const loadRecords = async () => {
+  const loadRecords = async (options?: { showLoading?: boolean }) => {
     if (!credential) {
       setError('未找到登录凭证，请重新登录。');
       return;
     }
 
-    setIsLoading(records.length === 0);
+    const showLoading = options?.showLoading ?? records.length === 0;
+    setIsLoading(showLoading);
     setError(null);
 
     try {
@@ -76,7 +71,6 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
           const now = Date.now();
           map[ownerKey] = { records: newRecords, ts: now };
           localStorage.setItem(CACHE_KEY, JSON.stringify(map));
-          setNextUpdateAt(now + CACHE_TTL_MS);
         }
       } catch {}
     } catch (error) {
@@ -129,11 +123,6 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
           <p className="text-sm text-gray-600 dark:text-gray-400">
             查看所有歌曲的详细成绩和 RKS 计算值。
           </p>
-          )}
-          {nextUpdateAt && (
-            <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-              使用缓存数据，{new Date(nextUpdateAt).toLocaleTimeString()} 后可刷新
-            </p>
           )}
         </div>
 

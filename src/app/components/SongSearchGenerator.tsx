@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { ImageAPI } from '../lib/api/image';
 import { useGenerationBusy, useGenerationManager, useGenerationResult } from '../contexts/GenerationContext';
-import { getOwnerKey } from '../lib/utils/cache';
 import { searchSongId } from '../lib/api/song';
 import { LoadingPlaceholder, LoadingSpinner } from './LoadingIndicator';
 
@@ -17,9 +16,6 @@ export function SongSearchGenerator({ showTitle = true, showDescription = true }
   const resultBlob = useGenerationResult<Blob>('song');
   const imageUrl = useMemo(() => (resultBlob ? URL.createObjectURL(resultBlob) : null), [resultBlob]);
   const [error, setError] = useState<string | null>(null);
-  const SONG_TTL_MS = 5 * 60 * 1000; // 5分钟TTL
-  const SONG_META_KEY = 'cache_song_image_meta_v1'; // { [ownerKey]: { [paramKey]: ts } }
-  const [nextUpdateAt, setNextUpdateAt] = useState<number | null>(null);
 
   useEffect(() => {
     return () => {
@@ -56,42 +52,11 @@ export function SongSearchGenerator({ showTitle = true, showDescription = true }
       return;
     }
 
-    const ownerKey = getOwnerKey(credential);
-    const paramKey = `song:${songId}`;
-    
-    // 检查冷却时间
-    try {
-      if (ownerKey) {
-        const metaRaw = localStorage.getItem(SONG_META_KEY);
-        const meta = (metaRaw ? JSON.parse(metaRaw) : {}) as Record<string, Record<string, number>>;
-        const ts = meta?.[ownerKey]?.[paramKey];
-        if (typeof ts === 'number') {
-          const remain = ts + SONG_TTL_MS - Date.now();
-          if (remain > 0) {
-            setNextUpdateAt(ts + SONG_TTL_MS);
-            setError(`冷却中，${new Date(ts + SONG_TTL_MS).toLocaleTimeString()} 后可再次查询`);
-            return;
-          }
-        }
-      }
-    } catch {}
-
     try {
       // 使用验证后的歌曲ID调用图片生成接口
       await startTask('song', () =>
         ImageAPI.generateSongImage(songId!, credential)
       );
-      // 成功展示后开始冷却计时
-      try {
-        if (ownerKey) {
-          const metaRaw = localStorage.getItem(SONG_META_KEY);
-          const meta = (metaRaw ? JSON.parse(metaRaw) : {}) as Record<string, Record<string, number>>;
-          const now = Date.now();
-          meta[ownerKey] = { ...(meta[ownerKey] || {}), [paramKey]: now };
-          localStorage.setItem(SONG_META_KEY, JSON.stringify(meta));
-          setNextUpdateAt(now + SONG_TTL_MS);
-        }
-      } catch {}
     } catch (error) {
       const message = error instanceof Error ? error.message : '查询失败';
       setError(message);
@@ -115,11 +80,6 @@ export function SongSearchGenerator({ showTitle = true, showDescription = true }
         {showDescription && (
           <p className="text-sm text-gray-600 dark:text-gray-400">
             输入歌曲名称、ID 或别名来查询您的成绩记录。
-          </p>
-        )}
-        {nextUpdateAt && (
-          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-            {`下次可生成时间：${new Date(nextUpdateAt).toLocaleTimeString()}`}
           </p>
         )}
       </div>
