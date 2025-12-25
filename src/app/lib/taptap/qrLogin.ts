@@ -205,11 +205,12 @@ export async function pollTapTapToken(
 export async function fetchTapTapProfile(
   version: TapTapVersion,
   token: TokenResponse,
+  signal?: AbortSignal,
 ): Promise<TapTapProfile> {
   if (!token.access_token) throw new Error('缺少 access_token，无法获取用户信息');
 
   if (USE_PROXY) {
-    return proxyFetch<TapTapProfile>('profile', { version, token });
+    return proxyFetch<TapTapProfile>('profile', { version, token }, signal);
   }
 
   const config = TAP_CONFIG[version];
@@ -221,7 +222,7 @@ export async function fetchTapTapProfile(
   url.searchParams.set('client_id', config.clientId);
 
   const auth = await generateMacHeader(token, 'GET', url);
-  const res = await fetch(url.toString(), { headers: { Authorization: auth } });
+  const res = await fetch(url.toString(), { headers: { Authorization: auth }, signal });
   if (!res.ok) throw new Error(`获取用户资料失败: ${res.status}`);
   return (await res.json()) as TapTapProfile;
 }
@@ -230,7 +231,18 @@ export async function loginLeanCloudWithTapTap(
   version: TapTapVersion,
   profile: TapTapProfile,
   token: TokenResponse,
+  signal?: AbortSignal,
 ): Promise<string> {
+  if (USE_PROXY) {
+    const res = await proxyFetch<{ sessionToken: string }>('leancloud', {
+      version,
+      profile,
+      token,
+    }, signal);
+    if (!res.sessionToken) throw new Error('LeanCloud 未返回 sessionToken');
+    return res.sessionToken;
+  }
+
   const profileWithIds = profile as TapTapProfile & {
     data?: { openid?: string; unionid?: string };
     openid?: string;
@@ -258,15 +270,6 @@ export async function loginLeanCloudWithTapTap(
     token,
   };
 
-  if (USE_PROXY) {
-    const res = await proxyFetch<{ sessionToken: string }>('leancloud', {
-      version,
-      authPayload,
-    });
-    if (!res.sessionToken) throw new Error('LeanCloud 未返回 sessionToken');
-    return res.sessionToken;
-  }
-
   const config = TAP_CONFIG[version];
   const sign = await generateLeanCloudSign(config.leancloudAppKey);
   const base = config.leancloudBaseUrl.replace(/\/$/, '');
@@ -281,6 +284,7 @@ export async function loginLeanCloudWithTapTap(
       'X-LC-Sign': sign,
     },
     body: JSON.stringify(body),
+    signal,
   });
   if (!res.ok) throw new Error(`LeanCloud 登录失败: ${res.status} ${await res.text()}`);
   const data = (await res.json()) as LeanCloudUserResponse;
@@ -326,21 +330,6 @@ export async function completeTapTapQrLogin(
 ): Promise<{ sessionToken: string; profile: TapTapProfile; token: TokenResponse }> {
   const timeoutMs = options?.timeoutMs ?? 120_000;
 
-  if (USE_PROXY) {
-    const res = await proxyFetch<{ sessionToken: string; profile: TapTapProfile; token: TokenResponse }>(
-      'complete',
-      {
-        version,
-        deviceCode: qr.deviceCode,
-        deviceId: qr.deviceId,
-        interval: qr.interval * 1000,
-        timeoutMs,
-      },
-      options?.signal,
-    );
-    return res;
-  }
-
   const token = await pollTapTapToken(
     version,
     qr.deviceCode,
@@ -349,7 +338,11 @@ export async function completeTapTapQrLogin(
     timeoutMs,
     options?.signal,
   );
-  const profile = await fetchTapTapProfile(version, token);
-  const sessionToken = await loginLeanCloudWithTapTap(version, profile, token);
+  if (options?.signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+
+  const profile = await fetchTapTapProfile(version, token, options?.signal);
+  if (options?.signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+
+  const sessionToken = await loginLeanCloudWithTapTap(version, profile, token, options?.signal);
   return { sessionToken, profile, token };
 }
