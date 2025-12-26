@@ -1,7 +1,6 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useMemo, useState } from "react";
-import { EMBEDDED_TIPS } from "./tips.data";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 /**
  * TipsProvider：集中管理 Tips 加载与缓存，供全站消费
@@ -30,6 +29,45 @@ const DEFAULT_TIPS: string[] = [
   "提示：如遇网络波动，稍候将自动重试",
 ];
 
+// 说明：622 条 tips 的嵌入式数据体积较大（~30KB+），若静态导入会进入全站共享首屏 bundle。
+// 为降低所有页面的首屏 JS，我们在客户端空闲期再动态加载 `tips.data`，并在弱网/省流/减少数据偏好下跳过加载。
+interface NetworkInformation {
+  saveData?: boolean;
+  effectiveType?: string;
+}
+
+interface NavigatorWithConnection extends Navigator {
+  connection?: NetworkInformation;
+}
+
+function shouldLoadEmbeddedTips(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const nav = navigator as NavigatorWithConnection;
+    if (nav?.connection?.saveData) return false;
+    if (window.matchMedia?.("(prefers-reduced-data: reduce)").matches) return false;
+    const effectiveType = nav?.connection?.effectiveType;
+    if (effectiveType === "slow-2g" || effectiveType === "2g") return false;
+    return true;
+  } catch {
+    return true;
+  }
+}
+
+function runWhenIdle(callback: () => void, timeout = 2000): void {
+  if (typeof window === "undefined") return;
+  try {
+    const idle = (window as Window & { requestIdleCallback?: typeof requestIdleCallback }).requestIdleCallback;
+    if (typeof idle === "function") {
+      idle(callback, { timeout });
+    } else {
+      setTimeout(callback, 0);
+    }
+  } catch {
+    setTimeout(callback, 0);
+  }
+}
+
 // 解析 tips 文本：按行分割，去除空行与注释
 export function parseTipsText(text: string): string[] {
   const lines = text
@@ -43,14 +81,43 @@ export function parseTipsText(text: string): string[] {
   return out;
 }
 
-// 注意：预编译模式下不再进行网络加载与前缀探测
+type EmbeddedTipsModule = { EMBEDDED_TIPS?: string[] };
 
 export function TipsProvider({ children }: { children: React.ReactNode }) {
-  // 预编译模式：直接使用嵌入式常量
-  const [state] = useState<TipsState>("loaded");
-  const [tips] = useState<string[]>(EMBEDDED_TIPS && EMBEDDED_TIPS.length > 0 ? EMBEDDED_TIPS : DEFAULT_TIPS);
-  const [error] = useState<string | undefined>(undefined);
-  const reload = useCallback(async () => { /* no-op in embedded mode */ }, []);
+  // 首屏兜底：先使用少量默认 tips，避免任何额外网络/解析成本
+  const [state, setState] = useState<TipsState>("loaded");
+  const [tips, setTips] = useState<string[]>(DEFAULT_TIPS);
+  const [error, setError] = useState<string | undefined>(undefined);
+
+  const loadEmbeddedTips = useCallback(async () => {
+    try {
+      const mod = (await import("./tips.data")) as EmbeddedTipsModule;
+      const embedded = mod?.EMBEDDED_TIPS;
+      if (Array.isArray(embedded) && embedded.length > 0) {
+        setTips(embedded);
+        setState("loaded");
+        setError(undefined);
+      }
+    } catch (e) {
+      // 加载失败不影响主流程：保持 DEFAULT_TIPS 即可
+      setState("error");
+      setError(e instanceof Error ? e.message : "加载 tips 失败");
+    }
+  }, []);
+
+  // 空闲期加载：避免进入首屏关键路径（LCP/INP）
+  useEffect(() => {
+    if (!shouldLoadEmbeddedTips()) return;
+    runWhenIdle(() => {
+      setState("loading");
+      loadEmbeddedTips();
+    }, 2000);
+  }, [loadEmbeddedTips]);
+
+  const reload = useCallback(async () => {
+    setState("loading");
+    await loadEmbeddedTips();
+  }, [loadEmbeddedTips]);
 
   const value = useMemo(() => ({ state, tips, error, reload }), [state, tips, error, reload]);
   return <TipsContext.Provider value={value}>{children}</TipsContext.Provider>;

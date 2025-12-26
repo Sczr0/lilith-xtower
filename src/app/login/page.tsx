@@ -1,11 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { AuthMethod } from '../lib/types/auth';
-import { QRCodeLogin } from './components/QRCodeLogin';
-import { ManualLogin } from './components/ManualLogin';
-import { APILogin } from './components/APILogin';
-import { PlatformLogin } from './components/PlatformLogin';
+import type { AuthMethod, TapTapVersion } from '../lib/types/auth';
+import dynamic from 'next/dynamic';
 import { AuthStatusBanner } from '../components/AuthStatusBanner';
 import { AuthDetailsModal } from '../components/AuthDetailsModal';
 import { useAuth } from '../contexts/AuthContext';
@@ -14,13 +11,43 @@ import { AuthStorage } from '../lib/storage/auth';
 import { preloadTapTapQr, runWhenIdle, shouldPreload, prefetchPage } from '../lib/utils/preload';
 import { SimpleHeader } from '../components/SimpleHeader';
 
+function LoginMethodLoading(props: { error?: Error | null; isLoading?: boolean; pastDelay?: boolean }) {
+  // 说明：dynamic 的 loading 会注入状态参数；这里不需要使用，但要避免 eslint unused-vars。
+  void props;
+  return (
+    <div className="flex items-center justify-center py-10">
+      <span className="text-sm text-gray-600 dark:text-gray-400">正在加载…</span>
+    </div>
+  );
+}
+
+const QRCodeLogin = dynamic<{ taptapVersion: TapTapVersion }>(
+  () => import('./components/QRCodeLogin').then((m) => m.QRCodeLogin),
+  { ssr: false, loading: LoginMethodLoading }
+);
+
+const ManualLogin = dynamic(
+  () => import('./components/ManualLogin').then((m) => m.ManualLogin),
+  { ssr: false, loading: LoginMethodLoading }
+);
+
+const APILogin = dynamic(
+  () => import('./components/APILogin').then((m) => m.APILogin),
+  { ssr: false, loading: LoginMethodLoading }
+);
+
+const PlatformLogin = dynamic(
+  () => import('./components/PlatformLogin').then((m) => m.PlatformLogin),
+  { ssr: false, loading: LoginMethodLoading }
+);
+
 export default function LoginPage() {
   const [activeMethod, setActiveMethod] = useState<AuthMethod>('qrcode');
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const { isAuthenticated, isLoading, credential, logout } = useAuth();
   const router = useRouter();
   const [agreementAccepted, setAgreementAccepted] = useState(false);
-  const [taptapVersion, setTaptapVersion] = useState<'cn' | 'global'>('cn');
+  const [taptapVersion, setTaptapVersion] = useState<TapTapVersion>('cn');
   const userSelectedVersionRef = useRef(false);
 
   // 读取TapTap版本配置并预加载二维码

@@ -161,6 +161,16 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        // 字体包（含字体 CSS）：目录带版本标识，允许长期缓存以提升复访与多页命中
+        source: '/fonts/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      {
         // 为字体等静态资源设置长期缓存
         source: '/:all*.(woff2|woff)',
         headers: [
