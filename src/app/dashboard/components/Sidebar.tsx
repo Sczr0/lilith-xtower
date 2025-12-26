@@ -249,6 +249,21 @@ export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobile
                 调试页面
               </Link>
 
+              <Link
+                href="/unified-api"
+                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13.828 10.172a4 4 0 00-5.656 0l-1.414 1.414a4 4 0 105.656 5.656l1.414-1.414m-2.828-2.828a4 4 0 005.656 0l1.414-1.414a4 4 0 10-5.656-5.656l-1.414 1.414"
+                  />
+                </svg>
+                联合API接入
+              </Link>
+
               <div className="flex items-center px-3 py-2">
                 <span className="text-sm text-gray-700 dark:text-gray-300">主题</span>
                 <span className="ml-2 min-w-0 text-xs text-gray-500 dark:text-gray-400 select-none" aria-hidden="true">
@@ -309,6 +324,21 @@ export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobile
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </Link>
+
+            <Link
+              href="/unified-api"
+              className="w-full flex items-center justify-center px-3 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              title="联合API接入"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13.828 10.172a4 4 0 00-5.656 0l-1.414 1.414a4 4 0 105.656 5.656l1.414-1.414m-2.828-2.828a4 4 0 005.656 0l1.414-1.414a4 4 0 10-5.656-5.656l-1.414 1.414"
+                />
               </svg>
             </Link>
             

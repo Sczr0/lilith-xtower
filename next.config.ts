@@ -13,17 +13,23 @@ const nextConfig: NextConfig = {
     ],
   },
   async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: 'https://seekend.xtower.site/api/v1/:path*',
-      },
-      {
-        // 轻量健康检查透传到后端根级 /health
-        source: '/health',
-        destination: 'https://seekend.xtower.site/health',
-      },
-    ];
+    return {
+      // 说明：必须让本地 Next Route（src/app/api/*）优先生效；未命中时再回退到后端转发。
+      // 否则像 /api/unified 这类站内代理路由会被错误改写到后端（导致 404）。
+      beforeFiles: [],
+      afterFiles: [],
+      fallback: [
+        {
+          source: '/api/:path*',
+          destination: 'https://seekend.xtower.site/api/v1/:path*',
+        },
+        {
+          // 轻量健康检查透传到后端根级 /health
+          source: '/health',
+          destination: 'https://seekend.xtower.site/health',
+        },
+      ],
+    };
   },
   async headers() {
     return [
