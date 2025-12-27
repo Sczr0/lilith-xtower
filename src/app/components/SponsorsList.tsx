@@ -95,6 +95,10 @@ export default function SponsorsList({ initialPerPage = 12 }: { initialPerPage?:
               alt={it.user.name}
               className="h-12 w-12 rounded-full object-cover bg-gray-100 dark:bg-neutral-800"
               loading="lazy"
+              decoding="async"
+              fetchPriority="low"
+              width={48}
+              height={48}
               referrerPolicy="no-referrer"
             />
             <div className="min-w-0">

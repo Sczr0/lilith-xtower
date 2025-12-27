@@ -11,7 +11,7 @@ import { Suspense } from "react";
 import Script from "next/script";
 import WebVitals from "./components/WebVitals";
 import { TipsProvider } from "./components/TipsProvider";
-import { PromoBanner } from "./components/PromoBanner";
+import { PromoBannerSlot } from "./components/PromoBannerSlot";
 import { SITE_URL } from "./utils/site-url";
 
 const geistSans = Geist({
@@ -124,7 +124,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <PromoBanner />
+          <PromoBannerSlot />
           <TipsProvider>
             <MaintenanceNotice />
             <Suspense fallback={null}>
