@@ -19,6 +19,12 @@ interface QRCodeLoginProps {
 
 export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
   const { login } = useAuth();
+  // AuthProvider 每次渲染都会生成新的 login 引用；这里用 ref 持有最新值，避免触发“依赖变化导致重复拉码”
+  const loginRef = useRef(login);
+  useEffect(() => {
+    loginRef.current = login;
+  }, [login]);
+
   const [qrCodeImage, setQrCodeImage] = useState<string>('');
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'scanning' | 'success' | 'error' | 'expired'>('idle');
@@ -70,7 +76,8 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
       } catch {
         setQrCodeDataUrl(codeData.qrcodeUrl);
       }
-      setTaptapDeepLink(codeData.verificationUrl || codeData.qrcodeUrl);
+      // 移动端深链优先使用带 user_code 的完整链接，避免跳转后还需要手动输入验证码
+      setTaptapDeepLink(codeData.qrcodeUrl || codeData.verificationUrl);
       setStatus('scanning');
 
       // 二维码过期定时
@@ -98,7 +105,7 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
         timestamp: Date.now(),
       };
 
-      await login(credential);
+      await loginRef.current(credential);
       cancelPolling();
       setStatus('success');
     } catch (err) {
@@ -110,7 +117,7 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
       setStatus('error');
       setError(err instanceof Error ? err.message : '扫码登录失败，请重试');
     }
-  }, [login, taptapVersion, cancelPolling]);
+  }, [taptapVersion, cancelPolling]);
 
   // 组件挂载时自动获取二维码
   useEffect(() => {
