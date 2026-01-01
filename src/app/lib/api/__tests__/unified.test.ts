@@ -59,5 +59,95 @@ describe('UnifiedAPI', () => {
     expect(mockFetch.mock.calls[0]?.[1]?.method).toBe('GET');
     expect(mockFetch.mock.calls[0]?.[1]?.body).toBeUndefined();
   });
-});
 
+  it('searchPlayerIdList() posts JSON and parses response', async () => {
+    const apiResponse = { data: [{ apiId: '1934128044', playerId: 'Lilith' }] };
+    const mockFetch = createFetchTextMock(JSON.stringify(apiResponse), 200);
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+
+    const result = await UnifiedAPI.searchPlayerIdList({ playerId: 'Lilith', maxLength: 20 });
+
+    expect(result).toEqual(apiResponse);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(String(mockFetch.mock.calls[0]?.[0])).toBe('/api/unified/get/playerIdList');
+    expect(mockFetch.mock.calls[0]?.[1]?.method).toBe('POST');
+    expect(mockFetch.mock.calls[0]?.[1]?.headers).toEqual({ 'Content-Type': 'application/json' });
+    expect(mockFetch.mock.calls[0]?.[1]?.body).toBe(JSON.stringify({ playerId: 'Lilith', maxLength: 20 }));
+  });
+
+  it('getRanklistByRank() posts JSON to correct endpoint', async () => {
+    const apiResponse = { data: { totDataNum: 1, users: [], me: null } };
+    const mockFetch = createFetchTextMock(JSON.stringify(apiResponse), 200);
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+
+    await UnifiedAPI.getRanklistByRank({ request_rank: 1 });
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(String(mockFetch.mock.calls[0]?.[0])).toBe('/api/unified/get/ranklist/rank');
+    expect(mockFetch.mock.calls[0]?.[1]?.method).toBe('POST');
+    expect(mockFetch.mock.calls[0]?.[1]?.headers).toEqual({ 'Content-Type': 'application/json' });
+    expect(mockFetch.mock.calls[0]?.[1]?.body).toBe(JSON.stringify({ request_rank: 1 }));
+  });
+
+  it('getRanklistByUser() posts JSON to correct endpoint', async () => {
+    const apiResponse = { data: { totDataNum: 1, users: [], me: null } };
+    const mockFetch = createFetchTextMock(JSON.stringify(apiResponse), 200);
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+
+    await UnifiedAPI.getRanklistByUser({
+      token: 'pgr_token',
+      api_user_id: '123',
+      api_token: 'pgrTk',
+      platform: 'PhigrosQuery',
+      platform_id: 'site_user_id',
+    });
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(String(mockFetch.mock.calls[0]?.[0])).toBe('/api/unified/get/ranklist/user');
+    expect(mockFetch.mock.calls[0]?.[1]?.method).toBe('POST');
+    expect(mockFetch.mock.calls[0]?.[1]?.headers).toEqual({ 'Content-Type': 'application/json' });
+    expect(mockFetch.mock.calls[0]?.[1]?.body).toBe(
+      JSON.stringify({
+        token: 'pgr_token',
+        api_user_id: '123',
+        api_token: 'pgrTk',
+        platform: 'PhigrosQuery',
+        platform_id: 'site_user_id',
+      }),
+    );
+  });
+
+  it('getScoreListByUser() posts JSON to correct endpoint', async () => {
+    const apiResponse = { data: { totDataNum: 1, userRank: 1, users: [] } };
+    const mockFetch = createFetchTextMock(JSON.stringify(apiResponse), 200);
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+
+    await UnifiedAPI.getScoreListByUser({
+      token: 'pgr_token',
+      api_user_id: '123',
+      api_token: 'pgrTk',
+      platform: 'PhigrosQuery',
+      platform_id: 'site_user_id',
+      songId: '光.姜米條.0',
+      rank: 'IN',
+      orderBy: 'acc',
+    });
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(String(mockFetch.mock.calls[0]?.[0])).toBe('/api/unified/get/scoreList/user');
+    expect(mockFetch.mock.calls[0]?.[1]?.method).toBe('POST');
+    expect(mockFetch.mock.calls[0]?.[1]?.headers).toEqual({ 'Content-Type': 'application/json' });
+    expect(mockFetch.mock.calls[0]?.[1]?.body).toBe(
+      JSON.stringify({
+        token: 'pgr_token',
+        api_user_id: '123',
+        api_token: 'pgrTk',
+        platform: 'PhigrosQuery',
+        platform_id: 'site_user_id',
+        songId: '光.姜米條.0',
+        rank: 'IN',
+        orderBy: 'acc',
+      }),
+    );
+  });
+});

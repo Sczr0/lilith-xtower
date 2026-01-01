@@ -124,6 +124,55 @@ describe('inlineSvgExternalImages', () => {
       '</svg>';
     await expect(() => inlineSvgExternalImages(svg, { maxCount: 1 })).rejects.toThrow('外链图片过多');
   });
+
+  it('skips failed fetch and continues exporting', async () => {
+    const svg =
+      '<svg xmlns="http://www.w3.org/2000/svg">' +
+      '<image href="https://somnia.xtower.site/a.png" />' +
+      '<image href="https://somnia.xtower.site/b.png" />' +
+      '</svg>';
+
+    const fetchMock = vi.fn(async (url: RequestInfo | URL) => {
+      const u = String(url);
+      if (u.endsWith('/b.png')) throw new Error('network error');
+      return new Response(new Uint8Array([1, 2, 3]), {
+        status: 200,
+        headers: { 'content-type': 'image/png' },
+      });
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const out = await inlineSvgExternalImages(svg, { maxCount: 10 });
+    expect(out).toContain('href="data:image/png;base64,');
+    expect(out).toContain('href="https://somnia.xtower.site/b.png"');
+  });
+
+  it('skips non-image responses and continues exporting', async () => {
+    const svg =
+      '<svg xmlns="http://www.w3.org/2000/svg">' +
+      '<image href="https://somnia.xtower.site/a.png" />' +
+      '<image href="https://somnia.xtower.site/b.png" />' +
+      '</svg>';
+
+    const fetchMock = vi.fn(async (url: RequestInfo | URL) => {
+      const u = String(url);
+      if (u.endsWith('/b.png')) {
+        return new Response('<html>not an image</html>', {
+          status: 200,
+          headers: { 'content-type': 'text/html; charset=utf-8' },
+        });
+      }
+      return new Response(new Uint8Array([1, 2, 3]), {
+        status: 200,
+        headers: { 'content-type': 'image/png' },
+      });
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const out = await inlineSvgExternalImages(svg, { maxCount: 10 });
+    expect(out).toContain('href="data:image/png;base64,');
+    expect(out).toContain('href="https://somnia.xtower.site/b.png"');
+  });
 });
 
 describe('embedSvgExternalImagesAsObjectUrls', () => {
@@ -181,6 +230,44 @@ describe('embedSvgExternalImagesAsObjectUrls', () => {
     expect(embedded.svgText).toContain('href="blob:mock-0"');
     expect(Array.isArray(embedded.objectUrls)).toBe(true);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    embedded.revoke();
+
+    URL.createObjectURL = originalCreate;
+    URL.revokeObjectURL = originalRevoke;
+  });
+
+  it('skips failed fetch and keeps original href', async () => {
+    const originalCreate = URL.createObjectURL;
+    const originalRevoke = URL.revokeObjectURL;
+    const created: string[] = [];
+    URL.createObjectURL = ((_blob: Blob) => {
+      void _blob;
+      const u = `blob:mock-${created.length}`;
+      created.push(u);
+      return u;
+    }) as unknown as typeof URL.createObjectURL;
+    URL.revokeObjectURL = (() => {}) as unknown as typeof URL.revokeObjectURL;
+
+    const fetchMock = vi.fn(async (url: RequestInfo | URL) => {
+      const u = String(url);
+      if (u.endsWith('/b.png')) throw new Error('network error');
+      return new Response(new Uint8Array([1, 2, 3]), {
+        status: 200,
+        headers: { 'content-type': 'image/png' },
+      });
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const svg =
+      '<svg xmlns="http://www.w3.org/2000/svg">' +
+      '<image href="https://somnia.xtower.site/a.png" />' +
+      '<image href="https://somnia.xtower.site/b.png" />' +
+      '</svg>';
+    const embedded = await embedSvgExternalImagesAsObjectUrls(svg, { maxCount: 10, concurrency: 2 });
+    expect(embedded.svgText).toContain('href="blob:mock-0"');
+    expect(embedded.svgText).toContain('href="https://somnia.xtower.site/b.png"');
+    expect(embedded.objectUrls).toHaveLength(1);
 
     embedded.revoke();
 

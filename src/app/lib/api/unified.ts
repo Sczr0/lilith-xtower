@@ -1,6 +1,13 @@
 import type {
   UnifiedApiBindRequest,
   UnifiedApiBindResponse,
+  UnifiedApiPlayerIdListRequest,
+  UnifiedApiPlayerIdListResponse,
+  UnifiedApiRanklistRankRequest,
+  UnifiedApiRanklistResponse,
+  UnifiedApiRanklistUserRequest,
+  UnifiedApiScoreListUserRequest,
+  UnifiedApiScoreListUserResponse,
   UnifiedApiSetApiTokenRequest,
   UnifiedApiSetApiTokenResponse,
   UnifiedApiTokenListRequest,
@@ -103,5 +110,37 @@ export class UnifiedAPI {
 
   static getCloudSong(body: UnifiedApiCloudSongRequest) {
     return UnifiedAPI.request('/get/cloud/song', body);
+  }
+
+  /**
+   * 检索用户名（PlayerId）
+   * - 上游：POST /get/playerIdList
+   */
+  static searchPlayerIdList(body: UnifiedApiPlayerIdListRequest) {
+    return UnifiedAPI.request<UnifiedApiPlayerIdListResponse>('/get/playerIdList', body);
+  }
+
+  /**
+   * 根据名次获取排行榜相关信息
+   * - 上游：POST /get/ranklist/rank
+   */
+  static getRanklistByRank(body: UnifiedApiRanklistRankRequest) {
+    return UnifiedAPI.request<UnifiedApiRanklistResponse>('/get/ranklist/rank', body);
+  }
+
+  /**
+   * 根据用户获取排行榜相关信息（需要鉴权字段）
+   * - 上游：POST /get/ranklist/user
+   */
+  static getRanklistByUser(body: UnifiedApiRanklistUserRequest) {
+    return UnifiedAPI.request<UnifiedApiRanklistResponse>('/get/ranklist/user', body);
+  }
+
+  /**
+   * 获取用户的单曲成绩排名（需要鉴权字段 + songId/rank/orderBy）
+   * - 上游：POST /get/scoreList/user
+   */
+  static getScoreListByUser(body: UnifiedApiScoreListUserRequest) {
+    return UnifiedAPI.request<UnifiedApiScoreListUserResponse>('/get/scoreList/user', body);
   }
 }

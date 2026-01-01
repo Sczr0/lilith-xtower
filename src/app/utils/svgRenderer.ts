@@ -549,6 +549,108 @@ function getFetchInitForUrl(url: string): RequestInit {
   }
 }
 
+const SAME_ORIGIN_IMAGE_PROXY_PATH = '/api/proxy/image';
+
+function buildSameOriginImageProxyUrl(fetchUrl: string): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const target = new URL(fetchUrl);
+    if (target.origin === window.location.origin) return null;
+    return `${SAME_ORIGIN_IMAGE_PROXY_PATH}?url=${encodeURIComponent(target.toString())}`;
+  } catch {
+    return null;
+  }
+}
+
+function isProbablyImageContentType(contentType: string | null, url: string): boolean {
+  if (!contentType) return false;
+  const trimmed = contentType.trim().toLowerCase();
+  if (trimmed.startsWith('image/')) return true;
+  if (trimmed.startsWith('application/octet-stream')) {
+    return /\.(png|jpe?g|webp|gif|bmp|avif|svg|svgz)(\?|#|$)/i.test(url);
+  }
+  return false;
+}
+
+function guessImageMimeTypeFromUrl(url: string, contentType: string | null): string {
+  if (contentType && /^image\//i.test(contentType)) return contentType.split(';')[0]!;
+  const lower = url.toLowerCase();
+  if (lower.endsWith('.png')) return 'image/png';
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+  if (lower.endsWith('.webp')) return 'image/webp';
+  if (lower.endsWith('.gif')) return 'image/gif';
+  if (lower.endsWith('.bmp')) return 'image/bmp';
+  if (lower.endsWith('.avif')) return 'image/avif';
+  if (lower.endsWith('.svg') || lower.endsWith('.svgz')) return 'image/svg+xml';
+  return (contentType ? contentType.split(';')[0] : null) ?? 'application/octet-stream';
+}
+
+async function fetchImageResponseWithFallback(
+  fetchUrl: string,
+  debugOptions: { debug?: boolean; debugTag?: string } | undefined,
+): Promise<Response> {
+  type Attempt = { label: string; url: string; init: RequestInit };
+  const attempts: Attempt[] = [{ label: 'direct', url: fetchUrl, init: getFetchInitForUrl(fetchUrl) }];
+
+  // 经验兼容：somnia 可能需要凭证（同站点 cookie）才能正确返回资源；失败仍会回退到同源代理
+  if (typeof window !== 'undefined') {
+    try {
+      const target = new URL(fetchUrl);
+      if (target.hostname.toLowerCase() === 'somnia.xtower.site') {
+        attempts.push({
+          label: 'direct-credentials',
+          url: fetchUrl,
+          init: { ...getFetchInitForUrl(fetchUrl), mode: 'cors', credentials: 'include' },
+        });
+      }
+    } catch {}
+  }
+
+  const proxyUrl = buildSameOriginImageProxyUrl(fetchUrl);
+  if (proxyUrl) {
+    attempts.push({
+      label: 'proxy',
+      url: proxyUrl,
+      init: { method: 'GET', mode: 'same-origin', credentials: 'include' },
+    });
+  }
+
+  let lastError: unknown = null;
+
+  for (const attempt of attempts) {
+    dgroup(debugOptions, `image:fetch:${attempt.label}`, () => {
+      dlog(debugOptions, 'url =', attempt.url);
+      dlog(debugOptions, 'fetchInit =', attempt.init);
+    });
+
+    const start = nowMs();
+    try {
+      const res = await fetch(attempt.url, attempt.init);
+      dlog(debugOptions, 'fetch response', { status: res.status, ms: Math.round(nowMs() - start) });
+      if (!res.ok) {
+        lastError = new Error(`bad status: ${res.status}`);
+        continue;
+      }
+
+      const contentType = res.headers.get('content-type');
+      if (!isProbablyImageContentType(contentType, fetchUrl)) {
+        lastError = new Error(`non-image content-type: ${contentType ?? '(null)'}`);
+        continue;
+      }
+
+      return res;
+    } catch (e) {
+      lastError = e;
+      const message = e instanceof Error ? e.message : String(e);
+      dlog(debugOptions, 'fetch failed', { message });
+      continue;
+    }
+  }
+
+  if (lastError instanceof Error) throw lastError;
+  throw new Error('fetch image failed');
+}
+
 function collectExternalSvgImages(svgText: string, baseUrl?: string): SvgImageRef[] {
   const seenOriginal = new Set<string>();
   const refs: SvgImageRef[] = [];
@@ -627,7 +729,7 @@ export async function inlineSvgExternalImages(
     throw new Error(`SVG 外链图片过多（${refs.length}），请降低 N 或关闭内联导出。`);
   }
 
-  const cache = new Map<string, string>(); // fetchUrl -> dataURL
+  const cache = new Map<string, string | null>(); // fetchUrl -> dataURL | null(失败)
   let done = 0;
   const total = refs.length;
 
@@ -652,18 +754,19 @@ export async function inlineSvgExternalImages(
         if (!fetchUrl) return;
         if (cache.has(fetchUrl)) continue;
 
-        dgroup(options, `inline:fetch:${fetchUrl}`, () => {
-          dlog(options, 'fetchInit =', getFetchInitForUrl(fetchUrl));
-        });
-
-        const fetchStart = nowMs();
-        const res = await fetch(fetchUrl, getFetchInitForUrl(fetchUrl));
-        if (!res.ok) throw new Error(`Failed to fetch image: ${res.status} ${fetchUrl}`);
-        dlog(options, 'fetch ok', { status: res.status, ms: Math.round(nowMs() - fetchStart) });
-        const contentType = res.headers.get('content-type') ?? 'application/octet-stream';
-        const buf = await res.arrayBuffer();
-        const b64 = arrayBufferToBase64(buf);
-        cache.set(fetchUrl, `data:${contentType};base64,${b64}`);
+        try {
+          const fetchStart = nowMs();
+          const res = await fetchImageResponseWithFallback(fetchUrl, options);
+          dlog(options, 'fetch ok', { status: res.status, ms: Math.round(nowMs() - fetchStart) });
+          const contentType = guessImageMimeTypeFromUrl(fetchUrl, res.headers.get('content-type'));
+          const buf = await res.arrayBuffer();
+          const b64 = arrayBufferToBase64(buf);
+          cache.set(fetchUrl, `data:${contentType};base64,${b64}`);
+        } catch (e) {
+          const message = e instanceof Error ? e.message : String(e);
+          dlog(options, 'inline fetch failed, skip', { fetchUrl, message });
+          cache.set(fetchUrl, null);
+        }
       }
     },
   );
@@ -686,22 +789,32 @@ export async function inlineSvgExternalImages(
       } catch {}
     });
     if (!cache.has(fetchUrl)) {
+      try {
       const fetchStart = nowMs();
-      const res = await fetch(fetchUrl, getFetchInitForUrl(fetchUrl));
+      const res = await fetchImageResponseWithFallback(fetchUrl, options);
       if (!res.ok) throw new Error(`抓取图片失败：${res.status} ${fetchUrl}`);
       dlog(options, 'fetch ok', { status: res.status, ms: Math.round(nowMs() - fetchStart) });
-      const contentType = res.headers.get('content-type') ?? 'application/octet-stream';
+      const contentType = guessImageMimeTypeFromUrl(fetchUrl, res.headers.get('content-type'));
       dlog(options, 'content-type =', contentType);
       const buf = await res.arrayBuffer();
       dlog(options, 'arrayBuffer.byteLength =', buf.byteLength);
       const b64 = arrayBufferToBase64(buf);
       dlog(options, 'base64.length =', b64.length);
       cache.set(fetchUrl, `data:${contentType};base64,${b64}`);
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        dlog(options, 'inline fetch failed (late), skip', { fetchUrl, message });
+        cache.set(fetchUrl, null);
+      }
     }
 
-    const dataUrl = cache.get(fetchUrl)!;
-    out = replaceUrl(out, originalUrl, dataUrl);
-    dlog(options, 'replaced -> data url prefix =', dataUrl.slice(0, 48));
+    const dataUrl = cache.get(fetchUrl);
+    if (dataUrl) {
+      out = replaceUrl(out, originalUrl, dataUrl);
+      dlog(options, 'replaced -> data url prefix =', dataUrl.slice(0, 48));
+    } else {
+      dlog(options, 'skip replace (fetch failed)', { originalUrl, fetchUrl });
+    }
 
     done += 1;
     options.onProgress?.(done, total);
@@ -762,6 +875,7 @@ export async function embedSvgExternalImagesAsObjectUrls(
   const objectUrls: string[] = [];
   const blobByFetchUrl = new Map<string, string>(); // fetchUrl -> blobUrl
   const blobByOriginalUrl = new Map<string, string>(); // originalUrl -> blobUrl
+  const failedFetchUrl = new Set<string>();
 
   let done = 0;
   const total = refs.length;
@@ -794,14 +908,21 @@ export async function embedSvgExternalImagesAsObjectUrls(
         continue;
       }
 
+      if (failedFetchUrl.has(fetchUrl)) {
+        done += 1;
+        options.onProgress?.(done, total);
+        continue;
+      }
+
       if (!blobByFetchUrl.has(fetchUrl)) {
+        try {
         dgroup(options, `embed:image:${originalUrl}`, () => {
           dlog(options, 'fetchUrl =', fetchUrl);
           dlog(options, 'fetchInit =', getFetchInitForUrl(fetchUrl));
         });
 
         const fetchStart = nowMs();
-        const res = await fetch(fetchUrl, getFetchInitForUrl(fetchUrl));
+        const res = await fetchImageResponseWithFallback(fetchUrl, options);
         if (!res.ok) throw new Error(`抓取图片失败：${res.status} ${fetchUrl}`);
         dlog(options, 'fetch ok', { status: res.status, ms: Math.round(nowMs() - fetchStart) });
         const blob = await res.blob();
@@ -809,9 +930,16 @@ export async function embedSvgExternalImagesAsObjectUrls(
         const objUrl = URL.createObjectURL(blob);
         objectUrls.push(objUrl);
         blobByFetchUrl.set(fetchUrl, objUrl);
+        } catch (e) {
+          const message = e instanceof Error ? e.message : String(e);
+          dlog(options, 'embed fetch failed, skip', { originalUrl, fetchUrl, message });
+          failedFetchUrl.add(fetchUrl);
+        }
       }
 
-      blobByOriginalUrl.set(originalUrl, blobByFetchUrl.get(fetchUrl)!);
+      if (blobByFetchUrl.has(fetchUrl)) {
+        blobByOriginalUrl.set(originalUrl, blobByFetchUrl.get(fetchUrl)!);
+      }
 
       done += 1;
       options.onProgress?.(done, total);
