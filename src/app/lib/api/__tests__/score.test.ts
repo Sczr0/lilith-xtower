@@ -20,19 +20,19 @@ describe('ScoreAPI.getServiceStats', () => {
   it('parses stats summary into typed structure', async () => {
     const apiResponse = {
       timezone: 'Asia/Shanghai',
-      config_start_at: null,
-      first_event_at: '2025-01-01T00:00:00+08:00',
-      last_event_at: '2025-10-28T04:58:51.514930657+08:00',
+      configStartAt: null,
+      firstEventAt: '2025-01-01T00:00:00+08:00',
+      lastEventAt: '2025-10-28T04:58:51.514930657+08:00',
       features: [
-        { feature: 'bestn', count: 185, last_at: '2025-10-28T01:56:12.549267147+08:00' },
-        { feature: 'image_render', count: 100, last_at: '2025-10-28T01:56:10.000000000+08:00' },
-        { feature: 'image_render', count: 28, last_at: '2025-10-28T02:00:00.000000000+08:00' },
-        { feature: 'single_query', count: 13, last_at: null },
-        { feature: 'unknown_feature', count: undefined, last_at: undefined },
+        { feature: 'bestn', count: 185, lastAt: '2025-10-28T01:56:12.549267147+08:00' },
+        { feature: 'image_render', count: 100, lastAt: '2025-10-28T01:56:10.000000000+08:00' },
+        { feature: 'image_render', count: 28, lastAt: '2025-10-28T02:00:00.000000000+08:00' },
+        { feature: 'single_query', count: 13, lastAt: null },
+        { feature: 'unknown_feature', count: undefined, lastAt: undefined },
       ],
-      unique_users: {
+      uniqueUsers: {
         total: 34,
-        by_kind: [
+        byKind: [
           ['session_token', 32],
           ['external_api_user_id', 1],
           ['platform_pair', '1'],

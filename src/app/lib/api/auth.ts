@@ -62,12 +62,18 @@ export class AuthAPI {
   }
   /**
    * 获取登录二维码
+   * - 新版 API：POST /auth/qrcode?taptapVersion=cn|global
+   * - 响应：{ qrId, qrcodeBase64, verificationUrl }
    */
   static async getQRCode(): Promise<QRCodeResponse> {
     try {
       const taptapVersion = AuthStorage.getTapTapVersion();
-      const response = await fetch(`${BASE_URL}/auth/qrcode?version=${taptapVersion}`, {
-        method: 'GET',
+      const query = new URLSearchParams();
+      if (taptapVersion) query.set('taptapVersion', taptapVersion);
+      const url = `${BASE_URL}/auth/qrcode${query.toString() ? `?${query.toString()}` : ''}`;
+
+      const response = await fetch(url, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -78,11 +84,11 @@ export class AuthAPI {
       }
 
       const data = await response.json();
-      // 适配：后端返回 { qr_id, qrcode_base64, verification_url }
+      // 适配：后端返回 { qrId, qrcodeBase64, verificationUrl }
       const mapped: QRCodeResponse = {
-        qrId: data.qr_id,
-        qrCodeImage: data.qrcode_base64,
-        qrcodeUrl: data.verification_url,
+        qrId: data.qrId,
+        qrCodeImage: data.qrcodeBase64,
+        qrcodeUrl: data.verificationUrl,
       };
       return mapped;
     } catch (error) {

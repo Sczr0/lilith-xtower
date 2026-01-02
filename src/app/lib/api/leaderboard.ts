@@ -1,5 +1,6 @@
 import { AuthCredential } from '../types/auth';
 import { buildAuthRequestBody } from './auth';
+import { extractProblemMessage } from './problem';
 import type {
   AliasUpdatePayload,
   LeaderboardMeResponse,
@@ -63,7 +64,8 @@ export class LeaderboardAPI {
     });
 
     if (!response.ok) {
-      throw new Error('获取排行榜数据失败');
+      const payload = await response.json().catch(() => null);
+      throw new Error(extractProblemMessage(payload, '获取排行榜数据失败'));
     }
 
     const data = (await response.json()) as LeaderboardTopResponse;
@@ -89,7 +91,8 @@ export class LeaderboardAPI {
     });
 
     if (!response.ok) {
-      throw new Error('按排名区间查询失败');
+      const payload = await response.json().catch(() => null);
+      throw new Error(extractProblemMessage(payload, '按排名区间查询失败'));
     }
 
     const data = (await response.json()) as LeaderboardTopResponse;
@@ -106,7 +109,8 @@ export class LeaderboardAPI {
     });
 
     if (!response.ok) {
-      throw new Error('获取我的排名失败');
+      const payload = await response.json().catch(() => null);
+      throw new Error(extractProblemMessage(payload, '获取我的排名失败'));
     }
 
     return response.json() as Promise<LeaderboardMeResponse>;
@@ -130,15 +134,18 @@ export class LeaderboardAPI {
     });
 
     if (response.status === 409) {
-      throw new Error('别名已被占用，请尝试其他名称');
+      const payload = await response.json().catch(() => null);
+      throw new Error(extractProblemMessage(payload, '别名已被占用，请尝试其他名称'));
     }
 
     if (response.status === 422) {
-      throw new Error('别名格式不符合要求');
+      const payload = await response.json().catch(() => null);
+      throw new Error(extractProblemMessage(payload, '别名格式不符合要求'));
     }
 
     if (!response.ok) {
-      throw new Error('更新别名失败');
+      const payload = await response.json().catch(() => null);
+      throw new Error(extractProblemMessage(payload, '更新别名失败'));
     }
 
     clearCache();
@@ -160,7 +167,8 @@ export class LeaderboardAPI {
     });
 
     if (!response.ok) {
-      throw new Error('更新公开设置失败');
+      const payload = await response.json().catch(() => null);
+      throw new Error(extractProblemMessage(payload, '更新公开设置失败'));
     }
 
     clearCache();
@@ -182,11 +190,13 @@ export class LeaderboardAPI {
     });
 
     if (response.status === 404) {
-      throw new Error('未找到对应的公开档案');
+      const payload = await response.json().catch(() => null);
+      throw new Error(extractProblemMessage(payload, '未找到对应的公开档案'));
     }
 
     if (!response.ok) {
-      throw new Error('获取公开档案失败');
+      const payload = await response.json().catch(() => null);
+      throw new Error(extractProblemMessage(payload, '获取公开档案失败'));
     }
 
     const data = (await response.json()) as PublicProfileResponse;
@@ -194,4 +204,3 @@ export class LeaderboardAPI {
     return data;
   }
 }
-

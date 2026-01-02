@@ -8,26 +8,26 @@ export interface ChartTextItem {
 }
 
 export interface RksCompositionText {
-  best27_sum: number;
-  ap_top3_sum: number;
+  best27Sum: number;
+  apTop3Sum: number;
 }
 
 export interface LeaderboardTopItem {
   rank: number;
   user: string;
   score: number;
-  updated_at: string;
+  updatedAt: string;
   alias?: string | null;
-  ap_top3?: ChartTextItem[] | null;
-  best_top3?: ChartTextItem[] | null;
+  apTop3?: ChartTextItem[] | null;
+  bestTop3?: ChartTextItem[] | null;
 }
 
 export interface LeaderboardTopResponse {
   items: LeaderboardTopItem[];
   total: number;
-  next_after_score?: number | null;
-  next_after_user?: string | null;
-  next_after_updated?: string | null;
+  nextAfterScore?: number | null;
+  nextAfterUser?: string | null;
+  nextAfterUpdated?: string | null;
 }
 
 export interface LeaderboardMeResponse {
@@ -40,17 +40,17 @@ export interface LeaderboardMeResponse {
 export interface PublicProfileResponse {
   alias: string;
   score: number;
-  updated_at: string;
-  ap_top3?: ChartTextItem[] | null;
-  best_top3?: ChartTextItem[] | null;
-  rks_composition?: RksCompositionText | null;
+  updatedAt: string;
+  apTop3?: ChartTextItem[] | null;
+  bestTop3?: ChartTextItem[] | null;
+  rksComposition?: RksCompositionText | null;
 }
 
 export interface UpdateProfileOptions {
-  is_public?: boolean | null;
-  show_ap_top3?: boolean | null;
-  show_best_top3?: boolean | null;
-  show_rks_composition?: boolean | null;
+  isPublic?: boolean | null;
+  showApTop3?: boolean | null;
+  showBestTop3?: boolean | null;
+  showRksComposition?: boolean | null;
 }
 
 export interface RankQuery {
@@ -68,3 +68,4 @@ export interface LeaderboardQuery {
 export interface AliasUpdatePayload {
   alias: string;
 }
+

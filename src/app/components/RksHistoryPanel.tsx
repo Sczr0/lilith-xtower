@@ -118,16 +118,16 @@ export function RksHistoryPanel({ showTitle = true }: RksHistoryPanelProps) {
   // 所有 useMemo hooks 必须在条件返回之前调用
   const items = historyData?.items ?? EMPTY_HISTORY_ITEMS;
   const total = historyData?.total ?? 0;
-  const current_rks = historyData?.current_rks ?? 0;
-  const peak_rks = historyData?.peak_rks ?? 0;
-  const gap = peak_rks - current_rks;
+  const currentRks = historyData?.currentRks ?? 0;
+  const peakRks = historyData?.peakRks ?? 0;
+  const gap = peakRks - currentRks;
   
   // 只保留有实际变化的记录（rks_jump !== 0）
   const changedItems = useMemo(
     () =>
       items.filter((item) => {
         const rks = parseFiniteNumber(item.rks);
-        const jump = parseFiniteNumber(item.rks_jump);
+        const jump = parseFiniteNumber(item.rksJump);
         if (rks === null || jump === null) return false;
         return jump !== 0;
       }),
@@ -136,7 +136,7 @@ export function RksHistoryPanel({ showTitle = true }: RksHistoryPanelProps) {
   const displayItems = isExpanded ? changedItems.slice(0, loadedCount) : changedItems.slice(0, 5);
   
   // 计算距离上次变化的时间
-  const lastChangeTime = changedItems.length > 0 ? changedItems[0].created_at : null;
+  const lastChangeTime = changedItems.length > 0 ? changedItems[0].createdAt : null;
   const daysSinceLastChange = useMemo(() => {
     if (!lastChangeTime) return null;
     const lastDate = new Date(lastChangeTime);
@@ -227,13 +227,13 @@ export function RksHistoryPanel({ showTitle = true }: RksHistoryPanelProps) {
         <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 text-center">
           <div className="text-xs text-blue-600 dark:text-blue-400 mb-1">当前 RKS</div>
           <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
-            {formatFixedNumber(current_rks, 2)}
+            {formatFixedNumber(currentRks, 2)}
           </div>
         </div>
         <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 text-center">
           <div className="text-xs text-purple-600 dark:text-purple-400 mb-1">历史最高</div>
           <div className="text-2xl font-bold text-purple-700 dark:text-purple-300">
-            {formatFixedNumber(peak_rks, 2)}
+            {formatFixedNumber(peakRks, 2)}
           </div>
         </div>
         <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 text-center">
@@ -293,23 +293,23 @@ export function RksHistoryPanel({ showTitle = true }: RksHistoryPanelProps) {
             <div className={`space-y-2 overflow-hidden transition-all duration-300 ${isExpanded ? 'max-h-[500px] overflow-y-auto' : 'max-h-[200px]'}`}>
               {displayItems.map((item, index) => (
                 <div
-                  key={`${item.created_at}-${index}`}
+                  key={`${item.createdAt}-${index}`}
                   className="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-gray-900/30 rounded-lg"
                 >
                   <div className="text-sm text-gray-600 dark:text-gray-400">
-                    {formatTime(item.created_at)}
+                    {formatTime(item.createdAt)}
                   </div>
                   <div className="flex items-center gap-4">
                     <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
                       {formatFixedNumber(item.rks, 2)}
                     </span>
                     <span className={`text-sm font-medium ${
-                      item.rks_jump > 0
-                        ? 'text-green-600 dark:text-green-400'
-                        : 'text-red-600 dark:text-red-400'
-                    }`}>
+                       item.rksJump > 0
+                         ? 'text-green-600 dark:text-green-400'
+                         : 'text-red-600 dark:text-red-400'
+                     }`}>
                       {(() => {
-                        const jump = parseFiniteNumber(item.rks_jump);
+                        const jump = parseFiniteNumber(item.rksJump);
                         return `${jump !== null && jump > 0 ? '+' : ''}${formatFixedNumber(jump, 2)}`;
                       })()}
                     </span>

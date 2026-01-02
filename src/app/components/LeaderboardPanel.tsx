@@ -68,7 +68,7 @@ const renderRankBadge = (rank: number) => {
   );
 };
 
-const renderChartItems = (items: PublicProfileResponse['ap_top3']) => {
+const renderChartItems = (items: PublicProfileResponse['apTop3']) => {
   if (!items || items.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-gray-200 bg-white/60 px-4 py-6 text-sm text-gray-500 dark:border-neutral-700 dark:bg-neutral-900/40 dark:text-gray-400">
@@ -189,8 +189,8 @@ export function LeaderboardPanel() {
         const diff = scoreB - scoreA;
         if (diff !== 0) return diff;
 
-        const timeA = Date.parse(a.updated_at);
-        const timeB = Date.parse(b.updated_at);
+        const timeA = Date.parse(a.updatedAt);
+        const timeB = Date.parse(b.updatedAt);
         const tsA = Number.isNaN(timeA) ? 0 : timeA;
         const tsB = Number.isNaN(timeB) ? 0 : timeB;
         if (tsB !== tsA) return tsB - tsA;
@@ -275,10 +275,10 @@ export function LeaderboardPanel() {
     setIsProfileUpdating(true);
     try {
       await LeaderboardAPI.updateProfileSettings(credential, {
-        is_public: isProfilePublic,
-        show_best_top3: showBestTop3,
-        show_ap_top3: showApTop3,
-        show_rks_composition: showRksComposition,
+        isPublic: isProfilePublic,
+        showBestTop3: showBestTop3,
+        showApTop3: showApTop3,
+        showRksComposition: showRksComposition,
       });
       setProfileMessage('公开设置已更新');
     } catch (error) {
@@ -442,7 +442,7 @@ export function LeaderboardPanel() {
                     d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                   />
                 </svg>
-                <span>最近同步 {formatDateTime(item.updated_at)}</span>
+                <span>最近同步 {formatDateTime(item.updatedAt)}</span>
               </div>
             </div>
           ))}
@@ -495,7 +495,7 @@ export function LeaderboardPanel() {
                         {item.alias ?? '未设置别名'}
                       </span>
                       <span className="text-xs text-gray-500 dark:text-gray-400">
-                        最近同步 {formatDateTime(item.updated_at)}
+                        最近同步 {formatDateTime(item.updatedAt)}
                       </span>
                     </div>
                   </td>
@@ -517,7 +517,7 @@ export function LeaderboardPanel() {
                     </div>
                   </td>
                   <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
-                    {formatDateTime(item.updated_at)}
+                    {formatDateTime(item.updatedAt)}
                   </td>
                 </tr>
               ))}
@@ -899,15 +899,15 @@ export function LeaderboardPanel() {
               <div className="rounded-xl border border-gray-200 bg-white/70 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-900/60">
                 <p className="text-xs text-gray-500 dark:text-gray-400">最近更新</p>
                 <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
-                  {formatDateTime(publicProfile.updated_at)}
+                  {formatDateTime(publicProfile.updatedAt)}
                 </p>
               </div>
-              {publicProfile.rks_composition && (
+              {publicProfile.rksComposition && (
                 <div className="rounded-xl border border-gray-200 bg-white/70 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-900/60 sm:col-span-2 lg:col-span-3">
                   <p className="text-xs text-gray-500 dark:text-gray-400">RKS 组成</p>
                   <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
-                    Best27 合计 {formatFixedNumber(publicProfile.rks_composition.best27_sum, 2)}，AP Top3 合计{' '}
-                    {formatFixedNumber(publicProfile.rks_composition.ap_top3_sum, 2)}
+                    Best27 合计 {formatFixedNumber(publicProfile.rksComposition.best27Sum, 2)}，AP Top3 合计{' '}
+                    {formatFixedNumber(publicProfile.rksComposition.apTop3Sum, 2)}
                   </p>
                 </div>
               )}
@@ -920,10 +920,10 @@ export function LeaderboardPanel() {
                     Best Top3
                   </h3>
                   <span className="text-xs text-gray-500 dark:text-gray-400">
-                    {publicProfile.best_top3?.length ?? 0} 首
+                    {publicProfile.bestTop3?.length ?? 0} 首
                   </span>
                 </div>
-                {renderChartItems(publicProfile.best_top3)}
+                {renderChartItems(publicProfile.bestTop3)}
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -931,10 +931,10 @@ export function LeaderboardPanel() {
                     AP Top3
                   </h3>
                   <span className="text-xs text-gray-500 dark:text-gray-400">
-                    {publicProfile.ap_top3?.length ?? 0} 首
+                    {publicProfile.apTop3?.length ?? 0} 首
                   </span>
                 </div>
-                {renderChartItems(publicProfile.ap_top3)}
+                {renderChartItems(publicProfile.apTop3)}
               </div>
             </div>
           </div>

@@ -14,24 +14,28 @@ export interface RksResponse {
   };
 }
 
+/**
+ * Stats summary 的原始返回结构（对齐新版 OpenAPI：camelCase）。
+ * - 上游：GET /stats/summary
+ */
 export interface StatsSummaryApiFeature {
   feature?: string;
   count?: number;
-  last_at?: string | null;
+  lastAt?: string | null;
 }
 
 export interface StatsSummaryApiUniqueUsers {
   total?: number;
-  by_kind?: Array<[unknown, unknown]>;
+  byKind?: Array<[unknown, unknown]>;
 }
 
 export interface StatsSummaryApiResponse {
   timezone?: string;
-  config_start_at?: string | null;
-  first_event_at?: string | null;
-  last_event_at?: string | null;
+  configStartAt?: string | null;
+  firstEventAt?: string | null;
+  lastEventAt?: string | null;
   features?: StatsSummaryApiFeature[];
-  unique_users?: StatsSummaryApiUniqueUsers;
+  uniqueUsers?: StatsSummaryApiUniqueUsers;
 }
 
 export interface ServiceStatsFeature {
@@ -52,16 +56,17 @@ export interface ServiceStatsResponse {
   };
 }
 
-// RKS 历史记录相关类型
+// RKS 历史记录相关类型（对齐新版 OpenAPI：camelCase）
 export interface RksHistoryItem {
-  rks: number;           // 当时的 RKS 值
-  rks_jump: number;      // RKS 变化量
-  created_at: string;    // ISO 8601 时间戳
+  rks: number; // 当时的 RKS 值
+  rksJump: number; // RKS 变化量
+  createdAt: string; // ISO 8601 时间戳（UTC RFC3339）
 }
 
 export interface RksHistoryResponse {
-  items: RksHistoryItem[];  // 历史记录列表（按时间倒序）
-  total: number;            // 总记录数
-  current_rks: number;      // 当前 RKS
-  peak_rks: number;         // 历史最高 RKS
+  items: RksHistoryItem[]; // 历史记录列表（按时间倒序）
+  total: number; // 总记录数
+  currentRks: number; // 当前 RKS
+  peakRks: number; // 历史最高 RKS
 }
+

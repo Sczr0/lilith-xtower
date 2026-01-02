@@ -12,6 +12,7 @@ interface ScoreEntry {
 }
 
 import { DIFFICULTY_BADGE } from '../lib/constants/difficultyColors';
+import { extractProblemMessage } from '../lib/api/problem';
 
 const MAX_SCORES = 36;
 const SCORE_STORAGE_KEY_NAME = 'playerScoreRender_playerName';
@@ -172,33 +173,25 @@ export function PlayerScoreRenderer() {
     setResultImage(null);
 
     try {
-      const response = await fetch('/api/image/bn/user-generated', {
+      const response = await fetch('/api/image/bn/user', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          player_name: playerName.trim(),
+          nickname: playerName.trim(),
           scores: scoresList.map((s) => ({
-            song_name: s.song_name,
-            score: s.score,
-            acc: s.acc,
+            song: s.song_name,
             difficulty: s.difficulty,
+            acc: s.acc,
+            score: s.score,
           })),
         }),
       });
 
       if (!response.ok) {
-        let message = '渲染失败';
-        try {
-          const data = await response.json();
-          if (data?.message) {
-            message = data.message;
-          }
-        } catch (error) {
-          console.error('解析错误信息失败:', error);
-        }
-        throw new Error(message);
+        const payload = await response.json().catch(() => null);
+        throw new Error(extractProblemMessage(payload, '渲染失败'));
       }
 
       const imageBlob = await response.blob();

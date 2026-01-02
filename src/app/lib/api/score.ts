@@ -7,6 +7,7 @@ import {
   StatsSummaryApiResponse,
 } from '../types/score';
 import { buildAuthRequestBody } from './auth';
+import { extractProblemMessage } from './problem';
 
 const BASE_URL = '/api';
 
@@ -23,21 +24,27 @@ export class ScoreAPI {
     });
 
     if (!response.ok) {
-      let message = '获取 RKS 列表失败';
-      try {
-        const data = await response.json();
-        if (data?.message) message = data.message;
-      } catch (error) {
-        console.error('解析 RKS 列表错误信息失败:', error);
-      }
-      throw new Error(message);
+      const payload = await response.json().catch(() => null);
+      throw new Error(extractProblemMessage(payload, '获取 RKS 列表失败'));
     }
 
-    const data = await response.json();
-    const rawSave = data?.save;
+    const data = (await response.json()) as unknown;
+    const rawSave =
+      data && typeof data === 'object'
+        ? 'save' in data
+          ? (data as { save?: unknown }).save
+          : 'data' in data
+            ? (data as { data?: unknown }).data
+            : data
+        : null;
+
     const rawGameRecord =
-      rawSave && typeof rawSave === 'object' && rawSave !== null && 'game_record' in rawSave
-        ? (rawSave as { game_record?: unknown }).game_record
+      rawSave && typeof rawSave === 'object' && rawSave !== null
+        ? 'gameRecord' in rawSave
+          ? (rawSave as { gameRecord?: unknown }).gameRecord
+          : 'game_record' in rawSave
+            ? (rawSave as { game_record?: unknown }).game_record
+            : undefined
         : undefined;
     const gameRecord =
       rawGameRecord && typeof rawGameRecord === 'object' && rawGameRecord !== null
@@ -69,28 +76,35 @@ export class ScoreAPI {
       rks: number;
     }> = [];
 
+    const normalizeNumber = (value: unknown): number => {
+      if (typeof value === 'number' && Number.isFinite(value)) return value;
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+
+    const isDifficultyCode = (value: unknown): value is 'EZ' | 'HD' | 'IN' | 'AT' =>
+      value === 'EZ' || value === 'HD' || value === 'IN' || value === 'AT';
+
+    const toRecordList = (value: unknown): unknown[] => {
+      if (Array.isArray(value)) return value;
+      if (value && typeof value === 'object') return Object.values(value as Record<string, unknown>);
+      return [];
+    };
+
     for (const [songKey, songRecords] of Object.entries(gameRecord)) {
-      if (!Array.isArray(songRecords)) continue;
-
-      // songKey 格式为“歌曲名 - 艺术家”，直接视为歌曲名
       const songName = songKey;
-
-      for (const record of songRecords) {
+      for (const record of toRecordList(songRecords)) {
         if (!record || typeof record !== 'object') continue;
 
         const entry = record as Record<string, unknown>;
         const difficulty = entry['difficulty'];
+        if (!isDifficultyCode(difficulty)) continue;
 
-        if (difficulty !== 'EZ' && difficulty !== 'HD' && difficulty !== 'IN' && difficulty !== 'AT') {
-          continue;
-        }
-
-        const accuracySource = entry['accuracy'] ?? entry['acc'];
-        const accuracy = typeof accuracySource === 'number' ? accuracySource : 0;
-        const scoreValue = entry['score'];
-        const score = typeof scoreValue === 'number' ? scoreValue : 0;
-        const constantValue = entry['chart_constant'];
-        const chartConstant = typeof constantValue === 'number' ? constantValue : 0;
+        const accuracy = normalizeNumber(entry['accuracy'] ?? entry['acc']);
+        const score = normalizeNumber(entry['score']);
+        const chartConstant = normalizeNumber(
+          entry['chartConstant'] ?? entry['chart_constant'] ?? entry['difficulty_value'] ?? entry['constant'],
+        );
 
         records.push({
           song_name: songName,
@@ -132,22 +146,16 @@ export class ScoreAPI {
     });
 
     if (!response.ok) {
-      let message = '获取 RKS 历史记录失败';
-      try {
-        const data = await response.json();
-        if (data?.message) message = data.message;
-      } catch (error) {
-        console.error('解析 RKS 历史记录错误信息失败:', error);
-      }
-      throw new Error(message);
+      const payload = await response.json().catch(() => null);
+      throw new Error(extractProblemMessage(payload, '获取 RKS 历史记录失败'));
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as Partial<RksHistoryResponse>;
     return {
-      items: data.items || [],
-      total: data.total || 0,
-      current_rks: data.current_rks || 0,
-      peak_rks: data.peak_rks || 0,
+      items: Array.isArray(data.items) ? data.items : [],
+      total: typeof data.total === 'number' ? data.total : 0,
+      currentRks: typeof data.currentRks === 'number' ? data.currentRks : 0,
+      peakRks: typeof data.peakRks === 'number' ? data.peakRks : 0,
     };
   }
 
@@ -158,14 +166,8 @@ export class ScoreAPI {
     });
 
     if (!response.ok) {
-      let message = '获取服务统计失败';
-      try {
-        const payload = await response.json();
-        if (payload?.message) message = payload.message;
-      } catch {
-        // 忽略解析错误，沿用默认文案
-      }
-      throw new Error(message);
+      const payload = await response.json().catch(() => null);
+      throw new Error(extractProblemMessage(payload, '获取服务统计失败'));
     }
 
     let raw: StatsSummaryApiResponse;
@@ -199,7 +201,7 @@ export class ScoreAPI {
             return {
               key,
               count: normalizeCount(item.count),
-              lastUpdated: normalizeDate(item.last_at),
+              lastUpdated: normalizeDate(item.lastAt),
             };
           })
           .filter((entry): entry is ServiceStatsFeature => entry !== null)
@@ -226,10 +228,10 @@ export class ScoreAPI {
 
     const features = Array.from(mergedFeatures.values()).sort((a, b) => b.count - a.count);
 
-    const uniqueUsersRaw = raw.unique_users ?? {};
+    const uniqueUsersRaw = raw.uniqueUsers ?? {};
     const total = normalizeCount(uniqueUsersRaw.total);
-    const byKind: [string, number][] = Array.isArray(uniqueUsersRaw.by_kind)
-      ? uniqueUsersRaw.by_kind
+    const byKind: [string, number][] = Array.isArray(uniqueUsersRaw.byKind)
+      ? uniqueUsersRaw.byKind
           .filter((entry): entry is [unknown, unknown] => Array.isArray(entry) && entry.length >= 2)
           .map(([kind, count]) => {
             const name = String(kind ?? 'unknown');
@@ -240,11 +242,11 @@ export class ScoreAPI {
     return {
       timezone: typeof raw.timezone === 'string' && raw.timezone ? raw.timezone : 'UTC',
       configStartAt:
-        typeof raw.config_start_at === 'string' || raw.config_start_at === null ? raw.config_start_at : null,
+        typeof raw.configStartAt === 'string' || raw.configStartAt === null ? raw.configStartAt : null,
       firstEventAt:
-        typeof raw.first_event_at === 'string' || raw.first_event_at === null ? raw.first_event_at : null,
+        typeof raw.firstEventAt === 'string' || raw.firstEventAt === null ? raw.firstEventAt : null,
       lastEventAt:
-        typeof raw.last_event_at === 'string' || raw.last_event_at === null ? raw.last_event_at : null,
+        typeof raw.lastEventAt === 'string' || raw.lastEventAt === null ? raw.lastEventAt : null,
       features,
       uniqueUsers: {
         total,

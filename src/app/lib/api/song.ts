@@ -1,12 +1,6 @@
-const BASE_URL = '/api';
+import { extractProblemMessage } from './problem';
 
-type NotUniqueResponse = {
-  Search?: {
-    NotUnique?: {
-      candidates?: Array<{ name?: string }>;
-    };
-  };
-};
+const BASE_URL = '/api';
 
 type CacheEntry = { value: string | null; ts: number };
 const cache = new Map<string, CacheEntry>();
@@ -50,22 +44,13 @@ export async function searchSongId(query: string): Promise<string | null> {
   }
 
   if (resp.status === 409) {
-    try {
-      const errorData = (await resp.json()) as NotUniqueResponse;
-      const candidates = errorData?.Search?.NotUnique?.candidates || [];
-      const names = candidates.map((c) => c.name ?? '').filter(Boolean);
-      const suffix = names.length ? `：${names.join('、')}` : '';
-      throw new Error(`找到多个匹配的谱面，请使用更精确的关键词${suffix}`);
-    } catch (e) {
-      if (e instanceof Error && e.message.includes('找到多个匹配')) throw e;
-      throw new Error('找到多个匹配的谱面，请使用更精确的关键词');
-    }
+    const problem = (await resp.json().catch(() => null)) as unknown;
+    throw new Error(extractProblemMessage(problem, '找到多个匹配的谱面，请使用更精确的关键词'));
   }
 
   if (!resp.ok) {
-    const errorData = await resp.json().catch(() => null);
-    const message = (errorData as { message?: string } | null)?.message || `搜索失败 (${resp.status})`;
-    throw new Error(message);
+    const problem = (await resp.json().catch(() => null)) as unknown;
+    throw new Error(extractProblemMessage(problem, `搜索失败 (${resp.status})`));
   }
 
   const data = (await resp.json()) as unknown;
@@ -78,4 +63,3 @@ export async function searchSongId(query: string): Promise<string | null> {
   writeCache(cacheKey, null);
   return null;
 }
-
