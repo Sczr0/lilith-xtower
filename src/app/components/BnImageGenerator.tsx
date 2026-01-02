@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { ImageAPI, BestNTheme, type ImageFormat } from '../lib/api/image';
 import { useGenerationBusy, useGenerationManager, useGenerationResult } from '../contexts/GenerationContext';
@@ -21,6 +21,37 @@ type BnImageGeneratorProps = {
   // 仅当 format=svg 时生效：导出 PNG 时在控制台输出极其详细的渲染/抓取日志（默认关闭）
   debugExport?: boolean;
 };
+
+type ShadowSvgPreviewProps = {
+  svgHtml: string;
+  className?: string;
+};
+
+function ShadowSvgPreview({ svgHtml, className }: ShadowSvgPreviewProps) {
+  const hostRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+
+    // 将 SVG 预览放入 Shadow DOM，避免 SVG 内的 <style> 全局影响仪表盘其它内联 <svg> 图标（侧栏/标题小图标反色问题）。
+    const root = host.shadowRoot ?? host.attachShadow({ mode: 'open' });
+    root.textContent = '';
+
+    const style = document.createElement('style');
+    style.textContent = `
+      :host { display: block; }
+      svg { width: 100%; height: auto; display: block; }
+    `;
+    root.appendChild(style);
+
+    const container = document.createElement('div');
+    container.innerHTML = svgHtml;
+    root.appendChild(container);
+  }, [svgHtml]);
+
+  return <div ref={hostRef} className={className} />;
+}
 
 export function BnImageGenerator({
   showTitle = true,
@@ -304,7 +335,7 @@ export function BnImageGenerator({
                 <div className="p-6 text-sm text-gray-600 dark:text-gray-300">SVG 解析中...</div>
               ) : safeInlineSvg ? (
                 // 关键：SVG 内联到 DOM 后，<image href> 子资源才会正常发起请求（可配合同源代理验证封面加载）
-                <div className="w-full [&>svg]:w-full [&>svg]:h-auto" dangerouslySetInnerHTML={{ __html: safeInlineSvg }} />
+                <ShadowSvgPreview svgHtml={safeInlineSvg} className="w-full" />
               ) : (
                 <div className="p-6 text-sm text-gray-600 dark:text-gray-300">
                   SVG 包含不安全内容，已阻止内联渲染；可使用下方下载查看原文件。
