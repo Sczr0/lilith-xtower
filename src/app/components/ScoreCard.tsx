@@ -2,6 +2,7 @@ import React from 'react';
 import type { CSSProperties } from 'react';
 import { RksRecord } from '../lib/types/score';
 import { DIFFICULTY_BADGE } from '../lib/constants/difficultyColors';
+import { formatFixedNumber, formatLocaleNumber } from '../lib/utils/number';
 
 interface ScoreCardProps {
   record: RksRecord;
@@ -37,7 +38,7 @@ export function ScoreCard({ record, rank, nameMaxLines = 1 }: ScoreCardProps) {
         <div className="text-right">
           <div className="text-[10px] tracking-wide text-gray-500 dark:text-gray-400">单曲RKS</div>
           <div className="text-base sm:text-lg font-bold text-blue-600 dark:text-blue-400">
-            {record.rks.toFixed(4)}
+            {formatFixedNumber(record.rks, 4)}
           </div>
         </div>
       </div>
@@ -45,15 +46,15 @@ export function ScoreCard({ record, rank, nameMaxLines = 1 }: ScoreCardProps) {
       <div className="mt-3 grid grid-cols-3 gap-2">
         <div className="bg-white/60 dark:bg-gray-900/40 rounded-lg px-2 py-2 text-center border border-gray-200 dark:border-gray-700">
           <div className="text-[10px] text-gray-500 dark:text-gray-400">定数</div>
-          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{record.difficulty_value.toFixed(1)}</div>
+          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{formatFixedNumber(record.difficulty_value, 1)}</div>
         </div>
         <div className="bg-white/60 dark:bg-gray-900/40 rounded-lg px-2 py-2 text-center border border-gray-200 dark:border-gray-700">
           <div className="text-[10px] text-gray-500 dark:text-gray-400">分数</div>
-          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{record.score.toLocaleString('zh-CN')}</div>
+          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{formatLocaleNumber(record.score, 'zh-CN')}</div>
         </div>
         <div className="bg-white/60 dark:bg-gray-900/40 rounded-lg px-2 py-2 text-center border border-gray-200 dark:border-gray-700">
           <div className="text-[10px] text-gray-500 dark:text-gray-400">准确率</div>
-          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{record.acc.toFixed(2)}%</div>
+          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{formatFixedNumber(record.acc, 2)}%</div>
         </div>
       </div>
     </div>

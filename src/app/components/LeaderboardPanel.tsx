@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { LeaderboardAPI } from '../lib/api/leaderboard';
+import { formatFixedNumber, parseFiniteNumber } from '../lib/utils/number';
 import type {
   LeaderboardMeResponse,
   LeaderboardTopItem,
@@ -25,7 +26,7 @@ const formatDateTime = (value: string) => {
   }
 };
 
-const formatPercent = (value: number) => `${value.toFixed(2)}%`;
+const formatPercent = (value: unknown) => `${formatFixedNumber(value, 2)}%`;
 
 const buttonStyles = {
   primary:
@@ -120,7 +121,7 @@ const renderChartItems = (items: PublicProfileResponse['ap_top3']) => {
                   d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
                 />
               </svg>
-              {item.acc.toFixed(2)}%
+              {formatFixedNumber(item.acc, 2)}%
             </span>
             <span className="flex items-center gap-1">
               <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -131,7 +132,7 @@ const renderChartItems = (items: PublicProfileResponse['ap_top3']) => {
                   d="M13 10V3L4 14h7v7l9-11h-7z"
                 />
               </svg>
-              {item.rks.toFixed(4)}
+              {formatFixedNumber(item.rks, 4)}
             </span>
           </div>
         </li>
@@ -182,7 +183,19 @@ export function LeaderboardPanel() {
       });
 
       // 按 RKS 分数降序排序
-      const sortedItems = data.items.sort((a, b) => b.score - a.score);
+      const sortedItems = [...data.items].sort((a, b) => {
+        const scoreA = parseFiniteNumber(a.score) ?? Number.NEGATIVE_INFINITY;
+        const scoreB = parseFiniteNumber(b.score) ?? Number.NEGATIVE_INFINITY;
+        const diff = scoreB - scoreA;
+        if (diff !== 0) return diff;
+
+        const timeA = Date.parse(a.updated_at);
+        const timeB = Date.parse(b.updated_at);
+        const tsA = Number.isNaN(timeA) ? 0 : timeA;
+        const tsB = Number.isNaN(timeB) ? 0 : timeB;
+        if (tsB !== tsA) return tsB - tsA;
+        return String(a.user).localeCompare(String(b.user));
+      });
 
       // 为排序后的数据重新分配排名
       const itemsWithRanks = sortedItems.map((item, index) => ({
@@ -411,7 +424,7 @@ export function LeaderboardPanel() {
                 </div>
                 <div className="text-right flex-shrink-0">
                   <p className="text-lg font-semibold text-blue-600 dark:text-blue-400">
-                    {item.score.toFixed(4)}
+                    {formatFixedNumber(item.score, 4)}
                   </p>
                   {item.rank <= 3 && (
                     <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-600 dark:border-blue-800/60 dark:bg-blue-900/20 dark:text-blue-200">
@@ -494,7 +507,7 @@ export function LeaderboardPanel() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <span className="text-base font-semibold text-blue-600 dark:text-blue-400">
-                        {item.score.toFixed(4)}
+                        {formatFixedNumber(item.score, 4)}
                       </span>
                       {item.rank <= 3 && (
                         <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-600 dark:border-blue-800/60 dark:bg-blue-900/20 dark:text-blue-200">
@@ -598,7 +611,7 @@ export function LeaderboardPanel() {
               <div className="rounded-xl border border-gray-200 bg-white/70 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-900/60">
                 <p className="text-xs text-gray-500 dark:text-gray-400">RKS</p>
                 <p className="mt-1 text-2xl font-semibold text-blue-600 dark:text-blue-400">
-                  {myRank.score.toFixed(4)}
+                  {formatFixedNumber(myRank.score, 4)}
                 </p>
               </div>
               <div className="rounded-xl border border-gray-200 bg-white/70 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-900/60">
@@ -880,7 +893,7 @@ export function LeaderboardPanel() {
               <div className="rounded-xl border border-gray-200 bg-white/70 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-900/60">
                 <p className="text-xs text-gray-500 dark:text-gray-400">RKS</p>
                 <p className="mt-1 text-lg font-semibold text-blue-600 dark:text-blue-400">
-                  {publicProfile.score.toFixed(4)}
+                  {formatFixedNumber(publicProfile.score, 4)}
                 </p>
               </div>
               <div className="rounded-xl border border-gray-200 bg-white/70 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-900/60">
@@ -893,8 +906,8 @@ export function LeaderboardPanel() {
                 <div className="rounded-xl border border-gray-200 bg-white/70 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-900/60 sm:col-span-2 lg:col-span-3">
                   <p className="text-xs text-gray-500 dark:text-gray-400">RKS 组成</p>
                   <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
-                    Best27 合计 {publicProfile.rks_composition.best27_sum.toFixed(2)}，AP Top3 合计{' '}
-                    {publicProfile.rks_composition.ap_top3_sum.toFixed(2)}
+                    Best27 合计 {formatFixedNumber(publicProfile.rks_composition.best27_sum, 2)}，AP Top3 合计{' '}
+                    {formatFixedNumber(publicProfile.rks_composition.ap_top3_sum, 2)}
                   </p>
                 </div>
               )}

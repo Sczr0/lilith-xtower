@@ -12,6 +12,7 @@ import Script from "next/script";
 import WebVitals from "./components/WebVitals";
 import { TipsProvider } from "./components/TipsProvider";
 import { PromoBannerSlot } from "./components/PromoBannerSlot";
+import { BrandFontLoader } from "./components/BrandFontLoader";
 import { SITE_URL } from "./utils/site-url";
 
 const geistSans = Geist({
@@ -23,6 +24,12 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
+
+// 非 Vercel 或未启用 Web Analytics 时，禁用 @vercel/analytics 以避免控制台 404 噪音
+const ENABLE_VERCEL_ANALYTICS = (() => {
+  const raw = (process.env.NEXT_PUBLIC_VERCEL_ANALYTICS || "").toLowerCase();
+  return raw === "1" || raw === "true";
+})();
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -87,37 +94,11 @@ export default function RootLayout({
           data-domains="lilith.xtower.site"
           strategy="lazyOnload"
         />
-        <Script id="brand-font-loader" strategy="afterInteractive">
-          {`
-          (function(){
-            function loadBrandFonts(){
-              try {
-                var l = document.createElement('link');
-                l.rel = 'stylesheet';
-                l.href = '/fonts/Source%20Han%20Sans%20%26%20Saira%20Hybrid-Regular%20%235446/result.css';
-                l.onload = function(){
-                  try { document.documentElement.classList.add('brand-font'); } catch (e) {}
-                };
-                document.head.appendChild(l);
-              } catch (e) {}
-            }
-            try {
-              if (navigator.connection && navigator.connection.saveData) return;
-              if (window.matchMedia && window.matchMedia('(prefers-reduced-data: reduce)').matches) return;
-            } catch (e) {}
-            if (window.requestIdleCallback) {
-              window.requestIdleCallback(loadBrandFonts, { timeout: 2000 });
-            } else {
-              window.addEventListener('load', loadBrandFonts);
-            }
-          })();
-          `}
-        </Script>
-        
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <BrandFontLoader />
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
@@ -138,7 +119,7 @@ export default function RootLayout({
             </Suspense>
           </TipsProvider>
         </ThemeProvider>
-        <Analytics />
+        {ENABLE_VERCEL_ANALYTICS ? <Analytics /> : null}
         <WebVitals />
       </body>
     </html>

@@ -12,6 +12,7 @@ import { getOwnerKey } from '../lib/utils/cache';
 import { StyledSelect } from './ui/Select';
 import { RksHistoryPanel } from './RksHistoryPanel';
 import { filterSortLimitRksRecords, type RksSortBy, type RksSortOrder } from '../lib/utils/rksRecords';
+import { formatFixedNumber, formatLocaleNumber, parseFiniteNumber } from '../lib/utils/number';
 
 const parseNumberOrNull = (value: string): number | null => {
   const raw = value.trim();
@@ -25,6 +26,40 @@ const parseIntegerOrNull = (value: string): number | null => {
   if (!raw) return null;
   const parsed = Number.parseInt(raw, 10);
   return Number.isFinite(parsed) ? parsed : null;
+};
+
+// 读取 localStorage 缓存时做轻量校验，避免旧结构/污染数据导致渲染阶段崩溃
+const sanitizeCachedRksRecords = (raw: unknown): RksRecord[] | null => {
+  if (!Array.isArray(raw)) return null;
+  const records: RksRecord[] = [];
+
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const entry = item as Record<string, unknown>;
+
+    const song_name = typeof entry.song_name === 'string' ? entry.song_name : null;
+    const difficulty = entry.difficulty;
+    if (!song_name) continue;
+    if (difficulty !== 'EZ' && difficulty !== 'HD' && difficulty !== 'IN' && difficulty !== 'AT') continue;
+
+    const difficulty_value = parseFiniteNumber(entry.difficulty_value);
+    const acc = parseFiniteNumber(entry.acc);
+    const score = parseFiniteNumber(entry.score);
+    const rks = parseFiniteNumber(entry.rks);
+
+    if (difficulty_value === null || acc === null || score === null || rks === null) continue;
+
+    records.push({
+      song_name,
+      difficulty,
+      difficulty_value,
+      acc,
+      score,
+      rks,
+    });
+  }
+
+  return records;
 };
 
 // 支持通过 showDescription 隐藏组件内的描述，避免与外层重复
@@ -58,11 +93,28 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
       const ownerKey = getOwnerKey(credential as AuthCredential);
       const cached = localStorage.getItem(CACHE_KEY);
       if (ownerKey && cached) {
-        const map = JSON.parse(cached) as Record<string, { records: RksRecord[]; ts?: number }>;
-        const entry = map?.[ownerKey];
-        if (entry && Array.isArray(entry.records)) {
-          setRecords(entry.records);
-          hasCachedRecords = true;
+        const parsed = JSON.parse(cached);
+        if (parsed && typeof parsed === 'object') {
+          const map = parsed as Record<string, { records?: unknown; ts?: unknown }>;
+          const entry = map?.[ownerKey];
+          if (entry) {
+            const sanitized = sanitizeCachedRksRecords(entry.records);
+            if (sanitized === null) {
+              // 缓存结构异常：清理该用户条目，避免后续渲染阶段崩溃
+              delete map[ownerKey];
+              localStorage.setItem(CACHE_KEY, JSON.stringify(map));
+            } else {
+              setRecords(sanitized);
+              hasCachedRecords = true;
+
+              // 若过滤后数量变化，回写清理后的缓存，避免下次再次触发
+              if (Array.isArray(entry.records) && sanitized.length !== entry.records.length) {
+                const ts = typeof entry.ts === 'number' && Number.isFinite(entry.ts) ? entry.ts : Date.now();
+                map[ownerKey] = { records: sanitized, ts };
+                localStorage.setItem(CACHE_KEY, JSON.stringify(map));
+              }
+            }
+          }
         }
       }
     } catch {}
@@ -443,16 +495,16 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
                       </span>
                     </td>
                     <td className="py-3 px-4 text-center text-sm text-gray-700 dark:text-gray-300">
-                      {record.difficulty_value.toFixed(1)}
+                      {formatFixedNumber(record.difficulty_value, 1)}
                     </td>
                     <td className="py-3 px-4 text-center text-sm text-gray-700 dark:text-gray-300">
-                      {record.score.toLocaleString('zh-CN')}
+                      {formatLocaleNumber(record.score, 'zh-CN')}
                     </td>
                     <td className="py-3 px-4 text-center text-sm text-gray-700 dark:text-gray-300">
-                      {record.acc.toFixed(2)}%
+                      {formatFixedNumber(record.acc, 2)}%
                     </td>
                     <td className="py-3 px-4 text-center text-sm font-semibold text-blue-600 dark:text-blue-400">
-                      {record.rks.toFixed(4)}
+                      {formatFixedNumber(record.rks, 4)}
                     </td>
                   </tr>
                 ))}

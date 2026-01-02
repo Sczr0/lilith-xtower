@@ -3,11 +3,14 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { ScoreAPI } from '../lib/api/score';
+import { formatFixedNumber, parseFiniteNumber } from '../lib/utils/number';
 import { RksHistoryItem, RksHistoryResponse } from '../lib/types/score';
 
 interface RksHistoryPanelProps {
   showTitle?: boolean;
 }
+
+const EMPTY_HISTORY_ITEMS: RksHistoryItem[] = [];
 
 // 简单的 SVG 折线图组件
 function RksLineChart({ items }: { items: RksHistoryItem[] }) {
@@ -77,10 +80,10 @@ function RksLineChart({ items }: { items: RksHistoryItem[] }) {
       </svg>
       {/* Y 轴标签 */}
       <div className="absolute left-0 top-0 text-xs text-gray-500 dark:text-gray-400">
-        {maxRks.toFixed(2)}
+        {formatFixedNumber(maxRks, 2)}
       </div>
       <div className="absolute left-0 bottom-0 text-xs text-gray-500 dark:text-gray-400">
-        {minRks.toFixed(2)}
+        {formatFixedNumber(minRks, 2)}
       </div>
     </div>
   );
@@ -113,14 +116,23 @@ export function RksHistoryPanel({ showTitle = true }: RksHistoryPanelProps) {
   const [loadedCount, setLoadedCount] = useState(20);
 
   // 所有 useMemo hooks 必须在条件返回之前调用
-  const items = historyData?.items ?? [];
+  const items = historyData?.items ?? EMPTY_HISTORY_ITEMS;
   const total = historyData?.total ?? 0;
   const current_rks = historyData?.current_rks ?? 0;
   const peak_rks = historyData?.peak_rks ?? 0;
   const gap = peak_rks - current_rks;
   
   // 只保留有实际变化的记录（rks_jump !== 0）
-  const changedItems = useMemo(() => items.filter(item => item.rks_jump !== 0), [items]);
+  const changedItems = useMemo(
+    () =>
+      items.filter((item) => {
+        const rks = parseFiniteNumber(item.rks);
+        const jump = parseFiniteNumber(item.rks_jump);
+        if (rks === null || jump === null) return false;
+        return jump !== 0;
+      }),
+    [items],
+  );
   const displayItems = isExpanded ? changedItems.slice(0, loadedCount) : changedItems.slice(0, 5);
   
   // 计算距离上次变化的时间
@@ -215,19 +227,19 @@ export function RksHistoryPanel({ showTitle = true }: RksHistoryPanelProps) {
         <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 text-center">
           <div className="text-xs text-blue-600 dark:text-blue-400 mb-1">当前 RKS</div>
           <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
-            {current_rks.toFixed(2)}
+            {formatFixedNumber(current_rks, 2)}
           </div>
         </div>
         <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 text-center">
           <div className="text-xs text-purple-600 dark:text-purple-400 mb-1">历史最高</div>
           <div className="text-2xl font-bold text-purple-700 dark:text-purple-300">
-            {peak_rks.toFixed(2)}
+            {formatFixedNumber(peak_rks, 2)}
           </div>
         </div>
         <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 text-center">
           <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">距最高</div>
           <div className={`text-2xl font-bold ${gap === 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-700 dark:text-gray-300'}`}>
-            {gap === 0 ? '🎉' : `-${gap.toFixed(2)}`}
+            {gap === 0 ? '🎉' : `-${formatFixedNumber(gap, 2)}`}
           </div>
         </div>
       </div>
@@ -289,14 +301,17 @@ export function RksHistoryPanel({ showTitle = true }: RksHistoryPanelProps) {
                   </div>
                   <div className="flex items-center gap-4">
                     <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                      {item.rks.toFixed(2)}
+                      {formatFixedNumber(item.rks, 2)}
                     </span>
                     <span className={`text-sm font-medium ${
                       item.rks_jump > 0
                         ? 'text-green-600 dark:text-green-400'
                         : 'text-red-600 dark:text-red-400'
                     }`}>
-                      {item.rks_jump > 0 ? '+' : ''}{item.rks_jump.toFixed(2)}
+                      {(() => {
+                        const jump = parseFiniteNumber(item.rks_jump);
+                        return `${jump !== null && jump > 0 ? '+' : ''}${formatFixedNumber(jump, 2)}`;
+                      })()}
                     </span>
                   </div>
                 </div>
