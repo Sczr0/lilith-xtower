@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { DASHBOARD_NAV_ITEMS, SITE_NAV_ITEMS, isExternalHref } from './nav';
+import { DASHBOARD_NAV_ITEMS, SITE_NAV_ITEMS, UNIFIED_API_DASHBOARD_NAV_ITEMS, isExternalHref } from './nav';
 
 describe('topbar/nav', () => {
   it('isExternalHref: 识别常见外链协议', () => {
@@ -21,7 +21,7 @@ describe('topbar/nav', () => {
   it('默认导航配置应包含核心入口', () => {
     expect(SITE_NAV_ITEMS.length).toBeGreaterThan(0);
     expect(SITE_NAV_ITEMS.some((item) => item.href === '/dashboard')).toBe(true);
-    expect(DASHBOARD_NAV_ITEMS.some((item) => item.href === '/unified-api')).toBe(true);
+    expect(DASHBOARD_NAV_ITEMS.some((item) => item.href === '/unified-api-dashboard')).toBe(true);
+    expect(UNIFIED_API_DASHBOARD_NAV_ITEMS.some((item) => item.href === '/dashboard')).toBe(true);
   });
 });
-

@@ -250,7 +250,7 @@ export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobile
               </Link>
 
               <Link
-                href="/unified-api"
+                href="/unified-api-dashboard"
                 className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -328,7 +328,7 @@ export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobile
             </Link>
 
             <Link
-              href="/unified-api"
+              href="/unified-api-dashboard"
               className="w-full flex items-center justify-center px-3 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               title="联合API接入"
             >
