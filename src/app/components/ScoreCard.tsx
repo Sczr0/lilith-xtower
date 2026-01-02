@@ -48,12 +48,12 @@ export function ScoreCard({ record, rank, nameMaxLines = 1 }: ScoreCardProps) {
           <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{record.difficulty_value.toFixed(1)}</div>
         </div>
         <div className="bg-white/60 dark:bg-gray-900/40 rounded-lg px-2 py-2 text-center border border-gray-200 dark:border-gray-700">
-          <div className="text-[10px] text-gray-500 dark:text-gray-400">准确率</div>
-          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{record.acc.toFixed(2)}%</div>
+          <div className="text-[10px] text-gray-500 dark:text-gray-400">分数</div>
+          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{record.score.toLocaleString('zh-CN')}</div>
         </div>
         <div className="bg-white/60 dark:bg-gray-900/40 rounded-lg px-2 py-2 text-center border border-gray-200 dark:border-gray-700">
-          <div className="text-[10px] text-gray-500 dark:text-gray-400">难度</div>
-          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{record.difficulty}</div>
+          <div className="text-[10px] text-gray-500 dark:text-gray-400">准确率</div>
+          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{record.acc.toFixed(2)}%</div>
         </div>
       </div>
     </div>

@@ -11,6 +11,21 @@ import type { AuthCredential } from '../lib/types/auth';
 import { getOwnerKey } from '../lib/utils/cache';
 import { StyledSelect } from './ui/Select';
 import { RksHistoryPanel } from './RksHistoryPanel';
+import { filterSortLimitRksRecords, type RksSortBy, type RksSortOrder } from '../lib/utils/rksRecords';
+
+const parseNumberOrNull = (value: string): number | null => {
+  const raw = value.trim();
+  if (!raw) return null;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const parseIntegerOrNull = (value: string): number | null => {
+  const raw = value.trim();
+  if (!raw) return null;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+};
 
 // 支持通过 showDescription 隐藏组件内的描述，避免与外层重复
 function RksRecordsListInner({ showTitle = true, showDescription = true }: { showTitle?: boolean; showDescription?: boolean }) {
@@ -18,10 +33,20 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
   const [records, setRecords] = useState<RksRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<'rks' | 'acc' | 'difficulty_value'>('rks');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [filterDifficulty, setFilterDifficulty] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<RksSortBy>('rks');
+  const [sortOrder, setSortOrder] = useState<RksSortOrder>('desc');
+  const [filterDifficulty, setFilterDifficulty] = useState<'all' | 'EZ' | 'HD' | 'IN' | 'AT'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [minRks, setMinRks] = useState('');
+  const [maxRks, setMaxRks] = useState('');
+  const [minAcc, setMinAcc] = useState('');
+  const [maxAcc, setMaxAcc] = useState('');
+  const [minDifficultyValue, setMinDifficultyValue] = useState('');
+  const [maxDifficultyValue, setMaxDifficultyValue] = useState('');
+  const [minScore, setMinScore] = useState('');
+  const [maxScore, setMaxScore] = useState('');
+  const [onlyPositiveRks, setOnlyPositiveRks] = useState(false);
+  const [limitCount, setLimitCount] = useState('');
   const CACHE_KEY = 'cache_rks_records_v2';
 
   // getOwnerKey 复用工具，按用户隔离缓存
@@ -81,30 +106,66 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
     }
   };
 
-  const filteredRecords = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    const arr = records.filter((record) => {
-      if (filterDifficulty !== 'all' && record.difficulty !== filterDifficulty) return false;
-      if (q && !record.song_name.toLowerCase().includes(q)) return false;
-      return true;
+  const resetFilters = () => {
+    setSearchQuery('');
+    setFilterDifficulty('all');
+    setSortBy('rks');
+    setSortOrder('desc');
+
+    setMinRks('');
+    setMaxRks('');
+    setMinAcc('');
+    setMaxAcc('');
+    setMinDifficultyValue('');
+    setMaxDifficultyValue('');
+    setMinScore('');
+    setMaxScore('');
+    setOnlyPositiveRks(false);
+    setLimitCount('');
+  };
+
+  const hasAdvancedFilters =
+    !!minRks.trim() ||
+    !!maxRks.trim() ||
+    !!minAcc.trim() ||
+    !!maxAcc.trim() ||
+    !!minDifficultyValue.trim() ||
+    !!maxDifficultyValue.trim() ||
+    !!minScore.trim() ||
+    !!maxScore.trim() ||
+    onlyPositiveRks ||
+    !!limitCount.trim();
+
+  const filteredResult = useMemo(() => {
+    return filterSortLimitRksRecords(records, {
+      searchQuery,
+      difficulty: filterDifficulty,
+      onlyPositiveRks,
+      rksRange: { min: parseNumberOrNull(minRks), max: parseNumberOrNull(maxRks) },
+      accRange: { min: parseNumberOrNull(minAcc), max: parseNumberOrNull(maxAcc) },
+      difficultyValueRange: { min: parseNumberOrNull(minDifficultyValue), max: parseNumberOrNull(maxDifficultyValue) },
+      scoreRange: { min: parseNumberOrNull(minScore), max: parseNumberOrNull(maxScore) },
+      sortBy,
+      sortOrder,
+      limit: parseIntegerOrNull(limitCount),
     });
-    
-    const sorted = [...arr].sort((a, b) => {
-      let comparison = 0;
-      
-      if (sortBy === 'rks') {
-        comparison = b.rks - a.rks;
-      } else if (sortBy === 'acc') {
-        comparison = b.acc - a.acc;
-      } else if (sortBy === 'difficulty_value') {
-        comparison = b.difficulty_value - a.difficulty_value;
-      }
-      
-      return sortOrder === 'desc' ? comparison : -comparison;
-    });
-    
-    return sorted;
-  }, [records, filterDifficulty, searchQuery, sortBy, sortOrder]);
+  }, [
+    records,
+    searchQuery,
+    filterDifficulty,
+    onlyPositiveRks,
+    minRks,
+    maxRks,
+    minAcc,
+    maxAcc,
+    minDifficultyValue,
+    maxDifficultyValue,
+    minScore,
+    maxScore,
+    sortBy,
+    sortOrder,
+    limitCount,
+  ]);
 
   return (
     <div className="w-full max-w-6xl mx-auto">
@@ -153,7 +214,7 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
               { label: 'AT', value: 'AT' },
             ]}
             value={filterDifficulty}
-            onValueChange={(v: string) => setFilterDifficulty(v)}
+            onValueChange={(v: 'all' | 'EZ' | 'HD' | 'IN' | 'AT') => setFilterDifficulty(v)}
             placeholder="选择难度"
           />
         </div>
@@ -165,10 +226,11 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
             options={[
               { label: '单曲 RKS', value: 'rks' },
               { label: '准确率', value: 'acc' },
+              { label: '分数', value: 'score' },
               { label: '谱面定数', value: 'difficulty_value' },
             ]}
             value={sortBy}
-            onValueChange={(v: 'rks' | 'acc' | 'difficulty_value') => setSortBy(v)}
+            onValueChange={(v: RksSortBy) => setSortBy(v)}
             placeholder="选择排序字段"
           />
         </div>
@@ -182,11 +244,127 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
               { label: '升序 (低→高)', value: 'asc' },
             ]}
             value={sortOrder}
-            onValueChange={(v: 'asc' | 'desc') => setSortOrder(v)}
+            onValueChange={(v: RksSortOrder) => setSortOrder(v)}
             placeholder="选择排序方向"
           />
         </div>
       </div>
+
+      {/* Advanced Filters */}
+      <details className="mb-6 rounded-xl border border-gray-200/60 dark:border-gray-700/60 bg-white/40 dark:bg-gray-900/30 p-4">
+        <summary className="cursor-pointer select-none text-sm font-medium text-gray-700 dark:text-gray-200">
+          高级筛选{hasAdvancedFilters ? '（已启用）' : ''}
+        </summary>
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">单曲 RKS 范围</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={minRks}
+                onChange={(e) => setMinRks(e.target.value)}
+                placeholder="最小"
+                className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <input
+                type="text"
+                value={maxRks}
+                onChange={(e) => setMaxRks(e.target.value)}
+                placeholder="最大"
+                className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">准确率范围（%）</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={minAcc}
+                onChange={(e) => setMinAcc(e.target.value)}
+                placeholder="最小"
+                className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <input
+                type="text"
+                value={maxAcc}
+                onChange={(e) => setMaxAcc(e.target.value)}
+                placeholder="最大"
+                className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">定数范围</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={minDifficultyValue}
+                onChange={(e) => setMinDifficultyValue(e.target.value)}
+                placeholder="最小"
+                className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <input
+                type="text"
+                value={maxDifficultyValue}
+                onChange={(e) => setMaxDifficultyValue(e.target.value)}
+                placeholder="最大"
+                className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">分数范围</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={minScore}
+                onChange={(e) => setMinScore(e.target.value)}
+                placeholder="最小"
+                className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <input
+                type="text"
+                value={maxScore}
+                onChange={(e) => setMaxScore(e.target.value)}
+                placeholder="最大"
+                className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">仅显示前 N 条</label>
+            <input
+              type="text"
+              value={limitCount}
+              onChange={(e) => setLimitCount(e.target.value)}
+              placeholder="留空表示不限制"
+              className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">其他</label>
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={onlyPositiveRks}
+                  onChange={(e) => setOnlyPositiveRks(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 dark:border-gray-700 text-blue-600 focus:ring-blue-500"
+                />
+                只看 RKS &gt; 0
+              </label>
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="inline-flex items-center justify-center rounded-lg border border-gray-300 dark:border-gray-700 bg-white/70 dark:bg-gray-900/50 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
+              >
+                重置筛选
+              </button>
+            </div>
+          </div>
+        </div>
+      </details>
 
       {error && (
         <div className="mb-4 rounded-lg border border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">
@@ -199,15 +377,15 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
           <RotatingTips />
         </div>
-      ) : filteredRecords.length > 0 ? (
+      ) : filteredResult.records.length > 0 ? (
         <div className="space-y-4">
           <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-            共 {filteredRecords.length} 条记录
+            显示 {filteredResult.records.length} 条记录{filteredResult.totalMatched !== filteredResult.records.length ? `（匹配 ${filteredResult.totalMatched} 条）` : ''}
           </div>
 
           {/* Mobile: Card list */}
           <div className="grid grid-cols-1 gap-3 md:hidden">
-            {filteredRecords.map((record, index) => (
+            {filteredResult.records.map((record, index) => (
               <ScoreCard
                 key={`${record.song_name}|${record.difficulty}|${record.difficulty_value}|${record.score}`}
                 record={record}
@@ -235,6 +413,9 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
                     定数
                   </th>
                   <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    分数
+                  </th>
+                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">
                     准确率
                   </th>
                   <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">
@@ -243,7 +424,7 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
                 </tr>
               </thead>
               <tbody>
-                {filteredRecords.map((record, index) => (
+                {filteredResult.records.map((record, index) => (
                   <tr
                     key={`${record.song_name}|${record.difficulty}|${record.difficulty_value}|${record.score}`}
                     className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors"
@@ -263,6 +444,9 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
                     </td>
                     <td className="py-3 px-4 text-center text-sm text-gray-700 dark:text-gray-300">
                       {record.difficulty_value.toFixed(1)}
+                    </td>
+                    <td className="py-3 px-4 text-center text-sm text-gray-700 dark:text-gray-300">
+                      {record.score.toLocaleString('zh-CN')}
                     </td>
                     <td className="py-3 px-4 text-center text-sm text-gray-700 dark:text-gray-300">
                       {record.acc.toFixed(2)}%
