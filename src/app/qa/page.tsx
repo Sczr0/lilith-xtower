@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import Script from 'next/script';
-import { SimpleHeader } from '../components/SimpleHeader';
+import { SiteHeader } from '../components/SiteHeader';
 import { PageShell } from '../components/PageShell';
 import { buttonStyles } from '../components/ui/styles';
 import { QAList } from './components/QAList';
@@ -159,7 +159,7 @@ export default async function QAPage() {
         }}
       />
       {/* Header */}
-      <SimpleHeader />
+      <SiteHeader />
 
       {/* Main Content */}
       <main className="relative z-10 flex-1 p-4 sm:p-6 lg:p-8">

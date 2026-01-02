@@ -3,7 +3,7 @@
 import { useAuth } from '../contexts/AuthContext';
 import Link from 'next/link';
 import { useState } from 'react';
-import { SimpleHeader } from '../components/SimpleHeader';
+import { SiteHeader } from '../components/SiteHeader';
 
 export default function DebugAuthPage() {
   const { isAuthenticated, credential, isLoading, logout, validateCurrentCredential } = useAuth();
@@ -187,7 +187,7 @@ export default function DebugAuthPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-950">
       {/* Header */}
-      <SimpleHeader />
+      <SiteHeader />
 
       {/* Main Content */}
       <main className="flex-1 p-4">

@@ -9,7 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { AuthStorage } from '../lib/storage/auth';
 import { preloadTapTapQr, runWhenIdle, shouldPreload, prefetchPage } from '../lib/utils/preload';
-import { SimpleHeader } from '../components/SimpleHeader';
+import { SiteHeader } from '../components/SiteHeader';
 
 function LoginMethodLoading(props: { error?: Error | null; isLoading?: boolean; pastDelay?: boolean }) {
   // 说明：dynamic 的 loading 会注入状态参数；这里不需要使用，但要避免 eslint unused-vars。
@@ -152,7 +152,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-950 text-gray-900 dark:text-gray-50">
       {/* Header */}
-      <SimpleHeader showLogin={false} />
+      <SiteHeader showLogin={false} />
 
       {/* Main Content */}
       <main className="relative z-10 flex-1 flex items-center justify-center p-4 sm:p-6 min-h-[calc(100vh-8rem)]">

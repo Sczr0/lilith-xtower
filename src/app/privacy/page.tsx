@@ -1,4 +1,4 @@
-import { SimpleHeader } from '../components/SimpleHeader';
+import { SiteHeader } from '../components/SiteHeader';
 import { AgreementContent } from '../agreement/components/AgreementContent';
 import { getPrecompiledAssetServer } from '../lib/precompiled-server';
 
@@ -22,7 +22,7 @@ export default async function PrivacyPage() {
 
   return (
     <div className="min-h-screen bg-white text-gray-900 dark:bg-neutral-950 dark:text-gray-50">
-      <SimpleHeader />
+      <SiteHeader />
 
       {error ? (
         <div className="px-4">

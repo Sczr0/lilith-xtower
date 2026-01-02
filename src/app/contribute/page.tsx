@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { submitTip } from './actions';
-import { SimpleHeader } from '../components/SimpleHeader';
+import { SiteHeader } from '../components/SiteHeader';
 import { PageShell } from '../components/PageShell';
 import { buttonStyles, cardStyles, inputStyles } from '../components/ui/styles';
 
@@ -33,7 +33,7 @@ export default function ContributePage() {
   return (
     <PageShell
       variant="gradient"
-      header={<SimpleHeader />}
+      header={<SiteHeader />}
       footerVariant="rights"
       footerText="© 2025 Phigros Query. All Rights Reserved."
       mainClassName="relative z-10 flex-1 p-4 sm:p-6 lg:p-8"

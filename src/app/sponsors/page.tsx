@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { SimpleHeader } from "../components/SimpleHeader";
+import { SiteHeader } from "../components/SiteHeader";
 import SponsorsList from "../components/SponsorsList";
 
 // ISR: 每 10 分钟重新验证一次（赞助者数据更新不频繁）
@@ -13,7 +13,7 @@ export default function SponsorsPage() {
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950 text-gray-900 dark:text-gray-50">
       {/* Header */}
-      <SimpleHeader />
+      <SiteHeader />
 
       {/* Main */}
       <main className="px-4 py-10 sm:py-14">

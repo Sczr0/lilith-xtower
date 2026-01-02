@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import Script from 'next/script';
-import { SimpleHeader } from '../components/SimpleHeader';
+import { SiteHeader } from '../components/SiteHeader';
 import { getPrecompiledAssetServer, hasPrecompiledAsset } from '../lib/precompiled-server';
 import { AboutClientSections } from './components/AboutClientSections';
 
@@ -136,7 +136,7 @@ export default async function AboutPage() {
         }}
       />
       {/* Header */}
-      <SimpleHeader />
+      <SiteHeader />
 
       {/* Main */}
       <main className="px-4 py-10 sm:py-14">

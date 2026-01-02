@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import Script from 'next/script';
-import { HomeHeader } from './components/HomeHeader';
+import { SiteHeader } from './components/SiteHeader';
 import { HomeStartButton } from './components/HomeStartButton';
 import { PreloadLinks } from './components/PreloadLinks';
 import { PageShell } from './components/PageShell';
@@ -75,7 +75,7 @@ export default function Home() {
       <PreloadLinks />
       
       {/* 头部：客户端组件处理认证状态 */}
-      <HomeHeader />
+      <SiteHeader />
 
       {/* 主体：静态内容，服务端渲染 */}
       <main className="px-4 py-10 sm:py-14">
