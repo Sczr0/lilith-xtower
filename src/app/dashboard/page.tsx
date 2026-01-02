@@ -43,6 +43,20 @@ export default function Dashboard() {
       const p = new URLSearchParams(window.location.search);
       const v = p.get('debug');
       setDebugExport(v === '1' || v === 'true');
+
+      // 说明：支持通过 query 参数直达指定功能，例如：/dashboard?tab=leaderboard
+      const tab = p.get('tab');
+      const isTabId = (value: string): value is TabId =>
+        value === 'best-n' ||
+        value === 'single-query' ||
+        value === 'rks-list' ||
+        value === 'leaderboard' ||
+        value === 'song-updates' ||
+        value === 'player-score-render' ||
+        value === 'stats';
+      if (tab && isTabId(tab)) {
+        setActiveTab(tab);
+      }
     } catch {
       setDebugExport(false);
     }
@@ -306,10 +320,13 @@ export default function Dashboard() {
         />
       )}
 
-      <div className="flex h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-950">
+      <div
+        className="flex h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-950"
+        style={{ height: '100dvh' }}
+      >
         {/* Sidebar */}
-        <Sidebar 
-          activeTab={activeTab} 
+        <Sidebar
+          activeTab={activeTab}
           onTabChange={setActiveTab}
           isMobileOpen={isMobileMenuOpen}
           onMobileClose={() => setIsMobileMenuOpen(false)}
@@ -322,7 +339,7 @@ export default function Dashboard() {
         {!showAnnouncements && showMenuGuide && <MenuGuide onDismiss={() => setShowMenuGuide(false)} />}
 
         {/* Header with integrated menu button */}
-        <DashboardHeader 
+        <DashboardHeader
           onOpenAnnouncements={() => { setShowAllAnnouncements(true); setShowAnnouncements(true); }}
           onOpenMenu={() => setIsMobileMenuOpen(true)}
         />
@@ -340,14 +357,14 @@ export default function Dashboard() {
         )}
 
         {/* Content */}
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
           <div className="max-w-6xl mx-auto">
             {renderContent()}
           </div>
         </main>
 
         {/* Footer */}
-        <footer className="h-12 border-t border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm flex items-center justify-center px-3 text-center">
+        <footer className="border-t border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm flex items-center justify-center px-3 text-center py-3">
           {activeTab === 'best-n' || activeTab === 'single-query' ? (
             <p className="text-[13px] text-gray-500 dark:text-gray-400">
               页面与生成代码 © 2025 Phigros Query；第三方素材（如封面/标识）版权归各自权利人所有，未经许可不得用于商业用途。

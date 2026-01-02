@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { PageShell } from '../components/PageShell';
-import { SimpleHeader } from '../components/SimpleHeader';
-import { buttonStyles, cardStyles, inputStyles } from '../components/ui/styles';
+import { useRouter } from 'next/navigation';
+import { DashboardShell } from '../dashboard/components/DashboardShell';
+import { buttonStyles, cardStyles, cx, inputStyles } from '../components/ui/styles';
 import { useAuth } from '../contexts/AuthContext';
 import type { AuthCredential } from '../lib/types/auth';
 import { buildAuthRequestBody } from '../lib/api/auth';
@@ -24,6 +24,8 @@ type AsyncState<T> = {
   error: string | null;
   data: T | null;
 };
+
+type UnifiedApiTabId = 'bind' | 'accounts' | 'tools';
 
 const DEFAULT_API_TOKEN = 'pgrTk';
 const SITE_PLATFORM = 'PhigrosQuery';
@@ -80,6 +82,8 @@ async function fetchSiteUserId(credential: AuthCredential): Promise<string> {
 
 export default function UnifiedApiPage() {
   const { credential, isAuthenticated } = useAuth();
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<UnifiedApiTabId>('bind');
 
   const [siteUserIdState, setSiteUserIdState] = useState<AsyncState<string>>({
     loading: false,
@@ -401,14 +405,17 @@ export default function UnifiedApiPage() {
   };
 
   return (
-    <PageShell variant="gradient" header={<SimpleHeader />} containerClassName="mx-auto max-w-6xl">
+    <DashboardShell
+      activeTab={null}
+      onTabChange={(tabId) => router.push(`/dashboard?tab=${tabId}`)}
+    >
       <div className="space-y-6">
         <section className={cardStyles({ tone: 'glass', padding: 'md' })}>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">联合API 绑定</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">联合API 接入</h1>
               <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                绑定后可使用下方工具查询榜单与排名（本站不会保存你填写的凭证）。
+                按“绑定 / 账号 / 查询工具”分组操作（本站不会保存你填写的凭证）。
               </p>
               <p className="mt-2 text-xs text-gray-500 dark:text-gray-500">
                 说明：所有请求都会通过本站服务器转发（避免浏览器限制），不会把你填写的 token / API Token 写入数据库。
@@ -433,7 +440,49 @@ export default function UnifiedApiPage() {
           </div>
         </section>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex flex-wrap gap-1 rounded-xl border border-gray-200/70 dark:border-neutral-800/70 bg-white/70 dark:bg-gray-800/60 backdrop-blur-md p-1">
+            <button
+              type="button"
+              className={cx(
+                'px-4 py-2 text-sm font-medium rounded-lg transition-colors',
+                activeTab === 'bind'
+                  ? 'bg-blue-600 text-white shadow'
+                  : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100/70 dark:hover:bg-gray-700/50'
+              )}
+              onClick={() => setActiveTab('bind')}
+            >
+              绑定
+            </button>
+            <button
+              type="button"
+              className={cx(
+                'px-4 py-2 text-sm font-medium rounded-lg transition-colors',
+                activeTab === 'accounts'
+                  ? 'bg-blue-600 text-white shadow'
+                  : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100/70 dark:hover:bg-gray-700/50'
+              )}
+              onClick={() => setActiveTab('accounts')}
+            >
+              账号
+            </button>
+            <button
+              type="button"
+              className={cx(
+                'px-4 py-2 text-sm font-medium rounded-lg transition-colors',
+                activeTab === 'tools'
+                  ? 'bg-blue-600 text-white shadow'
+                  : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100/70 dark:hover:bg-gray-700/50'
+              )}
+              onClick={() => setActiveTab('tools')}
+            >
+              查询工具
+            </button>
+          </div>
+        </div>
+
+        {activeTab !== 'tools' && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <section className={cardStyles({ tone: 'glass' })}>
             <h2 className="text-lg font-semibold mb-2">本站识别码（匿名）</h2>
             <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -474,7 +523,8 @@ export default function UnifiedApiPage() {
           </section>
 
           <section className={cardStyles({ tone: 'glass' })}>
-            <h2 className="text-lg font-semibold mb-2">联合API 绑定</h2>
+            <div className={activeTab === 'bind' ? 'block' : 'hidden'}>
+              <h2 className="text-lg font-semibold mb-2">联合API 绑定</h2>
             <p className="text-sm text-gray-600 dark:text-gray-400">
               需要你提供 token（登录凭证，敏感信息）。绑定成功后会生成“联合API用户ID”（internal_id），后续查询会用到。
             </p>
@@ -549,7 +599,9 @@ export default function UnifiedApiPage() {
               </div>
             )}
 
-              <div className="mt-6">
+            </div>
+
+            <div className={cx(activeTab === 'accounts' ? 'block' : 'hidden')}>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                   <h3 className="text-base font-semibold">已绑定平台账号</h3>
@@ -638,8 +690,11 @@ export default function UnifiedApiPage() {
             </div>
           </section>
         </div>
+        )}
 
-        <section className={cardStyles({ tone: 'glass', padding: 'md' })}>
+        {activeTab === 'tools' && (
+          <>
+            <section className={cardStyles({ tone: 'glass', padding: 'md' })}>
           <div>
             <h2 className="text-lg font-semibold">查询工具</h2>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
@@ -993,7 +1048,9 @@ export default function UnifiedApiPage() {
             </div>
           </section>
         </div>
+          </>
+        )}
       </div>
-    </PageShell>
+    </DashboardShell>
   );
 }

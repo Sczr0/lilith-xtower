@@ -17,8 +17,8 @@ interface Tab {
 }
 
 interface SidebarProps {
-  activeTab: TabId;
-  onTabChange: (tabId: TabId) => void;
+  activeTab?: TabId | null;
+  onTabChange?: (tabId: TabId) => void;
   isMobileOpen?: boolean;
   onMobileClose?: () => void;
   onOpenAnnouncements?: () => void;
@@ -119,7 +119,7 @@ export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobile
   ];
 
   const handleTabChange = (tabId: TabId) => {
-    onTabChange(tabId);
+    onTabChange?.(tabId);
     if (onMobileClose) {
       onMobileClose();
     }
