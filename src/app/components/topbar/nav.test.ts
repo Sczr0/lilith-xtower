@@ -21,7 +21,8 @@ describe('topbar/nav', () => {
   it('默认导航配置应包含核心入口', () => {
     expect(SITE_NAV_ITEMS.length).toBeGreaterThan(0);
     expect(SITE_NAV_ITEMS.some((item) => item.href === '/dashboard')).toBe(true);
-    expect(DASHBOARD_NAV_ITEMS.some((item) => item.href === '/unified-api-dashboard')).toBe(true);
+    expect(SITE_NAV_ITEMS.some((item) => item.href === '/unified-api-dashboard')).toBe(false);
+    expect(DASHBOARD_NAV_ITEMS.some((item) => item.href === '/unified-api-dashboard')).toBe(false);
     expect(UNIFIED_API_DASHBOARD_NAV_ITEMS.some((item) => item.href === '/dashboard')).toBe(true);
   });
 });

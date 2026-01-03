@@ -29,7 +29,6 @@ export const SITE_NAV_ITEMS: NavItem[] = [
   { href: '/about', label: '关于' },
   { href: '/sponsors', label: '赞助者' },
   { href: '/qa', label: '常见问题' },
-  { href: '/unified-api-dashboard', label: '联合API仪表盘' },
   { href: '/contribute', label: '投稿' },
   { href: '/dashboard', label: '仪表盘' },
 ];
@@ -41,7 +40,6 @@ export const SITE_NAV_ITEMS: NavItem[] = [
 export const DASHBOARD_NAV_ITEMS: NavItem[] = [
   { href: '/about', label: '关于' },
   { href: '/contribute', label: '投稿' },
-  { href: '/unified-api-dashboard', label: '联合API仪表盘' },
   { href: '/debug-auth', label: '调试' },
 ];
 
@@ -55,4 +53,3 @@ export const UNIFIED_API_DASHBOARD_NAV_ITEMS: NavItem[] = [
   { href: '/contribute', label: '投稿' },
   { href: '/debug-auth', label: '调试' },
 ];
-
