@@ -19,7 +19,7 @@ const nextConfig: NextConfig = {
       fallback: [
         {
           source: '/api/:path*',
-          destination: 'https://seekend.xtower.site/api/1/:path*',
+          destination: 'https://seekend.xtower.site/api/v1/:path*',
         },
         {
           // 轻量健康检查透传到后端根级 /health
