@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveUnifiedApiUpstreamBaseUrl } from '../upstream';
 
 // 需要服务端代理以绕过浏览器 CORS/CSP，并避免在客户端直连第三方域名
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const DEFAULT_BASE_URL = 'https://phib19.top:8080';
-const UPSTREAM_BASE_URL = (process.env.UNIFIED_API_BASE_URL || DEFAULT_BASE_URL).replace(/\/+$/, '');
 const TIMEOUT_MS = 15_000;
 
 type RouteContext = { params: Promise<{ path: string[] }> };
@@ -35,18 +34,19 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
   return proxyToUnifiedApi(req, path);
 }
 
-function buildUpstreamUrl(pathParts: string[], search: string) {
+function buildUpstreamUrl(baseUrl: string, pathParts: string[], search: string) {
   const safeParts = pathParts
     .filter((p) => typeof p === 'string' && p.length > 0)
     .map((p) => p.replace(/^\//, ''))
     .map(encodeURIComponent);
-  const upstream = new URL(`${UPSTREAM_BASE_URL}/${safeParts.join('/')}`);
+  const upstream = new URL(`${baseUrl}/${safeParts.join('/')}`);
   upstream.search = search;
   return upstream;
 }
 
 async function proxyToUnifiedApi(req: NextRequest, pathParts: string[]) {
-  const upstream = buildUpstreamUrl(pathParts, req.nextUrl.search);
+  const upstreamBaseUrl = await resolveUnifiedApiUpstreamBaseUrl(req);
+  const upstream = buildUpstreamUrl(upstreamBaseUrl, pathParts, req.nextUrl.search);
   const method = req.method.toUpperCase();
 
   const controller = new AbortController();
@@ -97,4 +97,3 @@ async function proxyToUnifiedApi(req: NextRequest, pathParts: string[]) {
     clearTimeout(timeout);
   }
 }
-
