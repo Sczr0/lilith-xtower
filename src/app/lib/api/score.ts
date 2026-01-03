@@ -2,6 +2,9 @@ import { AuthCredential } from '../types/auth';
 import {
   RksResponse,
   RksHistoryResponse,
+  DailyDauResponse,
+  DailyFeaturesResponse,
+  DailyHttpResponse,
   ServiceStatsFeature,
   ServiceStatsResponse,
   StatsSummaryApiResponse,
@@ -252,6 +255,263 @@ export class ScoreAPI {
         total,
         byKind,
       },
+    };
+  }
+
+  /**
+   * 获取按日聚合的 DAU（活跃用户/活跃 IP）
+   * - 上游：GET /stats/daily/dau
+   */
+  static async getDailyDau(params: { start: string; end: string; timezone?: string }): Promise<DailyDauResponse> {
+    const search = new URLSearchParams({
+      start: params.start,
+      end: params.end,
+    });
+    if (params.timezone) search.set('timezone', params.timezone);
+
+    const response = await fetch(`${BASE_URL}/stats/daily/dau?${search.toString()}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      throw new Error(extractProblemMessage(payload, '获取每日活跃数据失败'));
+    }
+
+    let raw: unknown;
+    try {
+      raw = await response.json();
+    } catch {
+      throw new Error('解析每日活跃数据响应失败');
+    }
+    if (!raw || typeof raw !== 'object') {
+      return { timezone: params.timezone ?? 'UTC', start: params.start, end: params.end, rows: [] };
+    }
+
+    const normalizeCount = (value: unknown): number => {
+      if (typeof value === 'number' && Number.isFinite(value)) return value;
+      const parsed = Number(value);
+      return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+    };
+
+    const obj = raw as Record<string, unknown>;
+    const rows = Array.isArray(obj.rows)
+      ? obj.rows
+          .map((row) => {
+            if (!row || typeof row !== 'object') return null;
+            const entry = row as Record<string, unknown>;
+            const date = typeof entry.date === 'string' ? entry.date : null;
+            if (!date) return null;
+            return {
+              date,
+              activeUsers: normalizeCount(entry.activeUsers),
+              activeIps: normalizeCount(entry.activeIps),
+            };
+          })
+          .filter((row): row is DailyDauResponse['rows'][number] => row !== null)
+      : [];
+
+    return {
+      timezone: typeof obj.timezone === 'string' && obj.timezone ? obj.timezone : params.timezone ?? 'UTC',
+      start: typeof obj.start === 'string' && obj.start ? obj.start : params.start,
+      end: typeof obj.end === 'string' && obj.end ? obj.end : params.end,
+      rows,
+    };
+  }
+
+  /**
+   * 获取按日聚合的 HTTP 统计（总量/错误率 + top 路由）
+   * - 上游：GET /stats/daily/http
+   */
+  static async getDailyHttp(params: {
+    start: string;
+    end: string;
+    timezone?: string;
+    route?: string;
+    method?: string;
+    top?: number;
+  }): Promise<DailyHttpResponse> {
+    const search = new URLSearchParams({
+      start: params.start,
+      end: params.end,
+    });
+    if (params.timezone) search.set('timezone', params.timezone);
+    if (params.route) search.set('route', params.route);
+    if (params.method) search.set('method', params.method);
+    if (typeof params.top === 'number' && Number.isFinite(params.top)) search.set('top', String(params.top));
+
+    const response = await fetch(`${BASE_URL}/stats/daily/http?${search.toString()}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      throw new Error(extractProblemMessage(payload, '获取每日 HTTP 统计失败'));
+    }
+
+    let raw: unknown;
+    try {
+      raw = await response.json();
+    } catch {
+      throw new Error('解析每日 HTTP 统计响应失败');
+    }
+    if (!raw || typeof raw !== 'object') {
+      return {
+        timezone: params.timezone ?? 'UTC',
+        start: params.start,
+        end: params.end,
+        routeFilter: params.route ?? null,
+        methodFilter: params.method ?? null,
+        totals: [],
+        routes: [],
+      };
+    }
+
+    const normalizeCount = (value: unknown): number => {
+      if (typeof value === 'number' && Number.isFinite(value)) return value;
+      const parsed = Number(value);
+      return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+    };
+
+    const normalizeRate = (value: unknown): number => {
+      if (typeof value === 'number' && Number.isFinite(value)) return value;
+      const parsed = Number(value);
+      return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+    };
+
+    const normalizeTotalRow = (value: unknown) => {
+      if (!value || typeof value !== 'object') return null;
+      const entry = value as Record<string, unknown>;
+      const date = typeof entry.date === 'string' ? entry.date : null;
+      if (!date) return null;
+      return {
+        date,
+        total: normalizeCount(entry.total),
+        errors: normalizeCount(entry.errors),
+        errorRate: normalizeRate(entry.errorRate),
+        clientErrors: normalizeCount(entry.clientErrors),
+        serverErrors: normalizeCount(entry.serverErrors),
+        clientErrorRate: normalizeRate(entry.clientErrorRate),
+        serverErrorRate: normalizeRate(entry.serverErrorRate),
+      };
+    };
+
+    const obj = raw as Record<string, unknown>;
+    const totals = Array.isArray(obj.totals)
+      ? obj.totals.map(normalizeTotalRow).filter((row): row is DailyHttpResponse['totals'][number] => row !== null)
+      : [];
+
+    const routes = Array.isArray(obj.routes)
+      ? obj.routes
+          .map((value) => {
+            if (!value || typeof value !== 'object') return null;
+            const entry = value as Record<string, unknown>;
+            const route = typeof entry.route === 'string' ? entry.route : null;
+            const method = typeof entry.method === 'string' ? entry.method : null;
+            const base = normalizeTotalRow(entry);
+            if (!route || !method || !base) return null;
+            return { ...base, route, method };
+          })
+          .filter((row): row is DailyHttpResponse['routes'][number] => row !== null)
+      : [];
+
+    const routeFilter = typeof obj.routeFilter === 'string' ? obj.routeFilter : obj.routeFilter === null ? null : params.route ?? null;
+    const methodFilter = typeof obj.methodFilter === 'string' ? obj.methodFilter : obj.methodFilter === null ? null : params.method ?? null;
+
+    return {
+      timezone: typeof obj.timezone === 'string' && obj.timezone ? obj.timezone : params.timezone ?? 'UTC',
+      start: typeof obj.start === 'string' && obj.start ? obj.start : params.start,
+      end: typeof obj.end === 'string' && obj.end ? obj.end : params.end,
+      routeFilter,
+      methodFilter,
+      totals,
+      routes,
+    };
+  }
+
+  /**
+   * 获取按日聚合的功能使用统计
+   * - 上游：GET /stats/daily/features
+   */
+  static async getDailyFeatures(params: {
+    start: string;
+    end: string;
+    timezone?: string;
+    feature?: string;
+  }): Promise<DailyFeaturesResponse> {
+    const search = new URLSearchParams({
+      start: params.start,
+      end: params.end,
+    });
+    if (params.timezone) search.set('timezone', params.timezone);
+    if (params.feature) search.set('feature', params.feature);
+
+    const response = await fetch(`${BASE_URL}/stats/daily/features?${search.toString()}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      throw new Error(extractProblemMessage(payload, '获取每日功能使用统计失败'));
+    }
+
+    let raw: unknown;
+    try {
+      raw = await response.json();
+    } catch {
+      throw new Error('解析每日功能使用统计响应失败');
+    }
+    if (!raw || typeof raw !== 'object') {
+      return {
+        timezone: params.timezone ?? 'UTC',
+        start: params.start,
+        end: params.end,
+        featureFilter: params.feature ?? null,
+        rows: [],
+      };
+    }
+
+    const normalizeCount = (value: unknown): number => {
+      if (typeof value === 'number' && Number.isFinite(value)) return value;
+      const parsed = Number(value);
+      return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+    };
+
+    const obj = raw as Record<string, unknown>;
+    const rows = Array.isArray(obj.rows)
+      ? obj.rows
+          .map((row) => {
+            if (!row || typeof row !== 'object') return null;
+            const entry = row as Record<string, unknown>;
+            const date = typeof entry.date === 'string' ? entry.date : null;
+            const feature = typeof entry.feature === 'string' ? entry.feature : null;
+            if (!date || !feature) return null;
+            return {
+              date,
+              feature,
+              count: normalizeCount(entry.count),
+              uniqueUsers: normalizeCount(entry.uniqueUsers),
+            };
+          })
+          .filter((row): row is DailyFeaturesResponse['rows'][number] => row !== null)
+      : [];
+
+    const featureFilter =
+      typeof obj.featureFilter === 'string'
+        ? obj.featureFilter
+        : obj.featureFilter === null
+          ? null
+          : params.feature ?? null;
+
+    return {
+      timezone: typeof obj.timezone === 'string' && obj.timezone ? obj.timezone : params.timezone ?? 'UTC',
+      start: typeof obj.start === 'string' && obj.start ? obj.start : params.start,
+      end: typeof obj.end === 'string' && obj.end ? obj.end : params.end,
+      featureFilter,
+      rows,
     };
   }
 }

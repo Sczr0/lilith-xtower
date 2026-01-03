@@ -19,6 +19,8 @@
           "dependencies": {
                     "@radix-ui/react-select": "2.2.6",
                     "@vercel/analytics": "^1.6.1",
+                    "echarts": "^6.0.0",
+                    "echarts-for-react": "^3.0.5",
                     "gray-matter": "^4.0.3",
                     "js-yaml": "^4.1.1",
                     "lucide-react": "^0.544.0",

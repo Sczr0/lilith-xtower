@@ -56,6 +56,64 @@ export interface ServiceStatsResponse {
   };
 }
 
+/**
+ * 按日聚合统计（来自 /stats/daily/*）
+ * - 注意：后端使用 YYYY-MM-DD 日期字符串，并可通过 timezone 参数改变日期解释与输出口径。
+ */
+export interface DailyDauRow {
+  date: string; // YYYY-MM-DD
+  activeUsers: number;
+  activeIps: number;
+}
+
+export interface DailyDauResponse {
+  timezone: string;
+  start: string; // YYYY-MM-DD
+  end: string; // YYYY-MM-DD
+  rows: DailyDauRow[];
+}
+
+export interface DailyFeatureUsageRow {
+  date: string; // YYYY-MM-DD
+  feature: string;
+  count: number;
+  uniqueUsers: number;
+}
+
+export interface DailyFeaturesResponse {
+  timezone: string;
+  start: string; // YYYY-MM-DD
+  end: string; // YYYY-MM-DD
+  featureFilter: string | null;
+  rows: DailyFeatureUsageRow[];
+}
+
+export interface DailyHttpTotalRow {
+  date: string; // YYYY-MM-DD
+  total: number;
+  errors: number;
+  errorRate: number;
+  clientErrors: number;
+  serverErrors: number;
+  clientErrorRate: number;
+  serverErrorRate: number;
+}
+
+export interface DailyHttpRouteRow extends DailyHttpTotalRow {
+  route: string;
+  method: string;
+}
+
+export interface DailyHttpResponse {
+  timezone: string;
+  start: string; // YYYY-MM-DD
+  end: string; // YYYY-MM-DD
+  routeFilter: string | null;
+  methodFilter: string | null;
+  totals: DailyHttpTotalRow[];
+  routes: DailyHttpRouteRow[];
+}
+
 // RKS 历史记录相关类型（对齐新版 OpenAPI：camelCase）
 export interface RksHistoryItem {
   rks: number; // 当时的 RKS 值
@@ -69,4 +127,3 @@ export interface RksHistoryResponse {
   currentRks: number; // 当前 RKS
   peakRks: number; // 历史最高 RKS
 }
-

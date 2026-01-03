@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { RotatingTips } from './RotatingTips';
+import { StatsLineChart } from './charts/StatsLineChart';
 import { ScoreAPI } from '../lib/api/score';
-import type { ServiceStatsFeature, ServiceStatsResponse } from '../lib/types/score';
+import { getRecentYmdRange, normalizeIanaTimeZone } from '../lib/utils/date';
+import type { DailyDauResponse, DailyHttpResponse, ServiceStatsFeature, ServiceStatsResponse } from '../lib/types/score';
 
 type Props = {
   variant?: 'default' | 'mono';
@@ -132,7 +134,16 @@ export function ServiceStats({ variant = 'default', showTitle = true, showDescri
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadStats = useCallback(async () => {
+  const TRENDS_DAYS = 14;
+
+  const [dailyDau, setDailyDau] = useState<DailyDauResponse | null>(null);
+  const [dailyHttp, setDailyHttp] = useState<DailyHttpResponse | null>(null);
+  const [trendRange, setTrendRange] = useState<{ start: string; end: string; timezone: string } | null>(null);
+  const [isTrendsLoading, setIsTrendsLoading] = useState(false);
+  const [trendsError, setTrendsError] = useState<string | null>(null);
+  const [hasRequestedTrends, setHasRequestedTrends] = useState(false);
+
+  const loadStats = useCallback(async (): Promise<ServiceStatsResponse | null> => {
     setIsLoading(true);
     setError(null);
     try {
@@ -144,12 +155,44 @@ export function ServiceStats({ variant = 'default', showTitle = true, showDescri
       } catch {
         // ignore cache write errors
       }
+      return data;
     } catch (e) {
       setError(e instanceof Error ? e.message : '加载统计数据失败');
+      return null;
     } finally {
       setIsLoading(false);
     }
   }, []);
+
+  const loadTrends = useCallback(async (timezone: string) => {
+    const tz = normalizeIanaTimeZone(timezone);
+    const { start, end } = getRecentYmdRange(tz, TRENDS_DAYS);
+    setTrendRange({ start, end, timezone: tz });
+    setIsTrendsLoading(true);
+    setTrendsError(null);
+
+    try {
+      const [dau, http] = await Promise.all([
+        ScoreAPI.getDailyDau({ start, end, timezone: tz }),
+        ScoreAPI.getDailyHttp({ start, end, timezone: tz }),
+      ]);
+      setDailyDau(dau);
+      setDailyHttp(http);
+    } catch (e) {
+      setTrendsError(e instanceof Error ? e.message : '加载趋势数据失败');
+    } finally {
+      setIsTrendsLoading(false);
+    }
+  }, []);
+
+  const refreshAll = useCallback(async () => {
+    const data = await loadStats();
+    const timezone = data?.timezone ?? stats?.timezone;
+    if (timezone) {
+      setHasRequestedTrends(true);
+      await loadTrends(timezone);
+    }
+  }, [loadStats, loadTrends, stats?.timezone]);
 
   useEffect(() => {
     const readCache = () => {
@@ -172,11 +215,18 @@ export function ServiceStats({ variant = 'default', showTitle = true, showDescri
     }
   }, [loadStats]);
 
+  useEffect(() => {
+    if (!stats || hasRequestedTrends) return;
+    setHasRequestedTrends(true);
+    void loadTrends(stats.timezone);
+  }, [hasRequestedTrends, loadTrends, stats]);
+
   const containerClasses =
     variant === 'mono'
       ? 'bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-800 rounded-2xl p-6 shadow-sm w-full max-w-4xl mx-auto'
       : 'bg-white/70 dark:bg-gray-800/70 backdrop-blur-md border border-gray-200/60 dark:border-gray-700/60 rounded-2xl p-6 shadow-lg w-full max-w-4xl mx-auto';
   const cardClass = 'rounded-xl p-5 border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900';
+  const chartCardClass = 'rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 overflow-hidden';
   const iconClass = 'w-6 h-6 text-gray-500 dark:text-gray-400';
   const countClass = 'text-2xl font-bold text-gray-900 dark:text-gray-100';
 
@@ -195,6 +245,30 @@ export function ServiceStats({ variant = 'default', showTitle = true, showDescri
     );
   }, [stats]);
 
+  const dauChart = useMemo(() => {
+    if (!dailyDau || dailyDau.rows.length === 0) return null;
+    const rows = [...dailyDau.rows].sort((a, b) => a.date.localeCompare(b.date));
+    return {
+      xAxis: rows.map((row) => (row.date.length >= 10 ? row.date.slice(5) : row.date)),
+      series: [
+        { name: '活跃用户', data: rows.map((row) => row.activeUsers), color: '#3b82f6', area: true },
+        { name: '活跃 IP', data: rows.map((row) => row.activeIps), color: '#22c55e' },
+      ],
+    };
+  }, [dailyDau]);
+
+  const httpChart = useMemo(() => {
+    if (!dailyHttp || dailyHttp.totals.length === 0) return null;
+    const rows = [...dailyHttp.totals].sort((a, b) => a.date.localeCompare(b.date));
+    return {
+      xAxis: rows.map((row) => (row.date.length >= 10 ? row.date.slice(5) : row.date)),
+      series: [
+        { name: '请求总量', data: rows.map((row) => row.total), color: '#a855f7', area: true },
+        { name: '错误数', data: rows.map((row) => row.errors), color: '#ef4444' },
+      ],
+    };
+  }, [dailyHttp]);
+
   return (
     <section className={containerClasses}>
       <div className="mb-6 flex items-center justify-between">
@@ -205,11 +279,11 @@ export function ServiceStats({ variant = 'default', showTitle = true, showDescri
           )}
         </div>
         <button
-          onClick={() => void loadStats()}
-          disabled={isLoading}
+          onClick={() => void refreshAll()}
+          disabled={isLoading || isTrendsLoading}
           className="inline-flex items-center justify-center rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-medium px-4 py-2 transition-colors"
         >
-          {isLoading ? '刷新中...' : '刷新'}
+          {isLoading || isTrendsLoading ? '刷新中...' : '刷新'}
         </button>
       </div>
 
@@ -318,6 +392,56 @@ export function ServiceStats({ variant = 'default', showTitle = true, showDescri
               暂无功能使用统计。
             </div>
           )}
+
+          <div className="mt-8 space-y-3">
+            <div className="flex items-end justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">近 {TRENDS_DAYS} 天趋势</h3>
+                {trendRange && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {trendRange.start} ~ {trendRange.end} · {trendRange.timezone}
+                  </p>
+                )}
+              </div>
+              {isTrendsLoading && (
+                <span className="text-xs text-gray-500 dark:text-gray-400">更新中…</span>
+              )}
+            </div>
+
+            {trendsError && (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+                {trendsError}
+              </div>
+            )}
+
+            {isTrendsLoading && !dauChart && !httpChart ? (
+              <div className="flex flex-col items-center justify-center py-10">
+                <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-blue-600" aria-label="loading spinner" />
+                <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">正在加载趋势数据…</div>
+              </div>
+            ) : dauChart || httpChart ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className={chartCardClass}>
+                  {dauChart ? (
+                    <StatsLineChart title="每日活跃" xAxis={dauChart.xAxis} series={dauChart.series} height={280} />
+                  ) : (
+                    <div className="p-8 text-center text-sm text-gray-500 dark:text-gray-400">暂无活跃趋势数据</div>
+                  )}
+                </div>
+                <div className={chartCardClass}>
+                  {httpChart ? (
+                    <StatsLineChart title="每日 HTTP" xAxis={httpChart.xAxis} series={httpChart.series} height={280} />
+                  ) : (
+                    <div className="p-8 text-center text-sm text-gray-500 dark:text-gray-400">暂无 HTTP 趋势数据</div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                暂无趋势数据
+              </div>
+            )}
+          </div>
         </>
       ) : (
         <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-8 text-center text-sm text-gray-500 dark:text-gray-400">
