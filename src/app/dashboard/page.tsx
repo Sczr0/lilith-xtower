@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Sidebar, TabId } from './components/Sidebar';
 import { DashboardHeader } from './components/DashboardHeader';
@@ -14,7 +14,30 @@ import { getPrefetchedData, prefetchRksData, prefetchLeaderboard, prefetchServic
 const BnImageGenerator = dynamic(() => import('../components/BnImageGenerator').then(m => m.BnImageGenerator), { ssr: false, loading: () => null });
 const SongSearchGenerator = dynamic(() => import('../components/SongSearchGenerator').then(m => m.SongSearchGenerator), { ssr: false, loading: () => null });
 const RksRecordsList = dynamic(() => import('../components/RksRecordsList').then(m => m.RksRecordsList), { ssr: false, loading: () => null });
-const SongUpdateList = dynamic(() => import('../components/SongUpdateCard').then(m => m.SongUpdateList), { ssr: false, loading: () => null });
+function SongUpdateListSkeleton() {
+  const items = Array.from({ length: 3 });
+  return (
+    <div className="space-y-5">
+      {items.map((_, idx) => (
+        <div
+          key={idx}
+          className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden animate-pulse"
+        >
+          <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+            <div className="h-5 w-40 bg-gray-200 dark:bg-gray-800 rounded" />
+            <div className="h-4 w-24 bg-gray-200 dark:bg-gray-800 rounded" />
+          </div>
+          <div className="px-5 py-4 space-y-2">
+            <div className="h-4 w-3/4 bg-gray-200 dark:bg-gray-800 rounded" />
+            <div className="h-4 w-1/2 bg-gray-200 dark:bg-gray-800 rounded" />
+            <div className="h-4 w-2/3 bg-gray-200 dark:bg-gray-800 rounded" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+const SongUpdateList = dynamic(() => import('../components/SongUpdateCard').then(m => m.SongUpdateList), { ssr: false, loading: () => <SongUpdateListSkeleton /> });
 const PlayerScoreRenderer = dynamic(() => import('../components/PlayerScoreRenderer').then(m => m.PlayerScoreRenderer), { ssr: false, loading: () => null });
 const LeaderboardPanel = dynamic(() => import('../components/LeaderboardPanel').then(m => m.LeaderboardPanel), { ssr: false, loading: () => null });
 import type { Announcement, SongUpdate } from '../lib/types/content';
@@ -26,6 +49,8 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<TabId>('best-n');
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [songUpdates, setSongUpdates] = useState<SongUpdate[]>([]);
+  const [songUpdatesStatus, setSongUpdatesStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [songUpdatesError, setSongUpdatesError] = useState<string | null>(null);
   const [showAnnouncements, setShowAnnouncements] = useState(false);
   const [showAllAnnouncements, setShowAllAnnouncements] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -61,6 +86,20 @@ export default function Dashboard() {
       setDebugExport(false);
     }
   }, []);
+
+  const syncTabToUrl = useCallback((tabId: TabId) => {
+    if (typeof window === 'undefined') return;
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', tabId);
+      history.replaceState(null, '', url.toString());
+    } catch {}
+  }, []);
+
+  const handleTabChange = useCallback((tabId: TabId) => {
+    setActiveTab(tabId);
+    syncTabToUrl(tabId);
+  }, [syncTabToUrl]);
 
   // 预取关键数据（如果尚未预取）
 
@@ -144,6 +183,31 @@ export default function Dashboard() {
     } catch {}
   }, [isAuthenticated]);
 
+  const loadSongUpdates = useCallback(async (signal?: AbortSignal) => {
+    setSongUpdatesStatus('loading');
+    setSongUpdatesError(null);
+
+    try {
+      const updatesRes = await fetch('/api/content/song-updates', { signal });
+      if (!updatesRes.ok) {
+        setSongUpdatesStatus('error');
+        setSongUpdatesError('新曲速递加载失败，请稍后重试。');
+        return;
+      }
+
+      const data = await updatesRes.json();
+      setSongUpdates(data);
+      setSongUpdatesStatus('success');
+    } catch (err) {
+      if (signal?.aborted) return;
+      const message = err instanceof Error ? err.message : 'unknown error';
+      if (/aborted|aborterror/i.test(message)) return;
+
+      setSongUpdatesStatus('error');
+      setSongUpdatesError('新曲速递加载失败，请检查网络后重试。');
+    }
+  }, []);
+
   // 当已同意协议且存在未读公告时，触发展示
   useEffect(() => {
     if (!agreementAccepted || announcements.length === 0) return;
@@ -158,12 +222,16 @@ export default function Dashboard() {
     } catch {}
   }, [agreementAccepted, announcements]);
 
-  // 加载公告和新曲速递数据
+  // 加载公告数据
   useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const controller = new AbortController();
+    const { signal } = controller;
     const loadContent = async () => {
       try {
         // 获取公告
-        const announcementsRes = await fetch('/api/content/announcements');
+        const announcementsRes = await fetch('/api/content/announcements', { signal });
         if (announcementsRes.ok) {
           const data = await announcementsRes.json();
           setAnnouncements(data);
@@ -179,23 +247,27 @@ export default function Dashboard() {
             setShowAnnouncements(true);
           }
         }
-
-        // 获取新曲速递
-        const updatesRes = await fetch('/api/content/song-updates');
-        if (updatesRes.ok) {
-          const data = await updatesRes.json();
-          setSongUpdates(data);
-        }
       } catch (error) {
+        if (signal.aborted) return;
         console.error('加载内容失败:', error);
       }
     };
 
     // 登录后立即加载内容，无需等待协议判定
-    if (isAuthenticated) {
-      loadContent();
-    }
-  }, [isAuthenticated]);
+    loadContent();
+
+    return () => controller.abort();
+  }, [isAuthenticated, agreementAccepted]);
+
+  // 加载新曲速递数据（独立于公告，避免因协议判定变化触发重复请求）
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const controller = new AbortController();
+    loadSongUpdates(controller.signal);
+
+    return () => controller.abort();
+  }, [isAuthenticated, loadSongUpdates]);
 
   if (isLoading) {
     return (
@@ -271,7 +343,12 @@ export default function Dashboard() {
                 查看最新的曲目更新信息和难度定数。
               </p>
             </div>
-            <SongUpdateList updates={songUpdates} />
+            <SongUpdateList
+              updates={songUpdates}
+              isLoading={songUpdatesStatus === 'loading' || songUpdatesStatus === 'idle'}
+              error={songUpdatesError}
+              onRetry={() => loadSongUpdates()}
+            />
           </div>
         );
       case 'leaderboard':
@@ -327,7 +404,7 @@ export default function Dashboard() {
         {/* Sidebar */}
         <Sidebar
           activeTab={activeTab}
-          onTabChange={setActiveTab}
+          onTabChange={handleTabChange}
           isMobileOpen={isMobileMenuOpen}
           onMobileClose={() => setIsMobileMenuOpen(false)}
           onOpenAnnouncements={() => { setShowAllAnnouncements(true); setShowAnnouncements(true); }}

@@ -1,26 +1,34 @@
 "use client";
 
+import { useEffect, useMemo, useState } from 'react';
 import { Markdown } from './Markdown';
 import { Calendar, Music, Wrench } from 'lucide-react';
 import type { DetailedHTMLProps, HTMLAttributes } from 'react';
 import { SongUpdate } from '../lib/types/content';
+import { countNewSongs, countUpdateNoteChanges } from '../lib/utils/songUpdates';
 
-// 从 Markdown 内容中提取简单摘要：统计“新增曲目”和“调整/定数”等条目数（尽量保守，失败则为 0）
-function countItemsInSection(md: string, keywords: string[]): number {
-  try {
-    const normalized = md.replace(/\r\n?/g, '\n');
-    const sectionRe = new RegExp(`^#{1,6}\\s.*(${keywords.join('|')}).*$`, 'm');
-    const m = normalized.match(sectionRe);
-    if (!m || m.index === undefined) return 0;
-    const startIdx = m.index + m[0].length;
-    const after = normalized.slice(startIdx);
-    const nextHeadingIdx = after.search(/^#{1,6}\s/m);
-    const block = nextHeadingIdx === -1 ? after : after.slice(0, nextHeadingIdx);
-    const listMatches = block.match(/^\s*[-*+]\s+/gm);
-    return listMatches ? listMatches.length : 0;
-  } catch {
-    return 0;
-  }
+function SongUpdateListSkeleton() {
+  const items = Array.from({ length: 3 });
+  return (
+    <div className="space-y-5">
+      {items.map((_, idx) => (
+        <div
+          key={idx}
+          className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden animate-pulse"
+        >
+          <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+            <div className="h-5 w-40 bg-gray-200 dark:bg-gray-800 rounded" />
+            <div className="h-4 w-24 bg-gray-200 dark:bg-gray-800 rounded" />
+          </div>
+          <div className="px-5 py-4 space-y-2">
+            <div className="h-4 w-3/4 bg-gray-200 dark:bg-gray-800 rounded" />
+            <div className="h-4 w-1/2 bg-gray-200 dark:bg-gray-800 rounded" />
+            <div className="h-4 w-2/3 bg-gray-200 dark:bg-gray-800 rounded" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 interface SongUpdateCardProps {
@@ -29,11 +37,14 @@ interface SongUpdateCardProps {
 }
 
 export function SongUpdateCard({ update, isLatest = false }: SongUpdateCardProps) {
-  const newSongCount = countItemsInSection(update.content, ['新增曲目', '新增', '新曲']);
-  const changeCount = countItemsInSection(update.content, ['定数', '调整', '变更', '修正']);
+  const newSongCount = countNewSongs(update.content);
+  const changeCount = countUpdateNoteChanges(update.content);
 
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm transition-shadow hover:shadow-md">
+    <div
+      id={`song-update-${update.updateId}`}
+      className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm transition-shadow hover:shadow-md scroll-mt-6"
+    >
       {/* 头部：中性/绿色点缀，禁止蓝紫渐变与紫色 */}
       <header className="flex items-center justify-between px-5 py-3 border-b border-gray-100 dark:border-gray-800">
         <div className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
@@ -125,10 +136,62 @@ export function SongUpdateCard({ update, isLatest = false }: SongUpdateCardProps
 
 interface SongUpdateListProps {
   updates: SongUpdate[];
+  isLoading?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
 }
 
-export function SongUpdateList({ updates }: SongUpdateListProps) {
-  if (updates.length === 0) {
+export function SongUpdateList({ updates, isLoading = false, error = null, onRetry }: SongUpdateListProps) {
+  const [query, setQuery] = useState('');
+  const [onlyLatest, setOnlyLatest] = useState(false);
+  const [jumpToUpdateId, setJumpToUpdateId] = useState('');
+  const latestUpdateId = updates[0]?.updateId;
+
+  const filteredUpdates = useMemo(() => {
+    const base = onlyLatest ? updates.slice(0, 1) : updates;
+    const q = query.trim().toLowerCase();
+    if (!q) return base;
+
+    return base.filter((u) => {
+      const haystack = `${u.version}\n${u.updateDate}\n${u.content}`.toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [updates, onlyLatest, query]);
+
+  useEffect(() => {
+    if (!jumpToUpdateId) return;
+
+    const targetId = `song-update-${jumpToUpdateId}`;
+    requestAnimationFrame(() => {
+      document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setJumpToUpdateId('');
+    });
+  }, [jumpToUpdateId]);
+
+  if (isLoading && updates.length === 0) {
+    return <SongUpdateListSkeleton />;
+  }
+
+  if (error && updates.length === 0) {
+    return (
+      <div className="rounded-lg border border-red-200 bg-red-50 px-6 py-6 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>{error}</div>
+          {onRetry && (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="inline-flex items-center justify-center rounded-md border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 dark:border-red-500/40 dark:bg-transparent dark:text-red-200 dark:hover:bg-red-500/10"
+            >
+              重试
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (!isLoading && updates.length === 0) {
     return (
       <div className="text-center py-12 text-gray-500 dark:text-gray-400">
         <Music size={48} className="mx-auto mb-4 opacity-50" />
@@ -138,14 +201,126 @@ export function SongUpdateList({ updates }: SongUpdateListProps) {
   }
 
   return (
-    <div className="space-y-5">
-      {updates.map((update, index) => (
-        <SongUpdateCard
-          key={update.updateId}
-          update={update}
-          isLatest={index === 0}
-        />
-      ))}
+    <div className="space-y-4">
+      {/* 顶部工具条：搜索 / 过滤 / 跳转 / 刷新 */}
+      <div className="space-y-3">
+        {error && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>{error}</div>
+              {onRetry && (
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  className="inline-flex items-center justify-center rounded-md border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 dark:border-red-500/40 dark:bg-transparent dark:text-red-200 dark:hover:bg-red-500/10"
+                >
+                  重试
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex-1">
+            <label htmlFor="song-updates-search" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              搜索
+            </label>
+            <div className="mt-1 flex items-center gap-2">
+              <input
+                id="song-updates-search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="搜索歌曲名 / 艺术家 / 版本…"
+                className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery('')}
+                  className="shrink-0 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
+                >
+                  清除
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+            <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+              <input
+                type="checkbox"
+                checked={onlyLatest}
+                onChange={(e) => setOnlyLatest(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+              />
+              仅看最新
+            </label>
+
+            <select
+              value={jumpToUpdateId}
+              onChange={(e) => {
+                const id = e.target.value;
+                if (!id) {
+                  setJumpToUpdateId('');
+                  return;
+                }
+
+                // 版本跳转属于“强定位”，应先解除过滤，避免目标卡片不存在于 DOM
+                if (query) setQuery('');
+                if (onlyLatest) setOnlyLatest(false);
+                setJumpToUpdateId(id);
+              }}
+              className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+            >
+              <option value="">版本跳转…</option>
+              {updates.map((u) => (
+                <option key={u.updateId} value={u.updateId}>
+                  v{u.version} · {new Date(u.updateDate).toLocaleDateString('zh-CN')}
+                </option>
+              ))}
+            </select>
+
+            {onRetry && (
+              <button
+                type="button"
+                onClick={onRetry}
+                disabled={isLoading}
+                className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60 disabled:cursor-not-allowed"
+                title={isLoading ? '正在刷新…' : '刷新'}
+              >
+                {isLoading ? '刷新中…' : '刷新'}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {filteredUpdates.length === 0 ? (
+        <div className="text-center py-10 text-gray-500 dark:text-gray-400">
+          <p className="text-lg">未找到匹配的更新</p>
+          <p className="text-sm mt-2">可尝试更短的关键词（如歌曲名片段、版本号）。</p>
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery('')}
+              className="mt-4 inline-flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-2 text-sm text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
+            >
+              清除搜索
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-5">
+          {filteredUpdates.map((update) => (
+            <SongUpdateCard
+              key={update.updateId}
+              update={update}
+              isLatest={!!latestUpdateId && update.updateId === latestUpdateId}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

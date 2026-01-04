@@ -6,12 +6,23 @@ import type ReactMarkdownComponent from 'react-markdown';
 
 type ReactMarkdownProps = ComponentProps<typeof ReactMarkdownComponent>;
 
+function MarkdownLoadingFallback() {
+  return (
+    <div className="animate-pulse space-y-2">
+      <div className="h-4 w-3/4 bg-gray-200 dark:bg-gray-800 rounded" />
+      <div className="h-4 w-2/3 bg-gray-200 dark:bg-gray-800 rounded" />
+      <div className="h-4 w-1/2 bg-gray-200 dark:bg-gray-800 rounded" />
+    </div>
+  );
+}
+
 // 动态导入 ReactMarkdown，禁用 SSR，确保仅在客户端加载
 const ReactMarkdown = dynamic<ComponentProps<typeof ReactMarkdownComponent>>(
   () => import('react-markdown'),
   {
     ssr: false,
-    loading: () => null,
+    // 避免动态加载阶段出现“内容全空白”，提供轻量占位提升可感知性
+    loading: () => <MarkdownLoadingFallback />,
   },
 ) as ComponentType<ReactMarkdownProps>;
 
