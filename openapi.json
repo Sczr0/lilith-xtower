@@ -450,7 +450,7 @@
           {
             "name": "limit",
             "in": "query",
-            "description": "每页数量，默认50，最大200",
+            "description": "每页数量，默认50，最大200；当 lite=true 时最大1000",
             "required": false,
             "schema": {
               "type": "integer",
@@ -465,6 +465,15 @@
             "schema": {
               "type": "integer",
               "format": "int64"
+            }
+          },
+          {
+            "name": "lite",
+            "in": "query",
+            "description": "精简返回体以加快响应速度（true 时移除 BestTop3/APTop3 等字段）",
+            "required": false,
+            "schema": {
+              "type": "boolean"
             }
           }
         ],

@@ -49,9 +49,11 @@ const buildQueryString = (params: Record<string, string | number | undefined>) =
 
 export class LeaderboardAPI {
   static async getTop(params: LeaderboardQuery = {}): Promise<LeaderboardTopResponse> {
+    const liteEnabled = params.lite ?? true;
     const query = buildQueryString({
       limit: params.limit,
       offset: params.offset,
+      lite: liteEnabled ? 'true' : undefined,
     });
 
     const cacheKey = `leaderboard:top:${query}`;

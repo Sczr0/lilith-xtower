@@ -63,9 +63,9 @@ export interface RankQuery {
 export interface LeaderboardQuery {
   limit?: number;
   offset?: number;
+  lite?: boolean;
 }
 
 export interface AliasUpdatePayload {
   alias: string;
 }
-
