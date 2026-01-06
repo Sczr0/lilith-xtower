@@ -12,6 +12,35 @@ interface AnnouncementModalProps {
 }
 
 // 公告弹窗：支持“按条不再提示”、顺序浏览与进度指示
+export type AnnouncementModalStep =
+  | { kind: 'close' }
+  | { kind: 'advance'; nextIndex: number };
+
+export function computeNextAnnouncementModalStep(params: {
+  visibleIndex: number;
+  visibleCount: number;
+  dismissCurrent: boolean;
+}): AnnouncementModalStep {
+  const { visibleIndex, visibleCount, dismissCurrent } = params;
+
+  if (visibleCount <= 0) return { kind: 'close' };
+
+  const safeIndex = Math.min(Math.max(visibleIndex, 0), visibleCount - 1);
+  const isLastVisible = safeIndex + 1 >= visibleCount;
+  if (isLastVisible) return { kind: 'close' };
+
+  // 若当前条目会被过滤移除，则下一条会顶替当前位置，因此无需推进索引
+  if (dismissCurrent) return { kind: 'advance', nextIndex: safeIndex };
+
+  return { kind: 'advance', nextIndex: safeIndex + 1 };
+}
+
+function persistDismissedAnnouncements(ids: Set<string>) {
+  try {
+    localStorage.setItem('dismissed_announcements', JSON.stringify([...ids]));
+  } catch {}
+}
+
 export function AnnouncementModal({ announcements, onClose, showAll = false }: AnnouncementModalProps) {
   // 可见公告索引（基于过滤后列表）
   const [visibleIndex, setVisibleIndex] = useState(0);
@@ -50,7 +79,8 @@ export function AnnouncementModal({ announcements, onClose, showAll = false }: A
     return null;
   }
 
-  const current = visibleAnnouncements[visibleIndex];
+  const safeIndex = Math.min(Math.max(visibleIndex, 0), visibleAnnouncements.length - 1);
+  const current = visibleAnnouncements[safeIndex];
 
   const typeStyles = {
     info: 'bg-blue-50 border-blue-200',
@@ -66,33 +96,29 @@ export function AnnouncementModal({ announcements, onClose, showAll = false }: A
 
   // 关闭当前公告；若勾选"不再提示"且可关闭，则写入本地
   const handleClose = (applyDontShow: boolean) => {
-    // 计算是否是最后一条（在更新 state 之前）
-    const isLastVisible = visibleIndex + 1 >= visibleAnnouncements.length;
-    
-    if (current && !showAll && applyDontShow && current.dismissible) {
+    const dismissCurrent = !showAll && applyDontShow && current.dismissible;
+
+    if (dismissCurrent) {
       const next = new Set(dismissedIds);
       next.add(current.id);
-      // 如果是最后一条，先关闭弹窗再更新 localStorage
-      if (isLastVisible) {
-        onClose?.();
-        setDismissedIds(next);
-        try {
-          localStorage.setItem('dismissed_announcements', JSON.stringify([...next]));
-        } catch {}
-        return;
-      }
       setDismissedIds(next);
-      try {
-        localStorage.setItem('dismissed_announcements', JSON.stringify([...next]));
-      } catch {}
+      persistDismissedAnnouncements(next);
     }
 
     setDontShowAgain(false);
-    if (!isLastVisible) {
-      setVisibleIndex(visibleIndex + 1);
-    } else {
+
+    const step = computeNextAnnouncementModalStep({
+      visibleIndex: safeIndex,
+      visibleCount: visibleAnnouncements.length,
+      dismissCurrent,
+    });
+
+    if (step.kind === 'close') {
       onClose?.();
+      return;
     }
+
+    setVisibleIndex(step.nextIndex);
   };
 
   return (
@@ -139,7 +165,7 @@ export function AnnouncementModal({ announcements, onClose, showAll = false }: A
               )}
               {visibleAnnouncements.length > 1 && (
                 <span className="ml-auto">
-                  {visibleIndex + 1} / {visibleAnnouncements.length}
+                  {safeIndex + 1} / {visibleAnnouncements.length}
                 </span>
               )}
             </div>
@@ -147,7 +173,7 @@ export function AnnouncementModal({ announcements, onClose, showAll = false }: A
               onClick={() => handleClose(dontShowAgain)}
               className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-sm hover:shadow-md"
             >
-              {visibleIndex + 1 < visibleAnnouncements.length ? '下一条' : '关闭'}
+              {safeIndex + 1 < visibleAnnouncements.length ? '下一条' : '关闭'}
             </button>
           </div>
           <div className="mt-2 text-xs text-gray-400 dark:text-gray-500">
@@ -158,4 +184,3 @@ export function AnnouncementModal({ announcements, onClose, showAll = false }: A
     </div>
   );
 }
-
