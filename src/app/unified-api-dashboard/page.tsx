@@ -32,6 +32,9 @@ const SITE_PLATFORM = 'PhigrosQuery';
 
 type UserIdResponse = { userId: string; userKind?: string | null };
 
+const isUnifiedApiSectionId = (value: string): value is UnifiedApiSectionId =>
+  value === 'bind' || value === 'accounts' || value === 'tools';
+
 const LEVEL_KINDS: UnifiedApiLevelKind[] = ['EZ', 'HD', 'IN', 'AT'];
 const SCORE_LIST_ORDER_BY: UnifiedApiScoreListOrderBy[] = ['acc', 'score', 'fc', 'updated_at'];
 const RESULT_MAX_ROWS = 50;
@@ -84,6 +87,20 @@ export default function UnifiedApiDashboardPage() {
   const { credential, isAuthenticated, isLoading } = useAuth();
   const [activeSection, setActiveSection] = useState<UnifiedApiSectionId>('bind');
 
+  const syncSectionToUrl = (sectionId: UnifiedApiSectionId) => {
+    if (typeof window === 'undefined') return;
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', sectionId);
+      history.replaceState(null, '', url.toString());
+    } catch {}
+  };
+
+  const handleSectionChange = (sectionId: UnifiedApiSectionId) => {
+    setActiveSection(sectionId);
+    syncSectionToUrl(sectionId);
+  };
+
   // 说明：作为“另一个仪表盘”，这里与 /dashboard 保持一致的鉴权行为：未登录直接跳转 /login。
   useEffect(() => {
     if (isLoading) return;
@@ -98,12 +115,28 @@ export default function UnifiedApiDashboardPage() {
     try {
       const p = new URLSearchParams(window.location.search);
       const tab = p.get('tab');
-      const isSectionId = (value: string): value is UnifiedApiSectionId =>
-        value === 'bind' || value === 'accounts' || value === 'tools';
-      if (tab && isSectionId(tab)) {
+      if (tab && isUnifiedApiSectionId(tab)) {
         setActiveSection(tab);
       }
     } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const onPopState = () => {
+      try {
+        const p = new URLSearchParams(window.location.search);
+        const tab = p.get('tab');
+        const nextSection = tab && isUnifiedApiSectionId(tab) ? tab : 'bind';
+        setActiveSection(nextSection);
+      } catch {}
+    };
+
+    window.addEventListener('popstate', onPopState);
+    return () => {
+      window.removeEventListener('popstate', onPopState);
+    };
   }, []);
 
   const [siteUserIdState, setSiteUserIdState] = useState<AsyncState<string>>({
@@ -442,7 +475,7 @@ export default function UnifiedApiDashboardPage() {
   return (
     <UnifiedApiDashboardShell
       activeSection={activeSection}
-      onSectionChange={setActiveSection}
+      onSectionChange={handleSectionChange}
     >
       <div className="space-y-6">
         <section className={cardStyles({ tone: 'glass', padding: 'md' })}>
@@ -475,7 +508,7 @@ export default function UnifiedApiDashboardPage() {
           </div>
         </section>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 lg:hidden">
           <div className="inline-flex flex-wrap gap-1 rounded-xl border border-gray-200/70 dark:border-neutral-800/70 bg-white/70 dark:bg-gray-800/60 backdrop-blur-md p-1">
             <button
               type="button"
@@ -485,7 +518,7 @@ export default function UnifiedApiDashboardPage() {
                   ? 'bg-blue-600 text-white shadow'
                   : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100/70 dark:hover:bg-gray-700/50'
               )}
-              onClick={() => setActiveSection('bind')}
+              onClick={() => handleSectionChange('bind')}
             >
               绑定
             </button>
@@ -497,7 +530,7 @@ export default function UnifiedApiDashboardPage() {
                   ? 'bg-blue-600 text-white shadow'
                   : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100/70 dark:hover:bg-gray-700/50'
               )}
-              onClick={() => setActiveSection('accounts')}
+              onClick={() => handleSectionChange('accounts')}
             >
               账号
             </button>
@@ -509,7 +542,7 @@ export default function UnifiedApiDashboardPage() {
                   ? 'bg-blue-600 text-white shadow'
                   : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100/70 dark:hover:bg-gray-700/50'
               )}
-              onClick={() => setActiveSection('tools')}
+              onClick={() => handleSectionChange('tools')}
             >
               查询工具
             </button>
@@ -642,17 +675,38 @@ export default function UnifiedApiDashboardPage() {
                   <h3 className="text-base font-semibold">已绑定平台账号</h3>
                   <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
                       想查看你在联合API里绑定过哪些账号，需要填写：联合API用户ID（internal_id）与 API Token（api_token）。
-                  </p>
-                </div>
+                   </p>
+                 </div>
                   <button className={buttonStyles({ variant: 'secondary', size: 'sm' })} onClick={handleRefreshList} disabled={isBusy || !listAuthReady}>
                     {tokenListState.loading ? '刷新中...' : '刷新列表'}
                   </button>
                 </div>
 
+                {tokenListState.error && (
+                  <div className="mt-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
+                    列表查询失败：{tokenListState.error}
+                  </div>
+                )}
+
+                {!listAuthReady && (
+                  <p className="mt-3 text-xs text-amber-700 dark:text-amber-300">
+                    提示：请补全{' '}
+                    {[
+                      token.trim() ? null : 'token（登录凭证）',
+                      apiUserId.trim() ? null : '联合API用户ID（internal_id）',
+                      apiToken.trim() ? null : 'API Token（api_token）',
+                    ]
+                      .filter((value): value is string => !!value)
+                      .join(' / ')}
+                    。
+                  </p>
+                )}
+
                 <div className="mt-4">
                   <label className="block text-sm font-medium mb-2">联合API用户ID（api_user_id / internal_id）</label>
                   <div className="flex gap-2">
                     <input
+                      id="unified-api-apiUserId"
                       className={inputStyles({ className: 'flex-1 font-mono' })}
                       value={apiUserId}
                       onChange={(e) => setApiUserId(e.target.value)}
@@ -677,6 +731,7 @@ export default function UnifiedApiDashboardPage() {
                   <label className="block text-sm font-medium mb-2">API Token（api_token）</label>
                   <div className="flex gap-2">
                     <input
+                      id="unified-api-apiToken"
                       className={inputStyles({ className: 'flex-1' })}
                       value={apiToken}
                       onChange={(e) => setApiToken(e.target.value)}
@@ -685,6 +740,17 @@ export default function UnifiedApiDashboardPage() {
                       autoComplete="off"
                       disabled={!isAuthenticated}
                     />
+                    {!apiToken.trim() && (
+                      <button
+                        type="button"
+                        className={buttonStyles({ variant: 'outline', size: 'sm' })}
+                        onClick={() => setApiToken(DEFAULT_API_TOKEN)}
+                        disabled={!isAuthenticated}
+                        title={`填入默认值（${DEFAULT_API_TOKEN}）`}
+                      >
+                        填入默认值
+                      </button>
+                    )}
                     <button type="button" className={buttonStyles({ variant: 'outline', size: 'sm' })} onClick={() => setShowApiToken((v) => !v)}>
                       {showApiToken ? '隐藏' : '显示'}
                     </button>
@@ -736,6 +802,29 @@ export default function UnifiedApiDashboardPage() {
               这里提供一些常用查询：搜用户名、查排行榜、查单曲排名。
               需要“我的数据”的功能，请先完成绑定并填好“联合API用户ID”和“API Token”。
             </p>
+            {!authedReady && (
+              <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3">
+                <p className="text-sm text-amber-800 dark:text-amber-200">
+                  当前缺少凭证信息，部分查询将不可用。
+                </p>
+                <button
+                  type="button"
+                  className={buttonStyles({ variant: 'secondary', size: 'sm' })}
+                  onClick={() => {
+                    handleSectionChange('accounts');
+                    if (typeof window === 'undefined') return;
+                    window.setTimeout(() => {
+                      const el = document.getElementById('unified-api-apiToken');
+                      if (el instanceof HTMLInputElement) {
+                        el.focus();
+                      }
+                    }, 0);
+                  }}
+                >
+                  去填写凭证
+                </button>
+              </div>
+            )}
           </div>
         </section>
 
