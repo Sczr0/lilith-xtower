@@ -5,6 +5,18 @@ export interface RksRecord {
   acc: number;
   score: number;
   rks: number;
+
+  /**
+   * 推分 ACC（百分比，如 98.50 表示 98.5%）。
+   * - null：无需/不可展示（例如已在推分线以上或已满ACC）。
+   */
+  push_acc?: number | null;
+  /** 不可推分（即使 Phi 也达不到推分线） */
+  unreachable?: boolean;
+  /** 需 Phi（只有 acc=100% 才能达到推分线） */
+  phi_only?: boolean;
+  /** 已满 ACC（acc=100%，该谱面无法再通过提高 acc 推分） */
+  already_phi?: boolean;
 }
 
 export interface RksResponse {

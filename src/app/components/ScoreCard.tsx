@@ -15,6 +15,16 @@ export function ScoreCard({ record, rank, nameMaxLines = 1 }: ScoreCardProps) {
   const nameStyle: CSSProperties | undefined = nameMultiline
     ? { display: '-webkit-box', WebkitLineClamp: nameMaxLines, WebkitBoxOrient: 'vertical', overflow: 'hidden' }
     : undefined;
+
+  const pushAccDisplay = (() => {
+    if (record.already_phi) return { text: '已满ACC', className: 'text-gray-600 dark:text-gray-300', title: '已满ACC：该谱面准确率已达 100%' };
+    if (record.unreachable) return { text: '不可推分', className: 'text-red-600 dark:text-red-400', title: '不可推分：即使 Phi 也达不到推分线' };
+    if (record.phi_only) return { text: '需Phi', className: 'text-amber-600 dark:text-amber-400', title: '需Phi：只有 Phi(100%) 才能达到推分线' };
+    if (typeof record.push_acc === 'number' && Number.isFinite(record.push_acc)) {
+      return { text: `${formatFixedNumber(record.push_acc, 2)}%`, className: 'text-emerald-700 dark:text-emerald-400', title: '推分ACC：达到推分线所需的最低准确率' };
+    }
+    return { text: '—', className: 'text-gray-500 dark:text-gray-400', title: '已在推分线以上或推分线缺失' };
+  })();
   return (
     <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md border border-gray-200/60 dark:border-gray-700/60 rounded-2xl p-4 shadow-lg">
       <div className="flex items-center justify-between gap-3 min-h-12">
@@ -43,7 +53,7 @@ export function ScoreCard({ record, rank, nameMaxLines = 1 }: ScoreCardProps) {
         </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-3 gap-2">
+      <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
         <div className="bg-white/60 dark:bg-gray-900/40 rounded-lg px-2 py-2 text-center border border-gray-200 dark:border-gray-700">
           <div className="text-[10px] text-gray-500 dark:text-gray-400">定数</div>
           <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{formatFixedNumber(record.difficulty_value, 1)}</div>
@@ -55,6 +65,12 @@ export function ScoreCard({ record, rank, nameMaxLines = 1 }: ScoreCardProps) {
         <div className="bg-white/60 dark:bg-gray-900/40 rounded-lg px-2 py-2 text-center border border-gray-200 dark:border-gray-700">
           <div className="text-[10px] text-gray-500 dark:text-gray-400">准确率</div>
           <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{formatFixedNumber(record.acc, 2)}%</div>
+        </div>
+        <div className="bg-white/60 dark:bg-gray-900/40 rounded-lg px-2 py-2 text-center border border-gray-200 dark:border-gray-700">
+          <div className="text-[10px] text-gray-500 dark:text-gray-400">推分ACC</div>
+          <div className={`text-sm font-medium ${pushAccDisplay.className}`} title={pushAccDisplay.title}>
+            {pushAccDisplay.text}
+          </div>
         </div>
       </div>
     </div>

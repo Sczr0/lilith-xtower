@@ -13,6 +13,7 @@ import { StyledSelect } from './ui/Select';
 import { RksHistoryPanel } from './RksHistoryPanel';
 import { filterSortLimitRksRecords, type RksSortBy, type RksSortOrder } from '../lib/utils/rksRecords';
 import { formatFixedNumber, formatLocaleNumber, parseFiniteNumber } from '../lib/utils/number';
+import { attachRksPushAcc } from '../lib/utils/rksPush';
 
 const parseNumberOrNull = (value: string): number | null => {
   const raw = value.trim();
@@ -46,6 +47,10 @@ const sanitizeCachedRksRecords = (raw: unknown): RksRecord[] | null => {
     const acc = parseFiniteNumber(entry.acc);
     const score = parseFiniteNumber(entry.score);
     const rks = parseFiniteNumber(entry.rks);
+    const push_acc = parseFiniteNumber(entry.push_acc);
+    const unreachable = entry.unreachable === true;
+    const phi_only = entry.phi_only === true;
+    const already_phi = entry.already_phi === true;
 
     if (difficulty_value === null || acc === null || score === null || rks === null) continue;
 
@@ -56,6 +61,10 @@ const sanitizeCachedRksRecords = (raw: unknown): RksRecord[] | null => {
       acc,
       score,
       rks,
+      push_acc,
+      unreachable,
+      phi_only,
+      already_phi,
     });
   }
 
@@ -188,8 +197,38 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
     onlyPositiveRks ||
     !!limitCount.trim();
 
+  const pushAccResult = useMemo(() => attachRksPushAcc(records), [records]);
+  const recordsWithPushAcc = pushAccResult.records;
+  const pushLineRank = pushAccResult.pushLineRank;
+  const pushLineRks = pushAccResult.pushLineRks;
+
+  const pushAccHeaderTitle =
+    pushLineRks > 0
+      ? `推分ACC：达到当前推分线（Best${pushLineRank} 第${pushLineRank}位：${formatFixedNumber(pushLineRks, 4)} RKS）所需的最低准确率`
+      : `推分ACC：达到当前推分线（Best${pushLineRank}）所需的最低准确率`;
+
+  const formatPushAcc = (record: RksRecord) => {
+    if (record.already_phi) {
+      return { text: '已满ACC', className: 'text-gray-500 dark:text-gray-400', title: '已满ACC：该谱面准确率已达 100%' };
+    }
+    if (record.unreachable) {
+      return { text: '不可推分', className: 'text-red-600 dark:text-red-400', title: '不可推分：即使 Phi 也达不到推分线' };
+    }
+    if (record.phi_only) {
+      return { text: '需Phi', className: 'text-amber-600 dark:text-amber-400', title: '需Phi：只有 Phi(100%) 才能达到推分线' };
+    }
+    if (typeof record.push_acc === 'number' && Number.isFinite(record.push_acc)) {
+      return {
+        text: `${formatFixedNumber(record.push_acc, 2)}%`,
+        className: 'text-emerald-700 dark:text-emerald-400',
+        title: pushAccHeaderTitle,
+      };
+    }
+    return { text: '—', className: 'text-gray-400 dark:text-gray-500', title: '已在推分线以上或推分线缺失' };
+  };
+
   const filteredResult = useMemo(() => {
-    return filterSortLimitRksRecords(records, {
+    return filterSortLimitRksRecords(recordsWithPushAcc, {
       searchQuery,
       difficulty: filterDifficulty,
       onlyPositiveRks,
@@ -202,7 +241,7 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
       limit: parseIntegerOrNull(limitCount),
     });
   }, [
-    records,
+    recordsWithPushAcc,
     searchQuery,
     filterDifficulty,
     onlyPositiveRks,
@@ -470,6 +509,12 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
                   <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">
                     准确率
                   </th>
+                  <th
+                    className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300"
+                    title={pushAccHeaderTitle}
+                  >
+                    推分ACC
+                  </th>
                   <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">
                     单曲RKS
                   </th>
@@ -502,6 +547,16 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
                     </td>
                     <td className="py-3 px-4 text-center text-sm text-gray-700 dark:text-gray-300">
                       {formatFixedNumber(record.acc, 2)}%
+                    </td>
+                    <td className="py-3 px-4 text-center text-sm">
+                      {(() => {
+                        const { text, className, title } = formatPushAcc(record);
+                        return (
+                          <span className={className} title={title}>
+                            {text}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="py-3 px-4 text-center text-sm font-semibold text-blue-600 dark:text-blue-400">
                       {formatFixedNumber(record.rks, 4)}
