@@ -77,12 +77,30 @@ export class ScoreAPI {
       acc: number;
       score: number;
       rks: number;
+      push_acc?: number | null;
+      unreachable?: boolean;
+      phi_only?: boolean;
+      already_phi?: boolean;
     }> = [];
 
     const normalizeNumber = (value: unknown): number => {
       if (typeof value === 'number' && Number.isFinite(value)) return value;
       const parsed = Number(value);
       return Number.isFinite(parsed) ? parsed : 0;
+    };
+
+    const normalizeOptionalNumber = (value: unknown): number | null | undefined => {
+      if (value === undefined) return undefined;
+      if (value === null) return null;
+      if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+      if (typeof value === 'string') {
+        const raw = value.trim();
+        if (!raw) return null;
+        const parsed = Number(raw);
+        return Number.isFinite(parsed) ? parsed : null;
+      }
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : null;
     };
 
     const isDifficultyCode = (value: unknown): value is 'EZ' | 'HD' | 'IN' | 'AT' =>
@@ -109,6 +127,19 @@ export class ScoreAPI {
           entry['chartConstant'] ?? entry['chart_constant'] ?? entry['difficulty_value'] ?? entry['constant'],
         );
 
+        const rawPushAcc = entry['push_acc'] !== undefined ? entry['push_acc'] : entry['pushAcc'];
+        const rawHint = entry['push_acc_hint'] ?? entry['pushAccHint'] ?? entry['push_end'] ?? entry['pushEnd'];
+        const hint = rawHint && typeof rawHint === 'object' ? (rawHint as Record<string, unknown>) : null;
+        const hintType = hint && typeof hint.type === 'string' ? hint.type : null;
+        const hintAcc = hint ? normalizeOptionalNumber(hint.acc) : undefined;
+
+        const unreachable = entry['unreachable'] === true || hintType === 'unreachable';
+        const phi_only = entry['phi_only'] === true || hintType === 'phi_only';
+        const already_phi = entry['already_phi'] === true || hintType === 'already_phi';
+
+        const parsedPushAcc = normalizeOptionalNumber(rawPushAcc);
+        const push_acc = parsedPushAcc === undefined ? hintAcc : parsedPushAcc;
+
         records.push({
           song_name: songName,
           difficulty,
@@ -116,6 +147,10 @@ export class ScoreAPI {
           acc: accuracy,
           score,
           rks: calculateRks(accuracy, chartConstant),
+          ...(push_acc === undefined ? {} : { push_acc }),
+          unreachable,
+          phi_only,
+          already_phi,
         });
       }
     }

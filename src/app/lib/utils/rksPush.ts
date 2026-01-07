@@ -63,6 +63,24 @@ export function attachRksPushAcc(records: RksRecord[], options?: AttachOptions):
     const acc = normalizeFiniteNumber(record.acc);
     const constant = normalizeFiniteNumber(record.difficulty_value);
 
+    // 若后端已提供推分ACC/状态字段，则优先使用后端结果；
+    // 仅在字段缺失时才做前端兜底计算（避免“算两遍”导致口径不一致）。
+    const hasServerPushAcc = typeof record.push_acc === 'number' && Number.isFinite(record.push_acc);
+    const hasServerHint = record.unreachable === true || record.phi_only === true || record.already_phi === true;
+
+    if (hasServerPushAcc || hasServerHint) {
+      const alreadyPhi = acc >= 100 - EPS || record.already_phi === true;
+      const unreachable = !alreadyPhi && record.unreachable === true;
+      const phiOnly = !alreadyPhi && !unreachable && record.phi_only === true;
+
+      return {
+        ...record,
+        unreachable,
+        phi_only: phiOnly,
+        already_phi: alreadyPhi,
+      };
+    }
+
     const already_phi = acc >= 100 - EPS;
 
     if (already_phi) {

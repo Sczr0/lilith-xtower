@@ -265,3 +265,109 @@ describe('ScoreAPI.getDailyFeatures', () => {
     expect(result).toEqual(expected);
   });
 });
+
+describe('ScoreAPI.getRksList', () => {
+  it('parses push_acc and hint flags from save response', async () => {
+    const apiResponse = {
+      save: {
+        gameRecord: {
+          SongA: [
+            {
+              difficulty: 'IN',
+              accuracy: 99.70587921142578,
+              chart_constant: 15.6,
+              is_full_combo: true,
+              push_acc: 99.798,
+              push_acc_hint: { acc: 99.798, type: 'target_acc' },
+              score: 997353,
+            },
+            {
+              difficulty: 'EZ',
+              accuracy: 100,
+              chart_constant: 1.5,
+              is_full_combo: true,
+              push_acc: 100,
+              push_end: { type: 'already_phi' },
+              score: 1000000,
+            },
+            {
+              difficulty: 'HD',
+              accuracy: 99,
+              chart_constant: 12,
+              push_acc: 100,
+              push_acc_hint: { type: 'phi_only' },
+              score: 900000,
+            },
+            {
+              difficulty: 'AT',
+              accuracy: 97,
+              chart_constant: 11,
+              push_acc: null,
+              push_acc_hint: { type: 'unreachable' },
+              score: 800000,
+            },
+          ],
+        },
+      },
+    };
+
+    const mockFetch = createFetchMock(apiResponse);
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+
+    const credential = { type: 'session', token: 'dummy', timestamp: 1 } as const;
+
+    const originalLocalStorage = (globalThis as unknown as { localStorage?: unknown }).localStorage;
+    (globalThis as unknown as { localStorage?: unknown }).localStorage = {
+      getItem() {
+        return null;
+      },
+      setItem() {},
+      removeItem() {},
+      clear() {},
+      key() {
+        return null;
+      },
+      get length() {
+        return 0;
+      },
+    };
+
+    let result: Awaited<ReturnType<typeof ScoreAPI.getRksList>>;
+    try {
+      result = await ScoreAPI.getRksList(credential);
+    } finally {
+      if (originalLocalStorage === undefined) {
+        delete (globalThis as unknown as { localStorage?: unknown }).localStorage;
+      } else {
+        (globalThis as unknown as { localStorage?: unknown }).localStorage = originalLocalStorage;
+      }
+    }
+
+    const find = (difficulty: 'EZ' | 'HD' | 'IN' | 'AT') =>
+      result.data.records.find((r) => r.song_name === 'SongA' && r.difficulty === difficulty);
+
+    const inRec = find('IN');
+    expect(inRec?.push_acc).toBeCloseTo(99.798, 6);
+    expect(inRec?.unreachable).toBe(false);
+    expect(inRec?.phi_only).toBe(false);
+    expect(inRec?.already_phi).toBe(false);
+
+    const ezRec = find('EZ');
+    expect(ezRec?.push_acc).toBe(100);
+    expect(ezRec?.already_phi).toBe(true);
+    expect(ezRec?.unreachable).toBe(false);
+    expect(ezRec?.phi_only).toBe(false);
+
+    const hdRec = find('HD');
+    expect(hdRec?.push_acc).toBe(100);
+    expect(hdRec?.phi_only).toBe(true);
+    expect(hdRec?.unreachable).toBe(false);
+    expect(hdRec?.already_phi).toBe(false);
+
+    const atRec = find('AT');
+    expect(atRec?.push_acc).toBeNull();
+    expect(atRec?.unreachable).toBe(true);
+    expect(atRec?.phi_only).toBe(false);
+    expect(atRec?.already_phi).toBe(false);
+  });
+});
