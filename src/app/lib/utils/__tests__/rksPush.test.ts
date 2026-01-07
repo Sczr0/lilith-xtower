@@ -78,13 +78,12 @@ describe('attachRksPushAcc', () => {
     expect(alreadyPhi.already_phi).toBe(true);
     expect(alreadyPhi.push_acc).toBeNull();
 
-    // 已在推分线以上的谱面不应给出 push_acc
+    // Best27 内的谱面也应给出“达到推分线所需的最低 ACC”
     const inBest27 = findBySong(res.records, 'Base_Line');
     expect(inBest27.rks).toBeCloseTo(12.0, 8);
-    expect(inBest27.push_acc).toBeNull();
+    expect(inBest27.push_acc).toBeCloseTo(accForRks(12.0, constant), 8);
     expect(inBest27.unreachable).toBe(false);
     expect(inBest27.phi_only).toBe(false);
     expect(inBest27.already_phi).toBe(false);
   });
 });
-

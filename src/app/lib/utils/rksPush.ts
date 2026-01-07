@@ -61,7 +61,6 @@ export function attachRksPushAcc(records: RksRecord[], options?: AttachOptions):
 
   const patched = records.map((record) => {
     const acc = normalizeFiniteNumber(record.acc);
-    const rks = normalizeFiniteNumber(record.rks);
     const constant = normalizeFiniteNumber(record.difficulty_value);
 
     const already_phi = acc >= 100 - EPS;
@@ -76,8 +75,8 @@ export function attachRksPushAcc(records: RksRecord[], options?: AttachOptions):
       };
     }
 
-    // 已在推分线以上（或推分线缺失）则不展示“推分ACC”（避免给出无意义的低值）。
-    if (pushLineRks <= 0 || rks >= pushLineRks - EPS) {
+    // 推分线缺失（例如不足 Best27）时无法计算推分ACC。
+    if (pushLineRks <= 0) {
       return {
         ...record,
         push_acc: null,
