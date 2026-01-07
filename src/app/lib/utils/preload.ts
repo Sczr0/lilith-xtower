@@ -6,6 +6,7 @@
 import type { AuthCredential } from '../types/auth';
 import { buildAuthRequestBody } from '../api/auth';
 import { LeaderboardAPI } from '../api/leaderboard';
+import { LEADERBOARD_TOP_LIMIT_DEFAULT } from '../constants/leaderboard';
 
 // 预取缓存，避免重复请求
 const prefetchCache = new Map<string, { data: unknown; timestamp: number }>();
@@ -134,7 +135,7 @@ export async function prefetchRksData(credential: AuthCredential): Promise<void>
 /**
  * 预取排行榜数据
  */
-export async function prefetchLeaderboard(limit = 20): Promise<void> {
+export async function prefetchLeaderboard(limit = LEADERBOARD_TOP_LIMIT_DEFAULT): Promise<void> {
   if (!shouldPreload()) return;
   
   const key = `leaderboard_top_${limit}`;

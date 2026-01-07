@@ -11,6 +11,7 @@ import {
   prefetchLeaderboard,
   prefetchServiceStats,
 } from '../lib/utils/preload';
+import { LEADERBOARD_TOP_LIMIT_DEFAULT } from '../lib/constants/leaderboard';
 
 /**
  * 预加载链接组件
@@ -42,7 +43,7 @@ export function PreloadLinks() {
       if (isAuthenticated) {
         prefetchPage('/dashboard');
         // 预取排行榜数据
-        prefetchLeaderboard(20);
+        prefetchLeaderboard(LEADERBOARD_TOP_LIMIT_DEFAULT);
         // 预取服务统计
         prefetchServiceStats();
       }

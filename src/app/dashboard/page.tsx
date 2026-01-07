@@ -9,6 +9,7 @@ import { AnnouncementModal } from '../components/AnnouncementModal';
 import { ServiceStats } from '../components/ServiceStats';
 import { MenuGuide } from './components/MenuGuide';
 import { getPrefetchedData, prefetchRksData, prefetchLeaderboard, prefetchServiceStats, runWhenIdle, shouldPreload, prefetchPage } from '../lib/utils/preload';
+import { LEADERBOARD_TOP_LIMIT_DEFAULT } from '../lib/constants/leaderboard';
 
 // 按需动态加载各功能组件，避免首屏加载与执行过多 JS
 const BnImageGenerator = dynamic(() => import('../components/BnImageGenerator').then(m => m.BnImageGenerator), { ssr: false, loading: () => null });
@@ -140,9 +141,9 @@ export default function Dashboard() {
         }
 
         // 预取排行榜数据
-        const leaderboardKey = 'leaderboard_top_20';
+        const leaderboardKey = `leaderboard_top_${LEADERBOARD_TOP_LIMIT_DEFAULT}`;
         if (!getPrefetchedData(leaderboardKey)) {
-          prefetchLeaderboard(20);
+          prefetchLeaderboard(LEADERBOARD_TOP_LIMIT_DEFAULT);
         }
 
         // 预取服务统计数据

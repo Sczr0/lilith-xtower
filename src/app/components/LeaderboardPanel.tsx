@@ -3,14 +3,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { LeaderboardAPI } from '../lib/api/leaderboard';
+import { LEADERBOARD_TOP_LIMIT_DEFAULT, LEADERBOARD_TOP_LIMIT_OPTIONS, normalizeLeaderboardTopLimit } from '../lib/constants/leaderboard';
 import { formatFixedNumber, parseFiniteNumber } from '../lib/utils/number';
 import type {
   LeaderboardMeResponse,
   LeaderboardTopItem,
   PublicProfileResponse,
 } from '../lib/types/leaderboard';
+import { StyledSelect } from './ui/Select';
 
-const TOP_PAGE_SIZE = 20;
+const LEADERBOARD_TOP_LIMIT_STORAGE_KEY = 'leaderboard_top_page_size_v1';
+const TOP_LIMIT_SELECT_OPTIONS = LEADERBOARD_TOP_LIMIT_OPTIONS.map((limit) => ({
+  label: `${limit} 名/次`,
+  value: String(limit),
+}));
 
 // 说明：以下 localStorage 仅用于本浏览器的回显与“未保存”判断，并不代表服务器当前真实状态。
 const LEADERBOARD_ALIAS_STORAGE_KEY = 'leaderboard_alias_v1';
@@ -162,6 +168,15 @@ const renderChartItems = (items: PublicProfileResponse['apTop3']) => {
 export function LeaderboardPanel() {
   const { credential } = useAuth();
 
+  const [topPageSize, setTopPageSize] = useState(() => {
+    if (typeof window === 'undefined') return LEADERBOARD_TOP_LIMIT_DEFAULT;
+    try {
+      return normalizeLeaderboardTopLimit(localStorage.getItem(LEADERBOARD_TOP_LIMIT_STORAGE_KEY));
+    } catch {
+      return LEADERBOARD_TOP_LIMIT_DEFAULT;
+    }
+  });
+
   const [topItems, setTopItems] = useState<LeaderboardTopItem[]>([]);
   const [topTotal, setTopTotal] = useState<number | null>(null);
   const [isTopLoading, setIsTopLoading] = useState(false);
@@ -241,7 +256,7 @@ export function LeaderboardPanel() {
     try {
       const offset = reset ? 0 : topOffsetRef.current;
       const data = await LeaderboardAPI.getTop({
-        limit: TOP_PAGE_SIZE,
+        limit: topPageSize,
         offset,
       });
 
@@ -274,7 +289,7 @@ export function LeaderboardPanel() {
     } finally {
       setIsTopLoading(false);
     }
-  }, []);
+  }, [topPageSize]);
 
   useEffect(() => {
     loadTop(true).catch(() => {});
@@ -286,6 +301,14 @@ export function LeaderboardPanel() {
 
   const handleLoadMore = () => {
     loadTop(false).catch(() => {});
+  };
+
+  const handleTopPageSizeChange = (value: string) => {
+    const next = normalizeLeaderboardTopLimit(value);
+    setTopPageSize(next);
+    try {
+      localStorage.setItem(LEADERBOARD_TOP_LIMIT_STORAGE_KEY, String(next));
+    } catch {}
   };
 
   const handleFetchMyRank = async () => {
@@ -892,6 +915,18 @@ export function LeaderboardPanel() {
             {copyHint && <p className="mt-2 text-xs text-emerald-700 dark:text-emerald-300">{copyHint}</p>}
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white/60 px-3 py-2 text-xs text-gray-600 dark:border-neutral-700 dark:bg-neutral-900/40 dark:text-gray-300">
+              <span className="font-medium">每次加载</span>
+              <div className="w-28">
+                <StyledSelect
+                  size="sm"
+                  value={String(topPageSize)}
+                  onValueChange={handleTopPageSizeChange}
+                  options={TOP_LIMIT_SELECT_OPTIONS}
+                  disabled={isTopLoading}
+                />
+              </div>
+            </div>
             <button
               type="button"
               onClick={handleRefreshTop}
