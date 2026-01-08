@@ -14,6 +14,7 @@ import { RksHistoryPanel } from './RksHistoryPanel';
 import { filterSortLimitRksRecords, type RksSortBy, type RksSortOrder } from '../lib/utils/rksRecords';
 import { formatFixedNumber, formatLocaleNumber, parseFiniteNumber } from '../lib/utils/number';
 import { attachRksPushAcc } from '../lib/utils/rksPush';
+import { exportTabularDataToCsv, exportTabularDataToTsv } from '../lib/utils/tabularExport';
 
 const parseNumberOrNull = (value: string): number | null => {
   const raw = value.trim();
@@ -77,6 +78,9 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
   const [records, setRecords] = useState<RksRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
+  const [lastUpdatedSource, setLastUpdatedSource] = useState<'cache' | 'network' | null>(null);
+  const [copyHint, setCopyHint] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<RksSortBy>('rks');
   const [sortOrder, setSortOrder] = useState<RksSortOrder>('desc');
   const [filterDifficulty, setFilterDifficulty] = useState<'all' | 'EZ' | 'HD' | 'IN' | 'AT'>('all');
@@ -115,6 +119,11 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
             } else {
               setRecords(sanitized);
               hasCachedRecords = true;
+              const ts = typeof entry.ts === 'number' && Number.isFinite(entry.ts) && entry.ts > 0 ? entry.ts : null;
+              if (ts !== null) {
+                setLastUpdatedAt(ts);
+                setLastUpdatedSource('cache');
+              }
 
               // 若过滤后数量变化，回写清理后的缓存，避免下次再次触发
               if (Array.isArray(entry.records) && sanitized.length !== entry.records.length) {
@@ -149,12 +158,14 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
       const response = await ScoreAPI.getRksList(credential);
       const newRecords = response.data.records || [];
       setRecords(newRecords);
+      const now = Date.now();
+      setLastUpdatedAt(now);
+      setLastUpdatedSource('network');
       try {
         const ownerKey = getOwnerKey(credential as AuthCredential);
         if (ownerKey) {
           const cached = localStorage.getItem(CACHE_KEY);
           const map = (cached ? JSON.parse(cached) : {}) as Record<string, { records: RksRecord[]; ts: number }>;
-          const now = Date.now();
           map[ownerKey] = { records: newRecords, ts: now };
           localStorage.setItem(CACHE_KEY, JSON.stringify(map));
         }
@@ -258,6 +269,137 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
     limitCount,
   ]);
 
+  const formatDateTime = (ts: number) => {
+    try {
+      return new Date(ts).toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return String(ts);
+    }
+  };
+
+  const copyText = async (value: string, label?: string) => {
+    const text = value.trim();
+    if (!text) return;
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const el = document.createElement('textarea');
+        el.value = text;
+        el.setAttribute('readonly', 'true');
+        el.style.position = 'fixed';
+        el.style.left = '-9999px';
+        el.style.top = '-9999px';
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+      }
+      setCopyHint(`已复制${label ? `：${label}` : ''}`);
+    } catch {
+      setCopyHint('复制失败，请手动复制');
+    } finally {
+      window.setTimeout(() => setCopyHint(null), 1600);
+    }
+  };
+
+  const openSongQuery = (songName: string) => {
+    if (typeof window === 'undefined') return;
+    const q = songName.trim();
+    if (!q) return;
+
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', 'single-query');
+      url.searchParams.set('song', q);
+      window.location.assign(url.toString());
+    } catch {
+      window.location.assign(`/dashboard?tab=single-query&song=${encodeURIComponent(q)}`);
+    }
+  };
+
+  const getRecordStatus = (record: RksRecord) => {
+    if (record.already_phi) return '已满ACC';
+    if (record.unreachable) return '不可推分';
+    if (record.phi_only) return '需Phi';
+    if (typeof record.push_acc === 'number' && Number.isFinite(record.push_acc)) return '可推分';
+    return '';
+  };
+
+  const buildExportData = () => {
+    return {
+      headers: ['排名', '歌曲', '难度', '定数', '分数', '准确率(%)', '推分ACC(%)', '单曲RKS', '状态'],
+      rows: filteredResult.records.map((record, index) => [
+        index + 1,
+        record.song_name,
+        record.difficulty,
+        formatFixedNumber(record.difficulty_value, 1, ''),
+        record.score,
+        formatFixedNumber(record.acc, 2, ''),
+        typeof record.push_acc === 'number' && Number.isFinite(record.push_acc) ? formatFixedNumber(record.push_acc, 2, '') : '',
+        formatFixedNumber(record.rks, 4, ''),
+        getRecordStatus(record),
+      ]),
+    };
+  };
+
+  const buildExportFilename = (ext: 'csv' | 'tsv') => {
+    try {
+      const d = new Date();
+      const pad2 = (value: number) => String(value).padStart(2, '0');
+      const y = d.getFullYear();
+      const m = pad2(d.getMonth() + 1);
+      const day = pad2(d.getDate());
+      const hh = pad2(d.getHours());
+      const mm = pad2(d.getMinutes());
+      return `rks-records-${y}${m}${day}-${hh}${mm}.${ext}`;
+    } catch {
+      return `rks-records.${ext}`;
+    }
+  };
+
+  const downloadTextFile = (content: string, filename: string, mime: string) => {
+    try {
+      const blob = new Blob([content], { type: mime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      setCopyHint('下载失败，请稍后重试');
+      window.setTimeout(() => setCopyHint(null), 1600);
+    }
+  };
+
+  const handleDownloadCsv = () => {
+    const data = buildExportData();
+    const csv = exportTabularDataToCsv(data, { bom: true, eol: '\r\n' });
+    downloadTextFile(csv, buildExportFilename('csv'), 'text/csv;charset=utf-8');
+  };
+
+  const handleDownloadExcel = () => {
+    const data = buildExportData();
+    const tsv = exportTabularDataToTsv(data, { bom: true, eol: '\r\n' });
+    downloadTextFile(tsv, buildExportFilename('tsv'), 'text/tab-separated-values;charset=utf-8');
+  };
+
+  const handleCopyTable = async () => {
+    const data = buildExportData();
+    const tsv = exportTabularDataToTsv(data, { bom: false, eol: '\n' });
+    await copyText(tsv, '表格');
+  };
+
   return (
     <div className="w-full max-w-6xl mx-auto">
       {/* RKS 历史变化面板 */}
@@ -265,17 +407,67 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
 
       {/* RKS 成绩列表 */}
       <section className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md border border-gray-200/60 dark:border-gray-700/60 rounded-2xl p-6 shadow-lg">
-        <div className="mb-6">
-          {showTitle && (
-            <h2 className="text-2xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
-              RKS 成绩列表
-            </h2>
-          )}
-          {showDescription && (
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            查看所有歌曲的详细成绩和 RKS 计算值。
-          </p>
-          )}
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            {showTitle && (
+              <h2 className="text-2xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
+                RKS 成绩列表
+              </h2>
+            )}
+            {showDescription && (
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                查看所有歌曲的详细成绩和 RKS 计算值。
+              </p>
+            )}
+            {lastUpdatedAt !== null && (
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                更新时间：{formatDateTime(lastUpdatedAt)}
+                {lastUpdatedSource === 'cache' ? '（缓存）' : lastUpdatedSource === 'network' ? '（网络）' : ''}
+              </p>
+            )}
+          </div>
+          <div className="flex flex-col items-start gap-1 sm:items-end">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                disabled={!credential || isLoading}
+                onClick={() => loadRecords({ showLoading: true })}
+                className="inline-flex items-center justify-center rounded-lg border border-gray-300 dark:border-gray-700 bg-white/70 dark:bg-gray-900/50 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                title={!credential ? '未找到登录凭证' : undefined}
+              >
+                刷新
+              </button>
+              <button
+                type="button"
+                disabled={isLoading || filteredResult.records.length === 0}
+                onClick={handleCopyTable}
+                className="inline-flex items-center justify-center rounded-lg border border-gray-300 dark:border-gray-700 bg-white/70 dark:bg-gray-900/50 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                title="复制为 TSV，可直接粘贴到 Excel/表格"
+              >
+                复制表格
+              </button>
+              <button
+                type="button"
+                disabled={isLoading || filteredResult.records.length === 0}
+                onClick={handleDownloadCsv}
+                className="inline-flex items-center justify-center rounded-lg border border-gray-300 dark:border-gray-700 bg-white/70 dark:bg-gray-900/50 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                下载 CSV
+              </button>
+              <button
+                type="button"
+                disabled={isLoading || filteredResult.records.length === 0}
+                onClick={handleDownloadExcel}
+                className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-300"
+                title="导出为 TSV（Excel 可直接打开）"
+              >
+                下载 Excel
+              </button>
+            </div>
+            {copyHint && (
+              <p className="text-xs text-emerald-700 dark:text-emerald-300">{copyHint}</p>
+            )}
+          </div>
         </div>
 
       {/* Filters and Search */}
@@ -477,12 +669,28 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
           {/* Mobile: Card list */}
           <div className="grid grid-cols-1 gap-3 md:hidden">
             {filteredResult.records.map((record, index) => (
-              <ScoreCard
+              <div
                 key={`${record.song_name}|${record.difficulty}|${record.difficulty_value}|${record.score}`}
-                record={record}
-                rank={index + 1}
-                nameMaxLines={2}
-              />
+                className="space-y-2"
+              >
+                <ScoreCard record={record} rank={index + 1} nameMaxLines={2} />
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => copyText(record.song_name, '歌名')}
+                    className="inline-flex items-center justify-center rounded-lg border border-gray-300 dark:border-gray-700 bg-white/70 dark:bg-gray-900/50 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
+                  >
+                    复制歌名
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openSongQuery(record.song_name)}
+                    className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500"
+                  >
+                    单曲查询
+                  </button>
+                </div>
+              </div>
             ))}
           </div>
 
@@ -517,6 +725,9 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
                   </th>
                   <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">
                     单曲RKS
+                  </th>
+                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    操作
                   </th>
                 </tr>
               </thead>
@@ -560,6 +771,24 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
                     </td>
                     <td className="py-3 px-4 text-center text-sm font-semibold text-blue-600 dark:text-blue-400">
                       {formatFixedNumber(record.rks, 4)}
+                    </td>
+                    <td className="py-3 px-4 text-center text-sm">
+                      <div className="inline-flex flex-wrap items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => copyText(record.song_name, '歌名')}
+                          className="inline-flex items-center justify-center rounded-lg border border-gray-300 dark:border-gray-700 bg-white/70 dark:bg-gray-900/50 px-2.5 py-1.5 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
+                        >
+                          复制
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openSongQuery(record.song_name)}
+                          className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-500"
+                        >
+                          查询
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

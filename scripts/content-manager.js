@@ -9,9 +9,11 @@
 const prompts = require('prompts');
 const fs = require('fs');
 const path = require('path');
+const { spawn } = require('child_process');
 const yaml = require('js-yaml');
 
 const CONTENT_DIR = path.join(__dirname, '../src/app/content');
+const MAINTENANCE_CONFIG_PATH = path.join(__dirname, '../src/app/config/maintenance.config.ts');
 
 // 主菜单
 async function main() {
@@ -68,7 +70,7 @@ async function main() {
       await maintenanceConfigMenu();
       break;
     case 'edit':
-      console.log('\n💡 提示: 请直接编辑 src/app/content/ 目录下的 .md 文件\n');
+      await editContentMenu();
       break;
   }
 
@@ -85,6 +87,179 @@ async function main() {
   } else {
     console.log('\n👋 再见！\n');
   }
+}
+
+// 使用系统默认文本编辑器打开文件（Windows 默认 Notepad）
+async function openFileInEditor(filePath, options = {}) {
+  const resolved = path.resolve(filePath);
+  const wait = options.wait !== false;
+
+  if (!fs.existsSync(resolved)) {
+    console.log(`❌ 文件不存在: ${resolved}`);
+    return;
+  }
+
+  // Windows：优先 Notepad（可等待关闭，适合“创建后继续流程”的场景）
+  if (process.platform === 'win32') {
+    if (wait) {
+      await spawnAndWait('notepad.exe', [resolved]);
+    } else {
+      const child = spawn('notepad.exe', [resolved], { stdio: 'ignore', detached: true });
+      child.unref();
+    }
+    return;
+  }
+
+  // 其他平台：使用系统默认打开方式（无法可靠等待进程退出，因此改为确认继续）
+  const opener = process.platform === 'darwin' ? 'open' : 'xdg-open';
+  try {
+    const child = spawn(opener, [resolved], { stdio: 'ignore', detached: true });
+    child.unref();
+  } catch (e) {
+    console.log(`❌ 打开编辑器失败: ${e?.message || e}`);
+    return;
+  }
+
+  if (wait) {
+    await prompts({
+      type: 'confirm',
+      name: 'done',
+      message: '文件已打开：请在编辑器中保存后再继续。继续?',
+      initial: true
+    });
+  }
+}
+
+function spawnAndWait(command, args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { stdio: 'inherit' });
+    child.on('error', reject);
+    child.on('exit', () => resolve());
+  });
+}
+
+// 打开文件夹（Windows: 资源管理器；macOS/Linux: 系统默认方式）
+async function openPathInFileManager(targetPath) {
+  const resolved = path.resolve(targetPath);
+  if (!fs.existsSync(resolved)) {
+    console.log(`❌ 路径不存在: ${resolved}`);
+    return;
+  }
+
+  if (process.platform === 'win32') {
+    const child = spawn('explorer.exe', [resolved], { stdio: 'ignore', detached: true });
+    child.unref();
+    return;
+  }
+
+  const opener = process.platform === 'darwin' ? 'open' : 'xdg-open';
+  const child = spawn(opener, [resolved], { stdio: 'ignore', detached: true });
+  child.unref();
+}
+
+// 校验 Markdown 是否有正文内容（front-matter 之后）
+async function validateMarkdownBodyNotEmpty(filePath, label) {
+  try {
+    const fileContent = fs.readFileSync(filePath, 'utf-8');
+    const { content } = require('gray-matter')(fileContent);
+    const body = String(content || '').trim();
+    if (body.length > 0) return true;
+
+    const { keep } = await prompts({
+      type: 'confirm',
+      name: 'keep',
+      message: `检测到${label}正文为空，仍然保留该文件吗?`,
+      initial: false
+    });
+
+    if (!keep) {
+      fs.unlinkSync(filePath);
+      console.log(`\n🗑️ 已删除空文件: ${path.basename(filePath)}\n`);
+      return false;
+    }
+
+    return true;
+  } catch (e) {
+    console.log(`⚠️ 无法校验正文是否为空: ${e?.message || e}`);
+    return true;
+  }
+}
+
+// 选择并打开内容文件
+async function editContentMenu() {
+  const { section } = await prompts({
+    type: 'select',
+    name: 'section',
+    message: '选择要打开的内容',
+    choices: [
+      { title: '📢 公告', value: 'announcements' },
+      { title: '🎵 新曲速递', value: 'song-updates' },
+      { title: '❓ 常见问题', value: 'qa' },
+      { title: '🛠️  维护配置文件', value: 'maintenance' },
+      { title: '📁 打开 content 目录', value: 'open-dir' },
+      { title: '⬅️ 返回', value: 'back' }
+    ]
+  });
+
+  if (!section || section === 'back') return;
+
+  if (section === 'open-dir') {
+    await openPathInFileManager(CONTENT_DIR);
+    return;
+  }
+
+  if (section === 'maintenance') {
+    await openFileInEditor(MAINTENANCE_CONFIG_PATH, { wait: true });
+    return;
+  }
+
+  const dir = path.join(CONTENT_DIR, section);
+  const picked = await pickMarkdownFile(dir, section);
+  if (!picked) return;
+  await openFileInEditor(picked, { wait: true });
+}
+
+async function pickMarkdownFile(dir, section) {
+  if (!fs.existsSync(dir)) {
+    console.log('\n📭 目录不存在\n');
+    console.log(`   ${dir}\n`);
+    return null;
+  }
+
+  const files = fs.readdirSync(dir).filter(f => f.endsWith('.md')).sort((a, b) => b.localeCompare(a));
+  if (files.length === 0) {
+    console.log('\n📭 暂无可编辑文件\n');
+    return null;
+  }
+
+  const label = section === 'announcements' ? '公告' : section === 'song-updates' ? '新曲速递' : '常见问题';
+
+  const items = files.map((file) => {
+    const filepath = path.join(dir, file);
+    let title = file;
+    try {
+      const fileContent = fs.readFileSync(filepath, 'utf-8');
+      const { data } = require('gray-matter')(fileContent);
+      if (section === 'announcements' && data.title) title = `📢 ${data.title}`;
+      if (section === 'song-updates' && data.version) title = `🎵 Phigros ${data.version}`;
+      if (section === 'qa' && data.question) title = `❓ ${data.question}`;
+    } catch {
+      // ignore
+    }
+    return { title, file, filepath };
+  });
+
+  const { selected } = await prompts({
+    type: 'select',
+    name: 'selected',
+    message: `选择要打开的${label}文件:`,
+    choices: items.map((it, index) => ({
+      title: `${index + 1}. ${it.title} (${it.file})`,
+      value: it.filepath
+    }))
+  });
+
+  return selected || null;
 }
 
 // 添加公告
@@ -123,16 +298,10 @@ async function addAnnouncement() {
       name: 'dismissible',
       message: '允许用户"不再提示"?',
       initial: true
-    },
-    {
-      type: 'text',
-      name: 'content',
-      message: '公告内容 (支持Markdown格式):',
-      validate: v => v.length > 0 || '内容不能为空'
     }
   ]);
 
-  if (!response.title || !response.content) {
+  if (!response.title) {
     console.log('❌ 操作已取消');
     return;
   }
@@ -169,15 +338,16 @@ async function addAnnouncement() {
     priority: response.priority
   };
 
-  const content = `---
-${yaml.dump(frontMatter, { lineWidth: -1 })}---
+  const templateBody = `<!-- 请在此处编写公告内容，支持 Markdown -->\n`;
+  const content = `---\n${yaml.dump(frontMatter, { lineWidth: -1 })}---\n\n${templateBody}`;
 
-${response.content}
-`;
-
+  fs.mkdirSync(path.dirname(filepath), { recursive: true });
   fs.writeFileSync(filepath, content, 'utf-8');
   console.log(`\n✅ 公告已创建: ${filename}\n`);
   console.log(`📁 文件路径: ${filepath}\n`);
+  console.log('📝 已为你打开默认文本编辑器，请编辑后保存并关闭。\n');
+  await openFileInEditor(filepath, { wait: true });
+  await validateMarkdownBodyNotEmpty(filepath, '公告');
 }
 
 // 添加新曲速递
@@ -686,16 +856,10 @@ async function addQA() {
       initial: 999,
       min: 1,
       max: 9999
-    },
-    {
-      type: 'text',
-      name: 'answer',
-      message: '答案内容 (支持Markdown格式):',
-      validate: v => v.length > 0 || '答案不能为空'
     }
   ]);
 
-  if (!response.question || !response.answer) {
+  if (!response.question) {
     console.log('❌ 操作已取消');
     return;
   }
@@ -730,15 +894,16 @@ async function addQA() {
     createdAt: now.toISOString()
   };
 
-  const content = `---
-${yaml.dump(frontMatter, { lineWidth: -1 })}---
+  const templateBody = `<!-- 请在此处编写答案内容，支持 Markdown -->\n`;
+  const content = `---\n${yaml.dump(frontMatter, { lineWidth: -1 })}---\n\n${templateBody}`;
 
-${response.answer}
-`;
-
+  fs.mkdirSync(path.dirname(filepath), { recursive: true });
   fs.writeFileSync(filepath, content, 'utf-8');
   console.log(`\n✅ 常见问题已创建: ${filename}\n`);
   console.log(`📁 文件路径: ${filepath}\n`);
+  console.log('📝 已为你打开默认文本编辑器，请编辑后保存并关闭。\n');
+  await openFileInEditor(filepath, { wait: true });
+  await validateMarkdownBodyNotEmpty(filepath, '常见问题');
 }
 
 // 列出所有常见问题
@@ -854,6 +1019,7 @@ async function maintenanceConfigMenu() {
     choices: [
       { title: '👁️  查看当前配置', value: 'view' },
       { title: '✏️  编辑配置', value: 'edit' },
+      { title: '📝  用编辑器打开配置文件', value: 'open-file' },
       { title: '🔄 快速测试（立即进入维护）', value: 'quick-test' },
       { title: '↩️  返回主菜单', value: 'back' }
     ]
@@ -869,6 +1035,9 @@ async function maintenanceConfigMenu() {
       break;
     case 'edit':
       await editMaintenanceConfig();
+      break;
+    case 'open-file':
+      await openFileInEditor(MAINTENANCE_CONFIG_PATH, { wait: true });
       break;
     case 'quick-test':
       await quickTestMaintenance();
@@ -1096,8 +1265,7 @@ async function quickTestMaintenance() {
 
 // 读取维护配置
 function readMaintenanceConfig() {
-  const configPath = path.join(__dirname, '../src/app/config/maintenance.config.ts');
-  const content = fs.readFileSync(configPath, 'utf-8');
+  const content = fs.readFileSync(MAINTENANCE_CONFIG_PATH, 'utf-8');
   
   // 简单的配置解析
   const config = {
@@ -1122,8 +1290,6 @@ function extractMultilineString(content, key) {
 
 // 写入维护配置
 function writeMaintenanceConfig(config) {
-  const configPath = path.join(__dirname, '../src/app/config/maintenance.config.ts');
-  
   const content = `/**
  * 维护模式配置
  * 
@@ -1204,7 +1370,7 @@ export function shouldShowMaintenanceBanner(): boolean {
 }
 `;
 
-  fs.writeFileSync(configPath, content, 'utf-8');
+  fs.writeFileSync(MAINTENANCE_CONFIG_PATH, content, 'utf-8');
 }
 
 // 工具函数: 将 Date 转换为本地时间的 ISO 字符串（YYYY-MM-DDTHH:mm:ss）

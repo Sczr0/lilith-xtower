@@ -18,6 +18,18 @@ export function SongSearchGenerator({ showTitle = true, showDescription = true }
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const value = params.get('song') || params.get('q');
+      const next = value?.trim() ?? '';
+      if (next) {
+        setSongQuery(next);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
     return () => {
       if (imageUrl) {
         URL.revokeObjectURL(imageUrl);
