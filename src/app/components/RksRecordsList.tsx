@@ -1,13 +1,12 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { RotatingTips } from './RotatingTips';
 import { useAuth } from '../contexts/AuthContext';
 import { ScoreAPI } from '../lib/api/score';
 import { RksRecord } from '../lib/types/score';
 import { DIFFICULTY_BG, DIFFICULTY_TEXT } from '../lib/constants/difficultyColors';
 import { ScoreCard } from './ScoreCard';
-import type { AuthCredential } from '../lib/types/auth';
 import { getOwnerKey } from '../lib/utils/cache';
 import { StyledSelect } from './ui/Select';
 import { RksHistoryPanel } from './RksHistoryPanel';
@@ -16,18 +15,83 @@ import { formatFixedNumber, formatLocaleNumber, parseFiniteNumber } from '../lib
 import { attachRksPushAcc } from '../lib/utils/rksPush';
 import { exportTabularDataToCsv, exportTabularDataToTsv } from '../lib/utils/tabularExport';
 
-const parseNumberOrNull = (value: string): number | null => {
-  const raw = value.trim();
-  if (!raw) return null;
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) ? parsed : null;
+type ParsedFilterNumber = {
+  value: number | null;
+  error: string | null;
 };
 
-const parseIntegerOrNull = (value: string): number | null => {
-  const raw = value.trim();
-  if (!raw) return null;
-  const parsed = Number.parseInt(raw, 10);
-  return Number.isFinite(parsed) ? parsed : null;
+function parseFilterNumber(raw: string, options?: { integer?: boolean; min?: number; max?: number }): ParsedFilterNumber {
+  const text = raw.trim();
+  if (!text) return { value: null, error: null };
+
+  // 兼容用户粘贴带千分位分隔符的数字（如 10,000）
+  const normalized = text.replace(/,/g, '');
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed)) return { value: null, error: '请输入有效数字' };
+
+  if (options?.integer && !Number.isInteger(parsed)) {
+    return { value: parsed, error: '请输入整数' };
+  }
+
+  if (typeof options?.min === 'number' && Number.isFinite(options.min) && parsed < options.min) {
+    return { value: parsed, error: `不能小于 ${options.min}` };
+  }
+
+  if (typeof options?.max === 'number' && Number.isFinite(options.max) && parsed > options.max) {
+    return { value: parsed, error: `不能大于 ${options.max}` };
+  }
+
+  return { value: parsed, error: null };
+}
+
+type RksFiltersSnapshot = {
+  searchQuery: string;
+  filterDifficulty: 'all' | 'EZ' | 'HD' | 'IN' | 'AT';
+  sortBy: RksSortBy;
+  sortOrder: RksSortOrder;
+  minRks: string;
+  maxRks: string;
+  minAcc: string;
+  maxAcc: string;
+  minDifficultyValue: string;
+  maxDifficultyValue: string;
+  minScore: string;
+  maxScore: string;
+  onlyPositiveRks: boolean;
+  limitCount: string;
+};
+
+const sanitizeCachedRksFilters = (raw: unknown): RksFiltersSnapshot | null => {
+  if (!raw || typeof raw !== 'object') return null;
+  const entry = raw as Record<string, unknown>;
+
+  const filterDifficulty = entry.filterDifficulty;
+  const sortBy = entry.sortBy;
+  const sortOrder = entry.sortOrder;
+
+  const isDifficultyFilter = (value: unknown): value is RksFiltersSnapshot['filterDifficulty'] =>
+    value === 'all' || value === 'EZ' || value === 'HD' || value === 'IN' || value === 'AT';
+  const isSortBy = (value: unknown): value is RksSortBy =>
+    value === 'rks' || value === 'acc' || value === 'difficulty_value' || value === 'score';
+  const isSortOrder = (value: unknown): value is RksSortOrder => value === 'asc' || value === 'desc';
+
+  return {
+    searchQuery: typeof entry.searchQuery === 'string' ? entry.searchQuery : '',
+    filterDifficulty: isDifficultyFilter(filterDifficulty) ? filterDifficulty : 'all',
+    sortBy: isSortBy(sortBy) ? sortBy : 'rks',
+    sortOrder: isSortOrder(sortOrder) ? sortOrder : 'desc',
+
+    minRks: typeof entry.minRks === 'string' ? entry.minRks : '',
+    maxRks: typeof entry.maxRks === 'string' ? entry.maxRks : '',
+    minAcc: typeof entry.minAcc === 'string' ? entry.minAcc : '',
+    maxAcc: typeof entry.maxAcc === 'string' ? entry.maxAcc : '',
+    minDifficultyValue: typeof entry.minDifficultyValue === 'string' ? entry.minDifficultyValue : '',
+    maxDifficultyValue: typeof entry.maxDifficultyValue === 'string' ? entry.maxDifficultyValue : '',
+    minScore: typeof entry.minScore === 'string' ? entry.minScore : '',
+    maxScore: typeof entry.maxScore === 'string' ? entry.maxScore : '',
+    onlyPositiveRks: entry.onlyPositiveRks === true,
+    limitCount: typeof entry.limitCount === 'string' ? entry.limitCount : '',
+  };
 };
 
 // 读取 localStorage 缓存时做轻量校验，避免旧结构/污染数据导致渲染阶段崩溃
@@ -96,14 +160,127 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
   const [onlyPositiveRks, setOnlyPositiveRks] = useState(false);
   const [limitCount, setLimitCount] = useState('');
   const CACHE_KEY = 'cache_rks_records_v2';
+  const FILTERS_CACHE_KEY = 'cache_rks_records_filters_v1';
+  const ownerKey = getOwnerKey(credential);
+  const hydratedFiltersOwnerKeyRef = useRef<string | null>(null);
+  const skipNextFiltersSaveRef = useRef(false);
+  const saveFiltersTimerRef = useRef<number | null>(null);
 
   // getOwnerKey 复用工具，按用户隔离缓存
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!ownerKey) return;
+    if (hydratedFiltersOwnerKeyRef.current === ownerKey) return;
+    hydratedFiltersOwnerKeyRef.current = ownerKey;
+
+    try {
+      const cached = localStorage.getItem(FILTERS_CACHE_KEY);
+      if (!cached) return;
+
+      const parsed = JSON.parse(cached);
+      if (!parsed || typeof parsed !== 'object') return;
+
+      const map = parsed as Record<string, unknown>;
+      const entry = map?.[ownerKey];
+      if (!entry) return;
+
+      const rawValue =
+        entry && typeof entry === 'object' && entry !== null && 'value' in entry
+          ? (entry as { value?: unknown }).value
+          : entry;
+      const snapshot = sanitizeCachedRksFilters(rawValue);
+      if (!snapshot) return;
+
+      setSearchQuery(snapshot.searchQuery);
+      setFilterDifficulty(snapshot.filterDifficulty);
+      setSortBy(snapshot.sortBy);
+      setSortOrder(snapshot.sortOrder);
+      setMinRks(snapshot.minRks);
+      setMaxRks(snapshot.maxRks);
+      setMinAcc(snapshot.minAcc);
+      setMaxAcc(snapshot.maxAcc);
+      setMinDifficultyValue(snapshot.minDifficultyValue);
+      setMaxDifficultyValue(snapshot.maxDifficultyValue);
+      setMinScore(snapshot.minScore);
+      setMaxScore(snapshot.maxScore);
+      setOnlyPositiveRks(snapshot.onlyPositiveRks);
+      setLimitCount(snapshot.limitCount);
+
+      // 说明：首次恢复会触发一轮 render，避免“默认值写回覆盖”这里跳过一次保存
+      skipNextFiltersSaveRef.current = true;
+    } catch {}
+  }, [FILTERS_CACHE_KEY, ownerKey]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!ownerKey) return;
+    if (hydratedFiltersOwnerKeyRef.current !== ownerKey) return;
+
+    if (skipNextFiltersSaveRef.current) {
+      skipNextFiltersSaveRef.current = false;
+      return;
+    }
+
+    if (saveFiltersTimerRef.current) {
+      window.clearTimeout(saveFiltersTimerRef.current);
+    }
+
+    const snapshot: RksFiltersSnapshot = {
+      searchQuery,
+      filterDifficulty,
+      sortBy,
+      sortOrder,
+      minRks,
+      maxRks,
+      minAcc,
+      maxAcc,
+      minDifficultyValue,
+      maxDifficultyValue,
+      minScore,
+      maxScore,
+      onlyPositiveRks,
+      limitCount,
+    };
+
+    saveFiltersTimerRef.current = window.setTimeout(() => {
+      try {
+        const cached = localStorage.getItem(FILTERS_CACHE_KEY);
+        const parsed = (cached ? JSON.parse(cached) : {}) as Record<string, unknown>;
+        const map = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
+        map[ownerKey] = { value: snapshot, ts: Date.now() };
+        localStorage.setItem(FILTERS_CACHE_KEY, JSON.stringify(map));
+      } catch {}
+    }, 500);
+
+    return () => {
+      if (saveFiltersTimerRef.current) {
+        window.clearTimeout(saveFiltersTimerRef.current);
+      }
+    };
+  }, [
+    FILTERS_CACHE_KEY,
+    filterDifficulty,
+    limitCount,
+    maxAcc,
+    maxDifficultyValue,
+    maxRks,
+    maxScore,
+    minAcc,
+    minDifficultyValue,
+    minRks,
+    minScore,
+    onlyPositiveRks,
+    ownerKey,
+    searchQuery,
+    sortBy,
+    sortOrder,
+  ]);
 
   useEffect(() => {
     let hasCachedRecords = false;
     // 先读缓存渲染（按用户隔离）
     try {
-      const ownerKey = getOwnerKey(credential as AuthCredential);
       const cached = localStorage.getItem(CACHE_KEY);
       if (ownerKey && cached) {
         const parsed = JSON.parse(cached);
@@ -162,7 +339,7 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
       setLastUpdatedAt(now);
       setLastUpdatedSource('network');
       try {
-        const ownerKey = getOwnerKey(credential as AuthCredential);
+        const ownerKey = getOwnerKey(credential);
         if (ownerKey) {
           const cached = localStorage.getItem(CACHE_KEY);
           const map = (cached ? JSON.parse(cached) : {}) as Record<string, { records: RksRecord[]; ts: number }>;
@@ -208,6 +385,53 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
     onlyPositiveRks ||
     !!limitCount.trim();
 
+  const numberValidation = useMemo(() => {
+    const minRksField = parseFilterNumber(minRks);
+    const maxRksField = parseFilterNumber(maxRks);
+    const minAccField = parseFilterNumber(minAcc, { min: 0, max: 100 });
+    const maxAccField = parseFilterNumber(maxAcc, { min: 0, max: 100 });
+    const minDifficultyValueField = parseFilterNumber(minDifficultyValue);
+    const maxDifficultyValueField = parseFilterNumber(maxDifficultyValue);
+    const minScoreField = parseFilterNumber(minScore, { integer: true, min: 0 });
+    const maxScoreField = parseFilterNumber(maxScore, { integer: true, min: 0 });
+    const limitCountField = parseFilterNumber(limitCount, { integer: true, min: 0 });
+
+    const invalidNumberInputs = [
+      minRksField.error,
+      maxRksField.error,
+      minAccField.error,
+      maxAccField.error,
+      minDifficultyValueField.error,
+      maxDifficultyValueField.error,
+      minScoreField.error,
+      maxScoreField.error,
+      limitCountField.error,
+    ].filter((v): v is string => typeof v === 'string' && v.length > 0);
+
+    return {
+      minRksField,
+      maxRksField,
+      minAccField,
+      maxAccField,
+      minDifficultyValueField,
+      maxDifficultyValueField,
+      minScoreField,
+      maxScoreField,
+      limitCountField,
+      invalidNumberInputs,
+    };
+  }, [
+    limitCount,
+    maxAcc,
+    maxDifficultyValue,
+    maxRks,
+    maxScore,
+    minAcc,
+    minDifficultyValue,
+    minRks,
+    minScore,
+  ]);
+
   const pushAccResult = useMemo(() => attachRksPushAcc(records), [records]);
   const recordsWithPushAcc = pushAccResult.records;
   const pushLineRank = pushAccResult.pushLineRank;
@@ -243,30 +467,34 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
       searchQuery,
       difficulty: filterDifficulty,
       onlyPositiveRks,
-      rksRange: { min: parseNumberOrNull(minRks), max: parseNumberOrNull(maxRks) },
-      accRange: { min: parseNumberOrNull(minAcc), max: parseNumberOrNull(maxAcc) },
-      difficultyValueRange: { min: parseNumberOrNull(minDifficultyValue), max: parseNumberOrNull(maxDifficultyValue) },
-      scoreRange: { min: parseNumberOrNull(minScore), max: parseNumberOrNull(maxScore) },
+      rksRange: {
+        min: numberValidation.minRksField.error ? null : numberValidation.minRksField.value,
+        max: numberValidation.maxRksField.error ? null : numberValidation.maxRksField.value,
+      },
+      accRange: {
+        min: numberValidation.minAccField.error ? null : numberValidation.minAccField.value,
+        max: numberValidation.maxAccField.error ? null : numberValidation.maxAccField.value,
+      },
+      difficultyValueRange: {
+        min: numberValidation.minDifficultyValueField.error ? null : numberValidation.minDifficultyValueField.value,
+        max: numberValidation.maxDifficultyValueField.error ? null : numberValidation.maxDifficultyValueField.value,
+      },
+      scoreRange: {
+        min: numberValidation.minScoreField.error ? null : numberValidation.minScoreField.value,
+        max: numberValidation.maxScoreField.error ? null : numberValidation.maxScoreField.value,
+      },
       sortBy,
       sortOrder,
-      limit: parseIntegerOrNull(limitCount),
+      limit: numberValidation.limitCountField.error ? null : numberValidation.limitCountField.value,
     });
   }, [
     recordsWithPushAcc,
     searchQuery,
     filterDifficulty,
     onlyPositiveRks,
-    minRks,
-    maxRks,
-    minAcc,
-    maxAcc,
-    minDifficultyValue,
-    maxDifficultyValue,
-    minScore,
-    maxScore,
     sortBy,
     sortOrder,
-    limitCount,
+    numberValidation,
   ]);
 
   const formatDateTime = (ts: number) => {
@@ -398,6 +626,13 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
     const data = buildExportData();
     const tsv = exportTabularDataToTsv(data, { bom: false, eol: '\n' });
     await copyText(tsv, '表格');
+  };
+
+  const buildFilterInputClass = (hasError: boolean) => {
+    const borderClass = hasError
+      ? 'border-red-400 dark:border-red-700 focus:ring-red-500'
+      : 'border-gray-300 dark:border-gray-700 focus:ring-blue-500';
+    return `w-full h-10 rounded-lg border ${borderClass} bg-white dark:bg-gray-900 px-3 focus:outline-none focus:ring-2`;
   };
 
   return (
@@ -538,92 +773,184 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
         <summary className="cursor-pointer select-none text-sm font-medium text-gray-700 dark:text-gray-200">
           高级筛选{hasAdvancedFilters ? '（已启用）' : ''}
         </summary>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <span className="text-xs text-gray-500 dark:text-gray-400">快捷：</span>
+          <button
+            type="button"
+            onClick={() => setMinAcc('99')}
+            className="inline-flex items-center justify-center rounded-lg border border-gray-300 dark:border-gray-700 bg-white/70 dark:bg-gray-900/50 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
+          >
+            ACC≥99
+          </button>
+          <button
+            type="button"
+            onClick={() => setMinDifficultyValue('15')}
+            className="inline-flex items-center justify-center rounded-lg border border-gray-300 dark:border-gray-700 bg-white/70 dark:bg-gray-900/50 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
+          >
+            定数≥15
+          </button>
+          <button
+            type="button"
+            onClick={() => setOnlyPositiveRks(true)}
+            className="inline-flex items-center justify-center rounded-lg border border-gray-300 dark:border-gray-700 bg-white/70 dark:bg-gray-900/50 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
+          >
+            只看 RKS&gt;0
+          </button>
+          <button
+            type="button"
+            onClick={resetFilters}
+            className="inline-flex items-center justify-center rounded-lg border border-gray-300 dark:border-gray-700 bg-white/70 dark:bg-gray-900/50 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
+          >
+            清空
+          </button>
+        </div>
+
+        {numberValidation.invalidNumberInputs.length > 0 && (
+          <div className="mt-3 rounded-lg border border-red-200 bg-red-50/80 dark:bg-red-900/20 dark:border-red-800 px-3 py-2 text-xs text-red-700 dark:text-red-300">
+            有 {numberValidation.invalidNumberInputs.length} 项数字输入无效，已忽略对应筛选条件。
+          </div>
+        )}
+
         <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">单曲 RKS 范围</label>
             <div className="flex gap-2">
-              <input
-                type="text"
-                value={minRks}
-                onChange={(e) => setMinRks(e.target.value)}
-                placeholder="最小"
-                className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <input
-                type="text"
-                value={maxRks}
-                onChange={(e) => setMaxRks(e.target.value)}
-                placeholder="最大"
-                className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <div className="w-full space-y-1">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={minRks}
+                  onChange={(e) => setMinRks(e.target.value)}
+                  placeholder="最小"
+                  className={buildFilterInputClass(!!numberValidation.minRksField.error)}
+                />
+                {numberValidation.minRksField.error && (
+                  <p className="text-xs text-red-600 dark:text-red-400">{numberValidation.minRksField.error}</p>
+                )}
+              </div>
+              <div className="w-full space-y-1">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={maxRks}
+                  onChange={(e) => setMaxRks(e.target.value)}
+                  placeholder="最大"
+                  className={buildFilterInputClass(!!numberValidation.maxRksField.error)}
+                />
+                {numberValidation.maxRksField.error && (
+                  <p className="text-xs text-red-600 dark:text-red-400">{numberValidation.maxRksField.error}</p>
+                )}
+              </div>
             </div>
           </div>
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">准确率范围（%）</label>
             <div className="flex gap-2">
-              <input
-                type="text"
-                value={minAcc}
-                onChange={(e) => setMinAcc(e.target.value)}
-                placeholder="最小"
-                className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <input
-                type="text"
-                value={maxAcc}
-                onChange={(e) => setMaxAcc(e.target.value)}
-                placeholder="最大"
-                className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <div className="w-full space-y-1">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={minAcc}
+                  onChange={(e) => setMinAcc(e.target.value)}
+                  placeholder="最小"
+                  className={buildFilterInputClass(!!numberValidation.minAccField.error)}
+                />
+                {numberValidation.minAccField.error && (
+                  <p className="text-xs text-red-600 dark:text-red-400">{numberValidation.minAccField.error}</p>
+                )}
+              </div>
+              <div className="w-full space-y-1">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={maxAcc}
+                  onChange={(e) => setMaxAcc(e.target.value)}
+                  placeholder="最大"
+                  className={buildFilterInputClass(!!numberValidation.maxAccField.error)}
+                />
+                {numberValidation.maxAccField.error && (
+                  <p className="text-xs text-red-600 dark:text-red-400">{numberValidation.maxAccField.error}</p>
+                )}
+              </div>
             </div>
           </div>
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">定数范围</label>
             <div className="flex gap-2">
-              <input
-                type="text"
-                value={minDifficultyValue}
-                onChange={(e) => setMinDifficultyValue(e.target.value)}
-                placeholder="最小"
-                className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <input
-                type="text"
-                value={maxDifficultyValue}
-                onChange={(e) => setMaxDifficultyValue(e.target.value)}
-                placeholder="最大"
-                className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <div className="w-full space-y-1">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={minDifficultyValue}
+                  onChange={(e) => setMinDifficultyValue(e.target.value)}
+                  placeholder="最小"
+                  className={buildFilterInputClass(!!numberValidation.minDifficultyValueField.error)}
+                />
+                {numberValidation.minDifficultyValueField.error && (
+                  <p className="text-xs text-red-600 dark:text-red-400">{numberValidation.minDifficultyValueField.error}</p>
+                )}
+              </div>
+              <div className="w-full space-y-1">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={maxDifficultyValue}
+                  onChange={(e) => setMaxDifficultyValue(e.target.value)}
+                  placeholder="最大"
+                  className={buildFilterInputClass(!!numberValidation.maxDifficultyValueField.error)}
+                />
+                {numberValidation.maxDifficultyValueField.error && (
+                  <p className="text-xs text-red-600 dark:text-red-400">{numberValidation.maxDifficultyValueField.error}</p>
+                )}
+              </div>
             </div>
           </div>
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">分数范围</label>
             <div className="flex gap-2">
-              <input
-                type="text"
-                value={minScore}
-                onChange={(e) => setMinScore(e.target.value)}
-                placeholder="最小"
-                className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <input
-                type="text"
-                value={maxScore}
-                onChange={(e) => setMaxScore(e.target.value)}
-                placeholder="最大"
-                className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <div className="w-full space-y-1">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={minScore}
+                  onChange={(e) => setMinScore(e.target.value)}
+                  placeholder="最小"
+                  className={buildFilterInputClass(!!numberValidation.minScoreField.error)}
+                />
+                {numberValidation.minScoreField.error && (
+                  <p className="text-xs text-red-600 dark:text-red-400">{numberValidation.minScoreField.error}</p>
+                )}
+              </div>
+              <div className="w-full space-y-1">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={maxScore}
+                  onChange={(e) => setMaxScore(e.target.value)}
+                  placeholder="最大"
+                  className={buildFilterInputClass(!!numberValidation.maxScoreField.error)}
+                />
+                {numberValidation.maxScoreField.error && (
+                  <p className="text-xs text-red-600 dark:text-red-400">{numberValidation.maxScoreField.error}</p>
+                )}
+              </div>
             </div>
           </div>
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">仅显示前 N 条</label>
-            <input
-              type="text"
-              value={limitCount}
-              onChange={(e) => setLimitCount(e.target.value)}
-              placeholder="留空表示不限制"
-              className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <div className="space-y-1">
+              <input
+                type="text"
+                inputMode="numeric"
+                value={limitCount}
+                onChange={(e) => setLimitCount(e.target.value)}
+                placeholder="留空表示不限制"
+                className={buildFilterInputClass(!!numberValidation.limitCountField.error)}
+              />
+              {numberValidation.limitCountField.error && (
+                <p className="text-xs text-red-600 dark:text-red-400">{numberValidation.limitCountField.error}</p>
+              )}
+            </div>
           </div>
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">其他</label>
