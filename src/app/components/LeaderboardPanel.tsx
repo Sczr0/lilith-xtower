@@ -646,7 +646,7 @@ export function LeaderboardPanel() {
               )}
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              控制哪些信息向外公开，开启后即表示允许他人在公开档案中查看（档案默认不公开展示，须在下方修改配置）
+              控制哪些信息向外公开，开启后即表示允许他人在公开档案中查看
             </p>
           </div>
           <button

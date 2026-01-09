@@ -34,7 +34,7 @@ const ENABLE_VERCEL_ANALYTICS = (() => {
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "Phigros Query - 专业的 Phigros 成绩查询与 RKS 数据分析工具",
+    default: "Phigros Query - 不专业的 Phigros 成绩查询与 RKS 数据分析工具",
     template: "%s | Phigros Query",
   },
   description:
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     url: "/",
-    title: "Phigros Query - 专业的 Phigros 成绩查询与 RKS 数据分析工具",
+    title: "Phigros Query - 不专业的 Phigros 成绩查询与 RKS 数据分析工具",
     description:
       "Phigros Query 是一个专为 Phigros 玩家打造的综合性成绩查询与数据分析平台。我们提供精准的 RKS 计算、精美的 Best N 成绩卡片生成、详细的单曲表现分析以及便捷的成绩分享功能。",
     siteName: "Phigros Query",
@@ -55,7 +55,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Phigros Query - 专业的 Phigros 成绩查询与 RKS 数据分析工具",
+    title: "Phigros Query - 不专业的 Phigros 成绩查询与 RKS 数据分析工具",
     description:
       "Phigros Query 是一个专为 Phigros 玩家打造的综合性成绩查询与数据分析平台。我们提供精准的 RKS 计算、精美的 Best N 成绩卡片生成、详细的单曲表现分析以及便捷的成绩分享功能。",
     images: ["/og"],
