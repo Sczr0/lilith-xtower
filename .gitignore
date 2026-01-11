@@ -43,6 +43,7 @@ next-env.d.ts
 # 文档
 项目文档.md
 CLAUDE.md
+/docs/
 
 # 参考
 test.html
