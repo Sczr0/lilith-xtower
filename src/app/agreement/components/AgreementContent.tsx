@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { TableOfContents } from './TableOfContents';
+import { SignatureBar } from './SignatureBar';
+import type { PrecompiledSignatureInfo } from '@/app/lib/precompiled-types';
 
 interface TocItem {
   id: string;
@@ -14,6 +16,7 @@ interface AgreementContentProps {
   tocItems: TocItem[];
   title?: string;
   subtitle?: string;
+  signatureInfo?: PrecompiledSignatureInfo;
 }
 
 /**
@@ -27,6 +30,7 @@ export function AgreementContent({
   tocItems,
   title = '用户协议',
   subtitle = '请在使用服务前仔细阅读以下条款。',
+  signatureInfo,
 }: AgreementContentProps) {
   const [activeSection, setActiveSection] = useState('');
   const contentRef = useRef<HTMLDivElement>(null);
@@ -126,6 +130,8 @@ export function AgreementContent({
               <article className="prose prose-sm sm:prose dark:prose-invert max-w-none">
                 <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
               </article>
+
+              {signatureInfo ? <SignatureBar signatureInfo={signatureInfo} /> : null}
             </div>
           </div>
 
@@ -137,4 +143,3 @@ export function AgreementContent({
     </main>
   );
 }
-

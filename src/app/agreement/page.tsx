@@ -1,6 +1,7 @@
 import { SiteHeader } from '../components/SiteHeader';
 import { AgreementContent } from './components/AgreementContent';
 import { getPrecompiledAssetServer } from '../lib/precompiled-server';
+import type { PrecompiledSignatureInfo } from '../lib/precompiled-types';
 
 /**
  * 用户协议页面 - SSG 静态生成
@@ -9,12 +10,14 @@ import { getPrecompiledAssetServer } from '../lib/precompiled-server';
 export default async function AgreementPage() {
   let htmlContent = '';
   let tocItems: { id: string; title: string; level: number }[] = [];
+  let signatureInfo: PrecompiledSignatureInfo | undefined = undefined;
   let error: string | null = null;
 
   try {
-    const { html, toc } = await getPrecompiledAssetServer('agreement');
+    const { html, toc, signature } = await getPrecompiledAssetServer('agreement');
     htmlContent = html;
     tocItems = Array.isArray(toc) ? toc : [];
+    signatureInfo = signature;
   } catch (err) {
     console.error('Failed to load agreement:', err);
     error = '用户协议暂时无法加载，请稍后重试。';
@@ -31,9 +34,8 @@ export default async function AgreementPage() {
           </div>
         </div>
       ) : (
-        <AgreementContent htmlContent={htmlContent} tocItems={tocItems} />
+        <AgreementContent htmlContent={htmlContent} tocItems={tocItems} signatureInfo={signatureInfo} />
       )}
     </div>
   );
 }
-

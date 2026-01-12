@@ -1,12 +1,14 @@
 {
   "pages": {
     "agreement": {
-      "html": "agreement.fd61a506.html",
-      "toc": "agreement.fd61a506.toc.json"
+      "html": "agreement.fdc841fc.html",
+      "toc": "agreement.fdc841fc.toc.json",
+      "sig": "agreement.0e4b19a2.sig.json"
     },
     "privacy": {
       "html": "privacy.400f3eaa.html",
-      "toc": "privacy.400f3eaa.toc.json"
+      "toc": "privacy.400f3eaa.toc.json",
+      "sig": "privacy.0ebf6a20.sig.json"
     },
     "about": {
       "html": "about.0f89538b.html",
@@ -14,7 +16,8 @@
     }
   },
   "agreement": {
-    "html": "agreement.fd61a506.html",
-    "toc": "agreement.fd61a506.toc.json"
+    "html": "agreement.fdc841fc.html",
+    "toc": "agreement.fdc841fc.toc.json",
+    "sig": "agreement.0e4b19a2.sig.json"
   }
 }

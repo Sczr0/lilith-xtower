@@ -1,4 +1,7 @@
-**最后更新日期：2026年1月11日** | **生效日期：2026年1月11日**
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA256
+
+**最后更新日期：2026年1月12日** | **生效日期：2026年1月12日**
 
 #### 1. 引言
 
@@ -67,15 +70,15 @@
 **3.2 服务功能**  
 本服务向用户提供包括但不限于以下功能：
 
-- 基于用户游戏成绩生成可视化图片或文本结果；
-- 查询并展示特定歌曲的成绩及相关信息；
-- 展示游戏更新内容、曲目信息及相关数据。
+- - - 基于用户游戏成绩生成可视化图片或文本结果；
+- - - 查询并展示特定歌曲的成绩及相关信息；
+- - - 展示游戏更新内容、曲目信息及相关数据。
 
 **3.3 数据访问与来源**  
 为实现本服务功能，用户可通过以下任一授权方式提供其游戏数据：
 
-- **TapTap 授权登录**：用户通过 TapTap 平台授权本服务访问其《Phigros》云存档数据；
-- **联合查分 API 登录**：用户授权本服务通过第三方接口（联合查分API）临时访问其云存档数据。
+- - - **TapTap 授权登录**：用户通过 TapTap 平台授权本服务访问其《Phigros》云存档数据；
+- - - **联合查分 API 登录**：用户授权本服务通过第三方接口（联合查分API）临时访问其云存档数据。
 
 本服务仅在用户授权的前提下获取实现功能所必需的数据，并在处理完成后立即清除，不会保存、修改或以任何形式持久化存储原始云存档。  
 具体信息处理规则，请参见本服务的《隐私协议》。
@@ -266,3 +269,17 @@ TapTap 或 Pigeon Games 有权**随时变更或关闭 Phigros 云存档**，开�
 **QQ：** 1932161680
 
 开发者将在收到您的来信后，在合理时间内进行处理或回复。
+-----BEGIN PGP SIGNATURE-----
+
+iQGzBAEBCAAdFiEELLqNPkwXwRaxvR3OAM+CMkOXAy8FAmlkbJsACgkQAM+CMkOX
+Ay8ThgwAm8kyS2U1ame3XkJRGfCk9azTcXOulg05H6tt3e0DuAr72Pv6lDXIVt3N
+BCBeZ33H7fJNweP9mpiACHujagR1AGtiXX23BxP0Rufx1LmgxhG6Z6G5zsY5Uk7V
+3p7+jIOv8Xlibt3JsDywE41DdL/9MluQrD5yhoyLcWvGE+KKhdlII4Zg42YZ+Zsd
+095r7Vg/GVmQ6GfsTPE4AGJs7lNuonDAf8IYhzjOJGIcgJ+ya05W57VI0D4nMTBY
+H+ekZeWwTYkjPxwdM3EDvLDL1VxZc29Z1pp4pLxgIcjxtI12OWXnpp/8Q6jmsnUF
+rRPJCp+dl8BK+jfrqvxfkLIJ04VcSQ9mWsuUxYUfZtrmflJKJvN24kEGSd4bk/cL
+efo3QJfcjNSiu7ZXCP52WtZN/1ZyZRjUEQQFlDEFzRtr2ZHlXZDUlQq9oIkTpOe9
+OTbgGdCofZ4y8stmv0RcL/90L32p4z82Vyx9H2nSQ2aSwhXQtWM1hlNj6wDNRTEq
+KlQv4aBm
+=1GFu
+-----END PGP SIGNATURE-----

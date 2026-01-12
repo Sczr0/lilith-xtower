@@ -1,0 +1,7 @@
+{
+  "format": "openpgp-clearsign",
+  "status": "signed",
+  "verified": null,
+  "hash": "SHA256",
+  "signature": "-----BEGIN PGP SIGNATURE-----\n\niQGzBAEBCAAdFiEELLqNPkwXwRaxvR3OAM+CMkOXAy8FAmlkbJsACgkQAM+CMkOX\nAy8ThgwAm8kyS2U1ame3XkJRGfCk9azTcXOulg05H6tt3e0DuAr72Pv6lDXIVt3N\nBCBeZ33H7fJNweP9mpiACHujagR1AGtiXX23BxP0Rufx1LmgxhG6Z6G5zsY5Uk7V\n3p7+jIOv8Xlibt3JsDywE41DdL/9MluQrD5yhoyLcWvGE+KKhdlII4Zg42YZ+Zsd\n095r7Vg/GVmQ6GfsTPE4AGJs7lNuonDAf8IYhzjOJGIcgJ+ya05W57VI0D4nMTBY\nH+ekZeWwTYkjPxwdM3EDvLDL1VxZc29Z1pp4pLxgIcjxtI12OWXnpp/8Q6jmsnUF\nrRPJCp+dl8BK+jfrqvxfkLIJ04VcSQ9mWsuUxYUfZtrmflJKJvN24kEGSd4bk/cL\nefo3QJfcjNSiu7ZXCP52WtZN/1ZyZRjUEQQFlDEFzRtr2ZHlXZDUlQq9oIkTpOe9\nOTbgGdCofZ4y8stmv0RcL/90L32p4z82Vyx9H2nSQ2aSwhXQtWM1hlNj6wDNRTEq\nKlQv4aBm\n=1GFu\n-----END PGP SIGNATURE-----"
+}

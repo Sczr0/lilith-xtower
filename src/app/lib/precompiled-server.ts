@@ -1,9 +1,13 @@
 import fs from 'fs/promises';
 import path from 'path';
+import type { PrecompiledSignatureInfo } from './precompiled-types';
+
+export type { PrecompiledSignatureInfo } from './precompiled-types';
 
 interface ManifestEntry {
   html: string;
   toc: string;
+  sig?: string;
 }
 
 interface PrecompiledManifest {
@@ -20,6 +24,7 @@ interface TocItem {
 interface PrecompiledAsset {
   html: string;
   toc: TocItem[];
+  signature?: PrecompiledSignatureInfo;
 }
 
 const ENABLE_PROD_CACHE = process.env.NODE_ENV === 'production';
@@ -71,20 +76,22 @@ export async function getPrecompiledAssetServer(key: string): Promise<Precompile
     // 类型断言，确保 entry 是 ManifestEntry
     const entry = rawEntry as ManifestEntry;
 
-    const assetCacheKey = `${key}|${entry.html}|${entry.toc}`;
+    const assetCacheKey = `${key}|${entry.html}|${entry.toc}|${entry.sig ?? ''}`;
     if (ENABLE_PROD_CACHE) {
       const cached = cachedAssets.get(assetCacheKey);
       if (cached) return cached;
     }
 
-    const [html, tocContent] = await Promise.all([
+    const [html, tocContent, sigContent] = await Promise.all([
       fs.readFile(path.join(publicDir, entry.html), 'utf-8'),
       fs.readFile(path.join(publicDir, entry.toc), 'utf-8'),
+      entry.sig ? fs.readFile(path.join(publicDir, entry.sig), 'utf-8').catch(() => null) : Promise.resolve(null),
     ]);
 
     const toc: TocItem[] = JSON.parse(tocContent);
+    const signature = sigContent ? (JSON.parse(sigContent) as PrecompiledSignatureInfo) : undefined;
 
-    const result = { html, toc };
+    const result = { html, toc, signature };
     if (ENABLE_PROD_CACHE) cachedAssets.set(assetCacheKey, result);
     return result;
   } catch (error) {
