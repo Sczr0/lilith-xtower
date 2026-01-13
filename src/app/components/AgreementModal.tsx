@@ -1,5 +1,6 @@
 'use client';
 
+import * as Dialog from '@radix-ui/react-dialog';
 import { useState, useRef, useEffect } from 'react';
 
 interface AgreementModalProps {
@@ -9,12 +10,17 @@ interface AgreementModalProps {
 }
 
 export function AgreementModal({ html, onAgree, onClose }: AgreementModalProps) {
+  const [open, setOpen] = useState(true);
   // html 为空则启用简化模式（仅勾选，无需强制阅读全文）
   const simpleMode = !html || html.trim() === '';
   const [scrolledToBottom, setScrolledToBottom] = useState(false);
   const [isNearBottom, setIsNearBottom] = useState(false);
   const [checked, setChecked] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) onClose();
+  }, [open, onClose]);
 
   const handleScroll = () => {
     const contentElement = contentRef.current;
@@ -44,8 +50,14 @@ export function AgreementModal({ html, onAgree, onClose }: AgreementModalProps) 
   // 简化模式下，仅提示并要求勾选
   if (simpleMode) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-        <div className="relative w-full max-w-xl bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden">
+      <Dialog.Root open={open} onOpenChange={setOpen}>
+        <Dialog.Portal>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <Dialog.Overlay className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+            <Dialog.Content
+              className="relative w-full max-w-xl bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden focus:outline-none"
+              onPointerDownOutside={(e) => e.preventDefault()}
+            >
           {/* Header */}
           <header className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
             <div className="flex items-center gap-3">
@@ -54,17 +66,23 @@ export function AgreementModal({ html, onAgree, onClose }: AgreementModalProps) 
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">继续前请确认用户协议</h2>
+              <Dialog.Title asChild>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">继续前请确认用户协议</h2>
+              </Dialog.Title>
+              <Dialog.Description className="sr-only">
+                为保障您的知情权与数据权益，请勾选确认后继续。
+              </Dialog.Description>
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              aria-label="关闭"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+            <Dialog.Close asChild>
+              <button
+                className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                aria-label="关闭用户协议弹窗"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </Dialog.Close>
           </header>
 
           {/* Content */}
@@ -98,12 +116,13 @@ export function AgreementModal({ html, onAgree, onClose }: AgreementModalProps) 
 
           {/* Footer */}
           <div className="p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex flex-col-reverse sm:flex-row gap-3 sm:items-center sm:justify-end">
-            <button
-              onClick={onClose}
-              className="px-5 py-2.5 rounded-lg bg-gray-500 hover:bg-gray-600 text-white transition-colors"
-            >
-              取消
-            </button>
+            <Dialog.Close asChild>
+              <button
+                className="px-5 py-2.5 rounded-lg bg-gray-500 hover:bg-gray-600 text-white transition-colors"
+              >
+                取消
+              </button>
+            </Dialog.Close>
             <button
               onClick={onAgree}
               disabled={!checked}
@@ -112,14 +131,22 @@ export function AgreementModal({ html, onAgree, onClose }: AgreementModalProps) 
               同意并继续
             </button>
           </div>
-        </div>
-      </div>
+            </Dialog.Content>
+          </div>
+        </Dialog.Portal>
+      </Dialog.Root>
     );
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="relative w-full max-w-4xl max-h-[80vh] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+    <Dialog.Root open={open} onOpenChange={setOpen}>
+      <Dialog.Portal>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <Dialog.Overlay className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+          <Dialog.Content
+            className="relative w-full max-w-4xl max-h-[80vh] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden focus:outline-none"
+            onPointerDownOutside={(e) => e.preventDefault()}
+          >
         {/* Header */}
         <header className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
           <div className="flex items-center space-x-3">
@@ -129,18 +156,24 @@ export function AgreementModal({ html, onAgree, onClose }: AgreementModalProps) 
               </svg>
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">「塔弦」空间站 - Phigros 成绩查询与图片生成器 用户协议</h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400">请仔细阅读协议内容</p>
+              <Dialog.Title asChild>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">「塔弦」空间站 - Phigros 成绩查询与图片生成器 用户协议</h2>
+              </Dialog.Title>
+              <Dialog.Description asChild>
+                <p className="text-sm text-gray-600 dark:text-gray-400">请仔细阅读协议内容</p>
+              </Dialog.Description>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <Dialog.Close asChild>
+            <button
+              className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              aria-label="关闭用户协议弹窗"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </Dialog.Close>
         </header>
 
         {/* Content */}
@@ -172,12 +205,13 @@ export function AgreementModal({ html, onAgree, onClose }: AgreementModalProps) 
             </div>
 
             <div className="flex space-x-3 w-full sm:w-auto">
-              <button
-                onClick={onClose}
-                className="flex-1 sm:flex-none px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white font-semibold rounded-lg transition-colors"
-              >
-                暂不登录
-              </button>
+              <Dialog.Close asChild>
+                <button
+                  className="flex-1 sm:flex-none px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white font-semibold rounded-lg transition-colors"
+                >
+                  暂不登录
+                </button>
+              </Dialog.Close>
               <button
                 onClick={onAgree}
                 disabled={!scrolledToBottom}
@@ -192,7 +226,9 @@ export function AgreementModal({ html, onAgree, onClose }: AgreementModalProps) 
             </div>
           </div>
         </footer>
-      </div>
-    </div>
+          </Dialog.Content>
+        </div>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }

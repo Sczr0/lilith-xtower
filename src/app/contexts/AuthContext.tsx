@@ -6,6 +6,7 @@ import { AuthStorage } from '../lib/storage/auth';
 import { AuthAPI } from '../lib/api/auth';
 import { RotatingTips } from '../components/RotatingTips';
 import dynamic from 'next/dynamic';
+import { useRouter } from 'next/navigation';
 // 动态加载协议弹窗，避免 react-markdown 进入全局共享 chunk
 const AgreementModal = dynamic(() => import('../components/AgreementModal').then(m => m.AgreementModal), { ssr: false, loading: () => null });
 
@@ -36,6 +37,7 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   // 说明：登录态由服务端 HttpOnly 会话 Cookie 决定；客户端不再读取 localStorage 的凭证（P0-1）。
+  const router = useRouter();
   const [authState, setAuthState] = useState<AuthState>({
     isAuthenticated: false,
     credential: null,
@@ -111,9 +113,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // 登录成功后预加载关键数据
       runPostLoginPreload();
 
-      if (typeof window !== 'undefined') {
-        window.location.href = '/dashboard';
-      }
+      router.replace('/dashboard');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '登录失败';
       setAuthState(prev => ({ ...prev, isLoading: false, error: errorMessage }));
@@ -162,9 +162,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     // 保存协议接受状态并跳转
     localStorage.setItem(AGREEMENT_KEY, 'true');
-    if (typeof window !== 'undefined') {
-      window.location.href = '/dashboard';
-    }
+    // 同意协议后预加载关键数据（与 proceedLogin 保持一致）
+    runPostLoginPreload();
+    router.replace('/dashboard');
   };
 
   const handleCloseAgreement = () => {
@@ -189,9 +189,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     clearPrefetchCache();
     setAuthState({ isAuthenticated: false, credential: null, isLoading: false, error: null });
 
-    if (typeof window !== 'undefined') {
-      window.location.href = '/login';
-    }
+    router.replace('/login');
   };
 
   const validateCurrentCredential = async (): Promise<boolean> => {
@@ -255,6 +253,14 @@ export function withAuth<P extends object>(
 ): React.ComponentType<P> {
   return function AuthenticatedComponent(props: P) {
     const { isAuthenticated, isLoading } = useAuth();
+    const router = useRouter();
+
+    useEffect(() => {
+      if (isLoading) return;
+      if (!isAuthenticated) {
+        router.replace('/login');
+      }
+    }, [isAuthenticated, isLoading, router]);
 
     if (isLoading) {
       return (
@@ -268,11 +274,11 @@ export function withAuth<P extends object>(
     }
 
     if (!isAuthenticated) {
-      // 重定向到登录页面
-      if (typeof window !== 'undefined') {
-        window.location.href = '/login';
-      }
-      return null;
+      return (
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-sm text-gray-600 dark:text-gray-400">正在跳转到登录页…</div>
+        </div>
+      );
     }
 
     return <Component {...props} />;
