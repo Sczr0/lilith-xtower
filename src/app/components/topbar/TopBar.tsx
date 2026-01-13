@@ -21,7 +21,7 @@ interface TopBarProps {
  */
 export function TopBar({ sticky = true, className, left, right, rightClassName }: TopBarProps) {
   return (
-    <header className={cx(sticky && 'sticky top-0 z-40', TOP_BAR_BASE_CLASSNAME, className)}>
+    <header data-topbar className={cx(sticky && 'sticky top-0 z-40', TOP_BAR_BASE_CLASSNAME, className)}>
       <div className="flex items-center gap-3 min-w-0">
         {left}
       </div>
@@ -33,4 +33,3 @@ export function TopBar({ sticky = true, className, left, right, rightClassName }
     </header>
   );
 }
-

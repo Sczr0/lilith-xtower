@@ -1,23 +1,23 @@
 {
   "pages": {
     "agreement": {
-      "html": "agreement.fdc841fc.html",
-      "toc": "agreement.fdc841fc.toc.json",
+      "html": "agreement.2c1ddda0.html",
+      "toc": "agreement.2c1ddda0.toc.json",
       "sig": "agreement.0e4b19a2.sig.json"
     },
     "privacy": {
-      "html": "privacy.400f3eaa.html",
-      "toc": "privacy.400f3eaa.toc.json",
+      "html": "privacy.b58f3489.html",
+      "toc": "privacy.b58f3489.toc.json",
       "sig": "privacy.0ebf6a20.sig.json"
     },
     "about": {
-      "html": "about.0f89538b.html",
-      "toc": "about.0f89538b.toc.json"
+      "html": "about.2b6171d6.html",
+      "toc": "about.2b6171d6.toc.json"
     }
   },
   "agreement": {
-    "html": "agreement.fdc841fc.html",
-    "toc": "agreement.fdc841fc.toc.json",
+    "html": "agreement.2c1ddda0.html",
+    "toc": "agreement.2c1ddda0.toc.json",
     "sig": "agreement.0e4b19a2.sig.json"
   }
 }

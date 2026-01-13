@@ -2,7 +2,7 @@
 
 import type { KeyboardEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, Pause, Play, X } from "lucide-react";
 import { promoBannerConfig } from "../config/promo-banner.config";
 import {
@@ -10,6 +10,7 @@ import {
   resolveAutoHideMs,
   selectActiveSlides,
 } from "../utils/promoBanner";
+import { isExternalHref } from "./topbar/nav";
 
 /**
  * 顶部轮播活动横幅
@@ -19,6 +20,7 @@ import {
  */
 export function PromoBanner() {
   const pathname = usePathname() ?? "/";
+  const router = useRouter();
   const dismissKey = buildDismissKey(promoBannerConfig);
 
   const slides = useMemo(() => selectActiveSlides(promoBannerConfig, pathname), [pathname]);
@@ -100,6 +102,13 @@ export function PromoBanner() {
     if (!slide.href) return;
     if (slide.newTab) {
       window.open(slide.href, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    // 导航一致性：站内路径使用 Next Router 软导航，避免整页刷新。
+    if (!isExternalHref(slide.href) && slide.href.startsWith("/")) {
+      router.push(slide.href);
+      return;
     } else {
       window.location.assign(slide.href);
     }

@@ -7,8 +7,8 @@ import fsp from 'fs/promises';
 import path from 'path';
 import { createHash } from 'node:crypto';
 import { marked } from 'marked';
-import sanitizeHtml from 'sanitize-html';
 import { parsePgpClearsignedMessage } from './lib/pgp-clearsigned-markdown.mjs';
+import { sanitizeWithHeadingIds } from './lib/sanitize-precompiled-html.mjs';
 
 
 async function ensureDir(dir) {
@@ -28,73 +28,6 @@ function buildTocFromMarkdown(md) {
     items.push({ id, title, level });
   }
   return items;
-}
-
-function sanitizeWithHeadingIds(html) {
-  let headingCounter = 0;
-  const allowedHeadings = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
-  const allowedTags = [
-    // structure
-    'p', 'ul', 'ol', 'li', 'blockquote', 'hr', 'br',
-    // headings
-    ...allowedHeadings,
-    // code
-    'pre', 'code',
-    // tables
-    'table', 'thead', 'tbody', 'tr', 'th', 'td',
-    // emphasis
-    'em', 'strong',
-    // links
-    'a',
-    // optional images
-    'img',
-  ];
-  const allowedAttributes = {
-    a: ['href', 'name', 'target', 'title', 'rel'],
-    code: ['class'],
-    img: ['src', 'alt', 'title', 'width', 'height'],
-    h1: ['id', 'data-heading-id'],
-    h2: ['id', 'data-heading-id'],
-    h3: ['id', 'data-heading-id'],
-    h4: ['id', 'data-heading-id'],
-    h5: ['id', 'data-heading-id'],
-    h6: ['id', 'data-heading-id'],
-  };
-
-  const clean = sanitizeHtml(html, {
-    allowedTags,
-    allowedAttributes,
-    allowedSchemesByTag: {
-      a: ['http', 'https', 'mailto'],
-      img: ['http', 'https', 'data'],
-    },
-    transformTags: {
-      // inject stable data-heading-id for headings
-      ...Object.fromEntries(
-        allowedHeadings.map(tag => [tag, (attribs) => {
-          const id = attribs['data-heading-id'] ?? `heading-${headingCounter++}`;
-          return {
-            tagName: tag,
-            attribs: { ...attribs, 'data-heading-id': id, id },
-          };
-        }])
-      ),
-      a: (attribs) => {
-        const href = attribs.href || '';
-        // treat absolute http/https as external; add rel for safety
-        const isExternal = /^https?:\/\//i.test(href);
-        let rel = attribs.rel || '';
-        if (isExternal) {
-          const parts = new Set(rel.split(/\s+/).filter(Boolean));
-          parts.add('noopener');
-          parts.add('noreferrer');
-          rel = Array.from(parts).join(' ');
-        }
-        return { tagName: 'a', attribs: { ...attribs, rel } };
-      }
-    },
-  });
-  return clean;
 }
 
 async function compileOne({ key, mdPath, outDir }) {

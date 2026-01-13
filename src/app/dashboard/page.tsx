@@ -4,7 +4,7 @@ import { useCallback, useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Sidebar, TabId } from './components/Sidebar';
 import { DashboardHeader } from './components/DashboardHeader';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AnnouncementModal } from '../components/AnnouncementModal';
 import { MenuGuide } from './components/MenuGuide';
 import { getPrefetchedData, prefetchRksData, prefetchLeaderboard, prefetchServiceStats, runWhenIdle, shouldPreload } from '../lib/utils/preload';
@@ -14,10 +14,26 @@ import { RotatingTips } from '../components/RotatingTips';
 import { DashboardTabContent } from './components/DashboardTabContent';
 const AGREEMENT_KEY = 'phigros_agreement_accepted';
 
+const isTabId = (value: string): value is TabId =>
+  value === 'best-n' ||
+  value === 'single-query' ||
+  value === 'rks-list' ||
+  value === 'leaderboard' ||
+  value === 'song-updates' ||
+  value === 'player-score-render' ||
+  value === 'stats';
+
+const parseDebugExport = (value: string | null): boolean => value === '1' || value === 'true';
+
 export default function Dashboard() {
   const { isAuthenticated, isLoading, error } = useAuth();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<TabId>('best-n');
+  const searchParams = useSearchParams();
+
+  // 说明：tab 与 debug 以 URL 查询参数为单一来源，避免组件内再做“硬刷新”同步。
+  const tabParam = searchParams.get('tab');
+  const activeTab: TabId = tabParam && isTabId(tabParam) ? tabParam : 'best-n';
+  const debugExport = parseDebugExport(searchParams.get('debug'));
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [songUpdates, setSongUpdates] = useState<SongUpdate[]>([]);
   const [songUpdatesStatus, setSongUpdatesStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -31,46 +47,12 @@ export default function Dashboard() {
     if (typeof window === 'undefined') return false;
     try { return localStorage.getItem(AGREEMENT_KEY) === 'true'; } catch { return false; }
   });
-  const [debugExport, setDebugExport] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const p = new URLSearchParams(window.location.search);
-      const v = p.get('debug');
-      setDebugExport(v === '1' || v === 'true');
-
-      // 说明：支持通过 query 参数直达指定功能，例如：/dashboard?tab=leaderboard
-      const tab = p.get('tab');
-      const isTabId = (value: string): value is TabId =>
-        value === 'best-n' ||
-        value === 'single-query' ||
-        value === 'rks-list' ||
-        value === 'leaderboard' ||
-        value === 'song-updates' ||
-        value === 'player-score-render' ||
-        value === 'stats';
-      if (tab && isTabId(tab)) {
-        setActiveTab(tab);
-      }
-    } catch {
-      setDebugExport(false);
-    }
-  }, []);
-
-  const syncTabToUrl = useCallback((tabId: TabId) => {
-    if (typeof window === 'undefined') return;
-    try {
-      const url = new URL(window.location.href);
-      url.searchParams.set('tab', tabId);
-      history.replaceState(null, '', url.toString());
-    } catch {}
-  }, []);
 
   const handleTabChange = useCallback((tabId: TabId) => {
-    setActiveTab(tabId);
-    syncTabToUrl(tabId);
-  }, [syncTabToUrl]);
+    const next = new URLSearchParams(searchParams.toString());
+    next.set('tab', tabId);
+    router.replace(`/dashboard?${next.toString()}`, { scroll: false });
+  }, [router, searchParams]);
 
   // 预取关键数据（如果尚未预取）
 

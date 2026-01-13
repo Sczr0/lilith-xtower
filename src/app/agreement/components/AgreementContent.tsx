@@ -19,6 +19,9 @@ interface AgreementContentProps {
   signatureInfo?: PrecompiledSignatureInfo;
 }
 
+const getHeadingId = (element: HTMLElement) =>
+  element.getAttribute('data-heading-id') || element.id || '';
+
 /**
  * 客户端组件：处理滚动监听与目录高亮等交互逻辑
  * - 缓存 headings，避免每次 scroll 都 querySelectorAll
@@ -34,13 +37,23 @@ export function AgreementContent({
 }: AgreementContentProps) {
   const [activeSection, setActiveSection] = useState('');
   const contentRef = useRef<HTMLDivElement>(null);
+  const topOffsetRef = useRef(0);
 
   const headingsRef = useRef<HTMLElement[]>([]);
   const rafRef = useRef<number | null>(null);
   const activeIdRef = useRef<string>('');
 
-  const getHeadingId = (element: HTMLElement) =>
-    element.getAttribute('data-heading-id') || element.id || '';
+  // 说明：目录高亮需要抵消“粘性顶栏”的占位高度，避免写死魔法数。
+  const measureTopOffset = useCallback(() => {
+    if (typeof window === 'undefined') return 0;
+    const topbar = document.querySelector<HTMLElement>('[data-topbar]');
+    if (!topbar) return 0;
+    return Math.max(0, Math.round(topbar.getBoundingClientRect().height));
+  }, []);
+
+  const refreshTopOffset = useCallback(() => {
+    topOffsetRef.current = measureTopOffset();
+  }, [measureTopOffset]);
 
   const updateActiveSection = useCallback(() => {
     const headings = headingsRef.current;
@@ -52,7 +65,7 @@ export function AgreementContent({
       return;
     }
 
-    const scrollPosition = window.scrollY + 120;
+    const scrollPosition = window.scrollY + topOffsetRef.current;
 
     for (let i = headings.length - 1; i >= 0; i -= 1) {
       const element = headings[i];
@@ -87,24 +100,31 @@ export function AgreementContent({
     headingsRef.current = Array.from(
       contentRef.current.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6'),
     );
+    refreshTopOffset();
     scheduleUpdate();
-  }, [htmlContent, scheduleUpdate]);
+  }, [htmlContent, refreshTopOffset, scheduleUpdate]);
 
   useEffect(() => {
     const onScroll = () => scheduleUpdate();
+    const onResize = () => {
+      refreshTopOffset();
+      scheduleUpdate();
+    };
+
+    refreshTopOffset();
     window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
+    window.addEventListener('resize', onResize);
     scheduleUpdate();
 
     return () => {
       window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
+      window.removeEventListener('resize', onResize);
       if (rafRef.current) {
         cancelAnimationFrame(rafRef.current);
         rafRef.current = null;
       }
     };
-  }, [scheduleUpdate]);
+  }, [refreshTopOffset, scheduleUpdate]);
 
   return (
     <main className="px-4 py-10 sm:py-14 sm:px-6 lg:px-8">

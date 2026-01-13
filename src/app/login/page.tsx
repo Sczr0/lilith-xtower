@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 import { AuthStorage } from '../lib/storage/auth';
 import { preloadTapTapQr, runWhenIdle, shouldPreload } from '../lib/utils/preload';
 import { SiteHeader } from '../components/SiteHeader';
+import { LoginMethodSelector } from './components/LoginMethodSelector';
 
 function LoginMethodLoading(props: { error?: Error | null; isLoading?: boolean; pastDelay?: boolean }) {
   // 说明：dynamic 的 loading 会注入状态参数；这里不需要使用，但要避免 eslint unused-vars。
@@ -170,38 +171,13 @@ export default function LoginPage() {
             {/* 登录方式选择 */}
             <div className="lg:col-span-4">
               <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-2xl p-4 sm:p-6 shadow-lg border border-gray-200/50 dark:border-gray-700/50">
-                <h2 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6">选择登录方式</h2>
-                <div className="space-y-2 sm:space-y-3">
-                  {loginMethods.map((method) => (
-                    <button
-                      key={method.id}
-                      onClick={() => setActiveMethod(method.id)}
-                      className={`w-full text-left p-3 sm:p-4 rounded-xl transition-all duration-300 transform hover:scale-105 ${
-                        activeMethod === method.id
-                          ? 'bg-blue-500 text-white shadow-lg'
-                          : 'bg-gray-100 dark:bg-gray-700/50 border-2 border-transparent hover:bg-gray-200 dark:hover:bg-gray-700'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-2 sm:space-x-3">
-                        <div className={`p-1.5 sm:p-2 rounded-lg ${
-                          activeMethod === method.id
-                            ? 'bg-white/20'
-                            : 'bg-gray-200 dark:bg-gray-600'
-                        }`}>
-                          {method.icon}
-                        </div>
-                        <div className="flex-1">
-                          <div className={`text-sm sm:text-base font-semibold ${activeMethod === method.id ? 'text-white' : 'text-gray-900 dark:text-gray-100'}`}>
-                            {method.name}
-                          </div>
-                          <div className={`text-xs sm:text-sm mt-0.5 sm:mt-1 ${activeMethod === method.id ? 'text-white/80' : 'text-gray-600 dark:text-gray-400'}`}>
-                            {method.description}
-                          </div>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
+                <h2 id="login-methods-title" className="text-lg sm:text-xl font-bold mb-4 sm:mb-6">选择登录方式</h2>
+                <LoginMethodSelector
+                  titleId="login-methods-title"
+                  methods={loginMethods}
+                  value={activeMethod}
+                  onValueChange={setActiveMethod}
+                />
               </div>
             </div>
 

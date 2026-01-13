@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { RotatingTips } from './RotatingTips';
 import { useAuth } from '../contexts/AuthContext';
 import { ScoreAPI } from '../lib/api/score';
@@ -139,6 +140,8 @@ const sanitizeCachedRksRecords = (raw: unknown): RksRecord[] | null => {
 // 支持通过 showDescription 隐藏组件内的描述，避免与外层重复
 function RksRecordsListInner({ showTitle = true, showDescription = true }: { showTitle?: boolean; showDescription?: boolean }) {
   const { credential } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [records, setRecords] = useState<RksRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -539,18 +542,14 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
   };
 
   const openSongQuery = (songName: string) => {
-    if (typeof window === 'undefined') return;
     const q = songName.trim();
     if (!q) return;
 
-    try {
-      const url = new URL(window.location.href);
-      url.searchParams.set('tab', 'single-query');
-      url.searchParams.set('song', q);
-      window.location.assign(url.toString());
-    } catch {
-      window.location.assign(`/dashboard?tab=single-query&song=${encodeURIComponent(q)}`);
-    }
+    // 导航一致性：通过 Next Router 软导航切换到“单曲查询”tab，并携带歌曲名参数。
+    const next = new URLSearchParams(searchParams.toString());
+    next.set('tab', 'single-query');
+    next.set('song', q);
+    router.push(`/dashboard?${next.toString()}`);
   };
 
   const getRecordStatus = (record: RksRecord) => {

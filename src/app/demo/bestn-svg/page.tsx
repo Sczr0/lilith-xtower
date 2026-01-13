@@ -2,13 +2,12 @@ import React from 'react';
 import { BnImageGenerator } from '../../components/BnImageGenerator';
 import { SiteHeader } from '../../components/SiteHeader';
 
-export default async function Page({
+export default function Page({
   searchParams,
 }: {
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+  searchParams?: Record<string, string | string[] | undefined>;
 }) {
-  const resolved = (await searchParams) ?? {};
-  const raw = resolved.debug;
+  const raw = searchParams?.debug;
   const debug =
     raw === '1' ||
     raw === 'true' ||
