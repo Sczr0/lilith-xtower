@@ -1,17 +1,9 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import Script from 'next/script';
 import { SiteHeader } from '../components/SiteHeader';
 import { getPrecompiledAssetServer, hasPrecompiledAsset } from '../lib/precompiled-server';
 import { AboutClientSections } from './components/AboutClientSections';
-
-// 获取站点 URL
-const rawSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-const SITE_URL = rawSiteUrl
-  ? (rawSiteUrl.startsWith('http://') || rawSiteUrl.startsWith('https://')
-      ? rawSiteUrl
-      : `https://${rawSiteUrl}`)
-  : 'https://lilith.xtower.site';
+import { SITE_URL } from '../utils/site-url';
 
 // 支持链接数据（静态）
 const supportLinks = [
@@ -118,22 +110,16 @@ export default async function AboutPage() {
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950 text-gray-900 dark:text-gray-50">
       {/* BreadcrumbList 结构化数据 */}
-      <Script
-        id="ld-json-breadcrumb-about"
+      <script
         type="application/ld+json"
-        strategy="afterInteractive"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(breadcrumbJsonLd),
-        }}
+        // 说明：JSON-LD 属于“无需执行的结构化数据”，随 HTML 输出可提升爬虫抓取稳定性。
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
       {/* Person 结构化数据 */}
-      <Script
-        id="ld-json-person"
+      <script
         type="application/ld+json"
-        strategy="afterInteractive"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(personJsonLd),
-        }}
+        // 说明：JSON-LD 属于“无需执行的结构化数据”，随 HTML 输出可提升爬虫抓取稳定性。
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(personJsonLd) }}
       />
       {/* Header */}
       <SiteHeader />
@@ -167,6 +153,7 @@ export default async function AboutPage() {
               </div>
             ) : aboutHtml ? (
               <article className="prose prose-sm sm:prose dark:prose-invert max-w-none">
+                {/* 安全约束：仅允许渲染来自“预编译 + sanitize-html 白名单净化”的本地产物，禁止绕开该链路渲染外部 HTML。 */}
                 <div dangerouslySetInnerHTML={{ __html: aboutHtml }} />
               </article>
             ) : (

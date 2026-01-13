@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import Script from 'next/script';
 import { SiteHeader } from './components/SiteHeader';
 import { HomeStartButton } from './components/HomeStartButton';
 import { PreloadLinks } from './components/PreloadLinks';
@@ -62,13 +61,10 @@ export default function Home() {
 
   return (
     <PageShell variant="plain" main={false}>
-      <Script
-        id="ld-json-home"
+      <script
         type="application/ld+json"
-        strategy="afterInteractive"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(jsonLd),
-        }}
+        // 说明：JSON-LD 属于“无需执行的结构化数据”，随 HTML 输出可提升爬虫抓取稳定性。
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       
       {/* 预加载关键路由和资源 */}

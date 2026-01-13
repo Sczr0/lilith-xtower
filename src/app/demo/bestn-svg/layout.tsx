@@ -5,6 +5,10 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: 'BestN SVG 渲染测试 | Phigros Query',
   description: '用于测试前端是否能正常渲染后端返回的 SVG 格式 BestN 图片（通过 format=svg 获取）。',
+  robots: {
+    index: false,
+    follow: false,
+  },
   keywords: ['Phigros', 'BestN', 'SVG', '渲染测试', 'demo'],
   openGraph: {
     type: 'website',
@@ -29,4 +33,3 @@ export const metadata: Metadata = {
 export default function BestNSvgDemoLayout({ children }: { children: React.ReactNode }) {
   return children
 }
-

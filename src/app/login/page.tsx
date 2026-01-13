@@ -8,7 +8,7 @@ import { AuthDetailsModal } from '../components/AuthDetailsModal';
 import { useAuth } from '../contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { AuthStorage } from '../lib/storage/auth';
-import { preloadTapTapQr, runWhenIdle, shouldPreload, prefetchPage } from '../lib/utils/preload';
+import { preloadTapTapQr, runWhenIdle, shouldPreload } from '../lib/utils/preload';
 import { SiteHeader } from '../components/SiteHeader';
 
 function LoginMethodLoading(props: { error?: Error | null; isLoading?: boolean; pastDelay?: boolean }) {
@@ -59,11 +59,11 @@ export default function LoginPage() {
     if (shouldPreload()) {
       runWhenIdle(() => {
         preloadTapTapQr(savedVersion);
-        // 预取 dashboard 页面
-        prefetchPage('/dashboard');
+        // 预取 dashboard 页面（使用 Next Router 预取机制）
+        void router.prefetch('/dashboard');
       });
     }
-  }, []);
+  }, [router]);
 
   // 保存TapTap版本配置并预加载对应版本的二维码
   const handleVersionChange = (version: 'cn' | 'global') => {

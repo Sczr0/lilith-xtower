@@ -5,6 +5,10 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: '个人成绩仪表盘 - Phigros Query',
   description: '集中查看与分析您的 Phigros 成绩，展示 RKS 走势、Best N 列表、单曲表现，并支持图片导出。',
+  robots: {
+    index: false,
+    follow: false,
+  },
   keywords: ['Phigros', '成绩统计', '数据分析', 'RKS 趋势', 'Best N', '成绩仪表盘', '成绩导出'],
   openGraph: {
     type: 'website',

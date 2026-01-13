@@ -4,49 +4,19 @@ import { useCallback, useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Sidebar, TabId } from './components/Sidebar';
 import { DashboardHeader } from './components/DashboardHeader';
-import dynamic from 'next/dynamic';
+import { useRouter } from 'next/navigation';
 import { AnnouncementModal } from '../components/AnnouncementModal';
-import { ServiceStats } from '../components/ServiceStats';
 import { MenuGuide } from './components/MenuGuide';
-import { getPrefetchedData, prefetchRksData, prefetchLeaderboard, prefetchServiceStats, runWhenIdle, shouldPreload, prefetchPage } from '../lib/utils/preload';
+import { getPrefetchedData, prefetchRksData, prefetchLeaderboard, prefetchServiceStats, runWhenIdle, shouldPreload } from '../lib/utils/preload';
 import { LEADERBOARD_TOP_LIMIT_DEFAULT } from '../lib/constants/leaderboard';
-
-// 按需动态加载各功能组件，避免首屏加载与执行过多 JS
-const BnImageGenerator = dynamic(() => import('../components/BnImageGenerator').then(m => m.BnImageGenerator), { ssr: false, loading: () => null });
-const SongSearchGenerator = dynamic(() => import('../components/SongSearchGenerator').then(m => m.SongSearchGenerator), { ssr: false, loading: () => null });
-const RksRecordsList = dynamic(() => import('../components/RksRecordsList').then(m => m.RksRecordsList), { ssr: false, loading: () => null });
-function SongUpdateListSkeleton() {
-  const items = Array.from({ length: 3 });
-  return (
-    <div className="space-y-5">
-      {items.map((_, idx) => (
-        <div
-          key={idx}
-          className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden animate-pulse"
-        >
-          <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
-            <div className="h-5 w-40 bg-gray-200 dark:bg-gray-800 rounded" />
-            <div className="h-4 w-24 bg-gray-200 dark:bg-gray-800 rounded" />
-          </div>
-          <div className="px-5 py-4 space-y-2">
-            <div className="h-4 w-3/4 bg-gray-200 dark:bg-gray-800 rounded" />
-            <div className="h-4 w-1/2 bg-gray-200 dark:bg-gray-800 rounded" />
-            <div className="h-4 w-2/3 bg-gray-200 dark:bg-gray-800 rounded" />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-const SongUpdateList = dynamic(() => import('../components/SongUpdateCard').then(m => m.SongUpdateList), { ssr: false, loading: () => <SongUpdateListSkeleton /> });
-const PlayerScoreRenderer = dynamic(() => import('../components/PlayerScoreRenderer').then(m => m.PlayerScoreRenderer), { ssr: false, loading: () => null });
-const LeaderboardPanel = dynamic(() => import('../components/LeaderboardPanel').then(m => m.LeaderboardPanel), { ssr: false, loading: () => null });
 import type { Announcement, SongUpdate } from '../lib/types/content';
 import { RotatingTips } from '../components/RotatingTips';
+import { DashboardTabContent } from './components/DashboardTabContent';
 const AGREEMENT_KEY = 'phigros_agreement_accepted';
 
 export default function Dashboard() {
-  const { isAuthenticated, isLoading, error, credential } = useAuth();
+  const { isAuthenticated, isLoading, error } = useAuth();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>('best-n');
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [songUpdates, setSongUpdates] = useState<SongUpdate[]>([]);
@@ -158,11 +128,11 @@ export default function Dashboard() {
     const stage4Timer = setTimeout(() => {
       runWhenIdle(() => {
         // 预取用户可能访问的其他页面
-        prefetchPage('/about');
-        prefetchPage('/qa');
-        prefetchPage('/sponsors');
-        prefetchPage('/privacy');
-        prefetchPage('/agreement');
+        void router.prefetch('/about');
+        void router.prefetch('/qa');
+        void router.prefetch('/sponsors');
+        void router.prefetch('/privacy');
+        void router.prefetch('/agreement');
       });
     }, 3000);
 
@@ -171,7 +141,7 @@ export default function Dashboard() {
       clearTimeout(stage3Timer);
       clearTimeout(stage4Timer);
     };
-  }, [isAuthenticated, credential]);
+  }, [isAuthenticated, router]);
 
   useEffect(() => {
     // 与 AuthContext 中的 AGREEMENT_KEY 保持一致
@@ -270,6 +240,14 @@ export default function Dashboard() {
     return () => controller.abort();
   }, [isAuthenticated, loadSongUpdates]);
 
+  // 说明：未登录时软跳转 /login，避免硬刷新带来的体验割裂。
+  useEffect(() => {
+    if (isLoading) return;
+    if (!isAuthenticated) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, isLoading, router]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-950 flex items-center justify-center">
@@ -283,109 +261,23 @@ export default function Dashboard() {
   }
 
   if (!isAuthenticated) {
-    if (typeof window !== 'undefined') {
-      window.location.href = '/login';
-    }
-    return null;
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-950 flex items-center justify-center">
+        <div className="text-sm text-gray-600 dark:text-gray-400">正在跳转到登录页…</div>
+      </div>
+    );
   }
 
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'best-n':
-        return (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                Best N 成绩图片生成
-              </h2>
-              <p className="text-gray-600 dark:text-gray-400">
-                生成您的最佳 N 首歌曲成绩汇总图片，支持自定义主题和数量。
-              </p>
-            </div>
-            <BnImageGenerator showTitle={false} showDescription={false} format="svg" debugExport={debugExport} />
-          </div>
-        );
-      case 'single-query':
-        return (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                单曲成绩查询
-              </h2>
-              <p className="text-gray-600 dark:text-gray-400">
-                查询特定歌曲的详细成绩信息。
-              </p>
-            </div>
-            <SongSearchGenerator showTitle={false} showDescription={false} />
-          </div>
-        );
-      case 'rks-list':
-        return (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                RKS 成绩列表
-              </h2>
-              <p className="text-gray-600 dark:text-gray-400">
-                查看所有歌曲的 RKS 计算详情和排名。
-              </p>
-            </div>
-            <RksRecordsList showTitle={false} showDescription={false} />
-          </div>
-        );
-      case 'song-updates':
-        return (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                新曲速递 🎵
-              </h2>
-              <p className="text-gray-600 dark:text-gray-400">
-                查看最新的曲目更新信息和难度定数。
-              </p>
-            </div>
-            <SongUpdateList
-              updates={songUpdates}
-              isLoading={songUpdatesStatus === 'loading' || songUpdatesStatus === 'idle'}
-              error={songUpdatesError}
-              onRetry={() => loadSongUpdates()}
-            />
-          </div>
-        );
-      case 'leaderboard':
-        return <LeaderboardPanel />;
-      case 'player-score-render':
-        return (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                玩家成绩渲染
-              </h2>
-              <p className="text-gray-600 dark:text-gray-400">
-                手动添加成绩并生成 Best N 图片，适用于自定义成绩展示。
-              </p>
-            </div>
-            <PlayerScoreRenderer />
-          </div>
-        );
-      case 'stats':
-        return (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                服务统计
-              </h2>
-              <p className="text-gray-600 dark:text-gray-400">
-                查看服务使用情况和统计数据。
-              </p>
-            </div>
-            <ServiceStats showTitle={false} showDescription={false} />
-          </div>
-        );
-      default:
-        return null;
-    }
-  };
+  const renderContent = () => (
+    <DashboardTabContent
+      activeTab={activeTab}
+      debugExport={debugExport}
+      songUpdates={songUpdates}
+      songUpdatesStatus={songUpdatesStatus}
+      songUpdatesError={songUpdatesError}
+      onRetrySongUpdates={() => void loadSongUpdates()}
+    />
+  );
 
   return (
     <>

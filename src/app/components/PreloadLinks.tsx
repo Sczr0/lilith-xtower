@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
 import {
   runWhenIdle,
   shouldPreload,
-  prefetchPage,
   preconnect,
   dnsPrefetch,
   prefetchLeaderboard,
@@ -19,6 +19,7 @@ import { LEADERBOARD_TOP_LIMIT_DEFAULT } from '../lib/constants/leaderboard';
  */
 export function PreloadLinks() {
   const { isAuthenticated } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
     if (!shouldPreload()) return;
@@ -32,23 +33,23 @@ export function PreloadLinks() {
 
       // 预取登录页面（未登录用户最可能访问）
       if (!isAuthenticated) {
-        prefetchPage('/login');
+        void router.prefetch('/login');
       }
 
       // 预取常用页面
-      prefetchPage('/qa');
-      prefetchPage('/about');
+      void router.prefetch('/qa');
+      void router.prefetch('/about');
 
       // 如果已登录，预取 dashboard 和相关数据
       if (isAuthenticated) {
-        prefetchPage('/dashboard');
+        void router.prefetch('/dashboard');
         // 预取排行榜数据
         prefetchLeaderboard(LEADERBOARD_TOP_LIMIT_DEFAULT);
         // 预取服务统计
         prefetchServiceStats();
       }
     }, 3000); // 延迟 3 秒，确保首屏渲染完成
-  }, [isAuthenticated]);
+  }, [isAuthenticated, router]);
 
   // 此组件不渲染任何内容
   return null;

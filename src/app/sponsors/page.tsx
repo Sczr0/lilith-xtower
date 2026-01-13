@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { SiteHeader } from "../components/SiteHeader";
 import SponsorsList from "../components/SponsorsList";
+import { fetchAfdianSponsorsCached } from "../lib/sponsors/afdian";
+import type { SponsorItem } from "../lib/types/sponsors";
 
 // ISR: 每 10 分钟重新验证一次（赞助者数据更新不频繁）
 export const revalidate = 600;
@@ -9,7 +11,24 @@ export const revalidate = 600;
  * 赞助者页面 - SSR + ISR
  * 静态内容在服务端渲染，赞助者列表由客户端组件处理分页
  */
-export default function SponsorsPage() {
+export default async function SponsorsPage() {
+  const initialPerPage = 24;
+  let initialData: { items: SponsorItem[]; page: number; totalPage: number } | null = null;
+
+  try {
+    const result = await fetchAfdianSponsorsCached(1, initialPerPage);
+    if (result.ok && result.payload.ec === 200 && result.payload.data?.list?.length) {
+      initialData = {
+        items: result.payload.data.list,
+        page: 1,
+        totalPage: result.payload.data.total_page || 1,
+      };
+    }
+  } catch {
+    // 说明：SSR 首屏列表为“尽力而为”，失败时由客户端继续拉取（或展示错误提示）。
+    initialData = null;
+  }
+
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950 text-gray-900 dark:text-gray-50">
       {/* Header */}
@@ -29,7 +48,7 @@ export default function SponsorsPage() {
           </div>
 
           {/* 赞助者列表：客户端组件处理分页交互 */}
-          <SponsorsList initialPerPage={24} />
+          <SponsorsList initialPerPage={initialPerPage} initialData={initialData} />
 
           {/* 简短页脚 */}
           <footer className="pt-4 border-t border-gray-200 dark:border-neutral-800 text-sm text-gray-500 dark:text-gray-400">

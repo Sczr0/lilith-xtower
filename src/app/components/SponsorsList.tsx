@@ -1,42 +1,34 @@
 "use client";
 
-import { useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { preloadImages, shouldPreload } from '../lib/utils/preload';
+import type { SponsorItem, SponsorsApiResponse } from '../lib/types/sponsors';
 
-type SponsorUser = {
-  user_id: string;
-  name: string;
-  avatar: string;
+type SponsorsListInitialData = {
+  items: SponsorItem[];
+  page: number;
+  totalPage: number;
 };
 
-type SponsorItem = {
-  user: SponsorUser;
-  all_sum_amount?: string;
-  last_pay_time?: number;
-  create_time?: number;
-  current_plan?: { name?: string } | null;
+type SponsorsListProps = {
+  initialPerPage?: number;
+  initialData?: SponsorsListInitialData | null;
 };
 
-type ApiResponse = {
-  ec: number;
-  em?: string;
-  data?: { total_count?: number; total_page?: number; list?: SponsorItem[] };
-};
-
-export default function SponsorsList({ initialPerPage = 12 }: { initialPerPage?: number }) {
-  const [items, setItems] = useState<SponsorItem[]>([]);
-  const [page, setPage] = useState(1);
-  const [totalPage, setTotalPage] = useState(1);
+export default function SponsorsList({ initialPerPage = 12, initialData }: SponsorsListProps) {
+  const [items, setItems] = useState<SponsorItem[]>(() => initialData?.items ?? []);
+  const [page, setPage] = useState(() => initialData?.page ?? 1);
+  const [totalPage, setTotalPage] = useState(() => initialData?.totalPage ?? 1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const preloadedRef = useRef<Set<string>>(new Set());
 
-  const load = async (nextPage: number, perPage = initialPerPage) => {
+  const load = useCallback(async (nextPage: number, perPage = initialPerPage) => {
     setLoading(true);
     setError(null);
     try {
       const res = await fetch(`/internal/sponsors?page=${nextPage}&per_page=${perPage}`);
-      const data: ApiResponse = await res.json();
+      const data: SponsorsApiResponse = await res.json();
       if (data.ec !== 200 || !data.data) throw new Error(data.em || '加载失败');
       const newItems = data.data!.list || [];
       setItems((prev) => (nextPage === 1 ? newItems : [...prev, ...newItems]));
@@ -71,12 +63,20 @@ export default function SponsorsList({ initialPerPage = 12 }: { initialPerPage?:
     } finally {
       setLoading(false);
     }
-  };
+  }, [initialPerPage]);
 
   useEffect(() => {
-    load(1, initialPerPage);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialPerPage]);
+    if (initialData?.items?.length) {
+      // 说明：SSR 首屏已直出列表，这里只做“已预加载”标记，避免重复预加载同一批头像。
+      initialData.items
+        .map((it) => it.user.avatar)
+        .filter((url) => url)
+        .forEach((url) => preloadedRef.current.add(url));
+      return;
+    }
+
+    void load(1, initialPerPage);
+  }, [initialData, initialPerPage, load]);
 
   const canLoadMore = page < totalPage;
 
@@ -122,7 +122,7 @@ export default function SponsorsList({ initialPerPage = 12 }: { initialPerPage?:
         {canLoadMore ? (
           <button
             className="px-4 py-2 rounded-lg border border-gray-300 dark:border-neutral-700 text-sm hover:bg-gray-50 dark:hover:bg-neutral-800"
-            onClick={() => load(page + 1)}
+            onClick={() => void load(page + 1)}
             disabled={loading}
           >
             {loading ? '加载中…' : '加载更多'}

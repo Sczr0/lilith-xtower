@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { UnifiedApiDashboardShell } from './components/UnifiedApiDashboardShell';
 import type { UnifiedApiSectionId } from './components/UnifiedApiSidebar';
@@ -82,7 +83,8 @@ async function fetchSiteUserId(): Promise<string> {
 }
 
 export default function UnifiedApiDashboardPage() {
-  const { credential, isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
+  const router = useRouter();
   const [activeSection, setActiveSection] = useState<UnifiedApiSectionId>('bind');
 
   const syncSectionToUrl = (sectionId: UnifiedApiSectionId) => {
@@ -102,10 +104,10 @@ export default function UnifiedApiDashboardPage() {
   // 说明：作为“另一个仪表盘”，这里与 /dashboard 保持一致的鉴权行为：未登录直接跳转 /login。
   useEffect(() => {
     if (isLoading) return;
-    if (!isAuthenticated && typeof window !== 'undefined') {
-      window.location.href = '/login';
+    if (!isAuthenticated) {
+      router.replace('/login');
     }
-  }, [isAuthenticated, isLoading]);
+  }, [isAuthenticated, isLoading, router]);
 
   // 说明：支持通过 query 直达指定分组，例如：/unified-api-dashboard?tab=tools
   useEffect(() => {

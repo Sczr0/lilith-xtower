@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { TableOfContents } from './TableOfContents';
 import { SignatureBar } from './SignatureBar';
 import type { PrecompiledSignatureInfo } from '@/app/lib/precompiled-types';
@@ -37,13 +37,16 @@ export function AgreementContent({
 
   const headingsRef = useRef<HTMLElement[]>([]);
   const rafRef = useRef<number | null>(null);
-  const activeTextRef = useRef<string>('');
+  const activeIdRef = useRef<string>('');
 
-  const updateActiveSection = () => {
+  const getHeadingId = (element: HTMLElement) =>
+    element.getAttribute('data-heading-id') || element.id || '';
+
+  const updateActiveSection = useCallback(() => {
     const headings = headingsRef.current;
     if (!headings || headings.length === 0) {
-      if (activeTextRef.current !== '') {
-        activeTextRef.current = '';
+      if (activeIdRef.current !== '') {
+        activeIdRef.current = '';
         setActiveSection('');
       }
       return;
@@ -54,29 +57,29 @@ export function AgreementContent({
     for (let i = headings.length - 1; i >= 0; i -= 1) {
       const element = headings[i];
       if (element.offsetTop <= scrollPosition) {
-        const next = element.textContent || '';
-        if (next !== activeTextRef.current) {
-          activeTextRef.current = next;
+        const next = getHeadingId(element);
+        if (next !== activeIdRef.current) {
+          activeIdRef.current = next;
           setActiveSection(next);
         }
         return;
       }
     }
 
-    const first = headings[0]?.textContent || '';
-    if (first !== activeTextRef.current) {
-      activeTextRef.current = first;
+    const first = headings[0] ? getHeadingId(headings[0]) : '';
+    if (first !== activeIdRef.current) {
+      activeIdRef.current = first;
       setActiveSection(first);
     }
-  };
+  }, []);
 
-  const scheduleUpdate = () => {
+  const scheduleUpdate = useCallback(() => {
     if (rafRef.current) return;
     rafRef.current = requestAnimationFrame(() => {
       rafRef.current = null;
       updateActiveSection();
     });
-  };
+  }, [updateActiveSection]);
 
   useEffect(() => {
     // htmlContent 变更时只做一次 DOM 查询
@@ -85,8 +88,7 @@ export function AgreementContent({
       contentRef.current.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6'),
     );
     scheduleUpdate();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [htmlContent]);
+  }, [htmlContent, scheduleUpdate]);
 
   useEffect(() => {
     const onScroll = () => scheduleUpdate();
@@ -102,8 +104,7 @@ export function AgreementContent({
         rafRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [scheduleUpdate]);
 
   return (
     <main className="px-4 py-10 sm:py-14 sm:px-6 lg:px-8">

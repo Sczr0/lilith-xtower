@@ -1,18 +1,10 @@
 import Link from 'next/link';
-import Script from 'next/script';
 import { SiteHeader } from '../components/SiteHeader';
 import { PageShell } from '../components/PageShell';
 import { buttonStyles } from '../components/ui/styles';
 import { QAList } from './components/QAList';
 import { getAllQA } from '../lib/qa';
-
-// 获取站点 URL
-const rawSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-const SITE_URL = rawSiteUrl
-  ? (rawSiteUrl.startsWith('http://') || rawSiteUrl.startsWith('https://')
-      ? rawSiteUrl
-      : `https://${rawSiteUrl}`)
-  : 'https://lilith.xtower.site';
+import { SITE_URL } from '../utils/site-url';
 
 // ISR: 每小时重新验证一次
 export const revalidate = 3600;
@@ -29,7 +21,7 @@ const defaultQAData: QAItem[] = [
   {
     id: 'q1',
     question: '如何获取 SessionToken？',
-    answer: 'Phigros 游戏内没有直接获取 SessionToken 的方式。你可以通过其他查分方式（如扫码登录、联合查分 API）登录后，在调试页面查看获取到的 SessionToken。',
+    answer: 'Phigros 游戏内没有直接获取 SessionToken 的方式。为了降低凭证泄露风险，本网站默认不会在前端展示原始 SessionToken/API Token。你可以通过扫码登录或联合查分 API 登录后，在 /auth 查看当前登录状态（仅显示脱敏摘要）。若确有排查需求，请仅在自己可控环境下开启调试入口（生产默认关闭），并避免分享截图。',
     category: 'login',
   },
   {
@@ -41,7 +33,7 @@ const defaultQAData: QAItem[] = [
   {
     id: 'q3',
     question: '登录凭证会保存多久？',
-    answer: '您的登录凭证会保存在浏览器的本地存储中，除非您主动退出登录或清除浏览器数据，否则会一直保持登录状态。',
+    answer: '登录态通过 HttpOnly Cookie 会话保存（浏览器脚本无法直接读取），除非您主动退出登录或清除站点 Cookie/数据，否则会保持登录状态。',
     category: 'security',
   },
   {
@@ -59,7 +51,7 @@ const defaultQAData: QAItem[] = [
   {
     id: 'q6',
     question: '我的数据安全吗？',
-    answer: '您的所有数据都存储在浏览器本地，我们不会在服务器端保存您的任何个人信息或游戏数据。所有的数据处理都在您的设备上完成。',
+    answer: '我们不会在浏览器 localStorage 中保存 SessionToken/API Token 等原始凭证；登录态使用服务端加密的 HttpOnly 会话 Cookie。页面可能会使用浏览器端的短期缓存提升体验（例如列表缓存），您可以随时通过退出登录或清理站点数据来移除本地缓存。',
     category: 'security',
   },
   {
@@ -77,7 +69,7 @@ const defaultQAData: QAItem[] = [
   {
     id: 'q9',
     question: '如何查看调试信息？',
-    answer: '登录后，在登录页面会显示当前登录状态，点击"查看详情"按钮即可查看完整的凭证信息。您也可以访问独立的调试页面 /debug-auth 查看详细信息。',
+    answer: '登录后，在登录页面会显示当前登录状态，点击“查看详情”可查看会话摘要信息；也可以访问 /auth 查看当前会话状态。/debug-auth 为受控调试入口，生产环境默认不可用。',
     category: 'technical',
   },
   {
@@ -141,22 +133,16 @@ export default async function QAPage() {
   return (
     <PageShell variant="gradient" main={false}>
       {/* FAQPage 结构化数据 */}
-      <Script
-        id="ld-json-faq"
+      <script
         type="application/ld+json"
-        strategy="afterInteractive"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(faqJsonLd),
-        }}
+        // 说明：JSON-LD 属于“无需执行的结构化数据”，随 HTML 输出可提升爬虫抓取稳定性。
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
       {/* BreadcrumbList 结构化数据 */}
-      <Script
-        id="ld-json-breadcrumb-qa"
+      <script
         type="application/ld+json"
-        strategy="afterInteractive"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(breadcrumbJsonLd),
-        }}
+        // 说明：JSON-LD 属于“无需执行的结构化数据”，随 HTML 输出可提升爬虫抓取稳定性。
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
       {/* Header */}
       <SiteHeader />

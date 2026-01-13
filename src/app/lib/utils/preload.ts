@@ -245,21 +245,6 @@ export function preloadResource(href: string, as: string, type?: string): void {
 }
 
 /**
- * 预取页面（用于路由预取）
- */
-export function prefetchPage(href: string): void {
-  if (typeof document === 'undefined') return;
-  
-  const existing = document.querySelector(`link[rel="prefetch"][href="${href}"]`);
-  if (existing) return;
-  
-  const link = document.createElement('link');
-  link.rel = 'prefetch';
-  link.href = href;
-  document.head.appendChild(link);
-}
-
-/**
  * 登录后的预加载任务
  */
 export function runPostLoginPreload(): void {
@@ -274,9 +259,6 @@ export function runPostLoginPreload(): void {
     
     // 预取服务统计
     prefetchServiceStats();
-    
-    // 预取 Dashboard 页面
-    prefetchPage('/dashboard');
   });
 }
 
