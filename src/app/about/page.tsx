@@ -1,51 +1,10 @@
-import Link from 'next/link';
 import Image from 'next/image';
+import { PageShell } from '../components/PageShell';
 import { SiteHeader } from '../components/SiteHeader';
 import { getPrecompiledAssetServer, hasPrecompiledAsset } from '../lib/precompiled-server';
-import { AboutClientSections } from './components/AboutClientSections';
 import { SITE_URL } from '../utils/site-url';
-
-// 支持链接数据（静态）
-const supportLinks = [
-  {
-    title: '技术支持',
-    links: [
-      { name: '技术支持方', url: 'https://github.com/Sczr0', external: true },
-      { name: '官方群聊', url: 'https://qm.qq.com/q/YQMW1eiz8m', external: true },
-      { name: '反馈问题与建议', url: 'https://www.wjx.cn/vm/rDY4LVs.aspx#', external: true }
-    ],
-    icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
-      </svg>
-    )
-  },
-  {
-    title: '服务监控',
-    links: [
-      { name: '数据访问统计', url: 'https://cloud.umami.is/share/NsykwU9OjIWMYsb8', external: true },
-      { name: '服务可用性监控', url: 'https://stats.uptimerobot.com/cTTBFmsBaZ', external: true }
-    ],
-    icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-      </svg>
-    )
-  },
-  {
-    title: '友链/赞助',
-    links: [
-      { name: 'Phi-plugin 使用指引', url: 'https://www.kdocs.cn/l/catqcMM9UR5Y', external: true },
-      { name: 'RankHub —— 跨平台音游数据管理应用', url: 'https://github.com/Project-Fukakai/RankHub', external: true },
-      { name: '爱发电', url: 'https://afdian.com/a/xtower', external: true }
-    ],
-    icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-      </svg>
-    )
-  }
-];
+import { AboutClientSections } from './components/AboutClientSections';
+import { SUPPORT_LINK_SECTIONS } from './supportLinks';
 
 const AVATAR_SRC = '/about/avatar.png';
 
@@ -97,9 +56,7 @@ export default async function AboutPage() {
     jobTitle: 'Phigros Query 主要维护者',
     url: `${SITE_URL}/about`,
     image: `${SITE_URL}/about/avatar.png`,
-    sameAs: [
-      'https://github.com/Sczr0',
-    ],
+    sameAs: ['https://github.com/Sczr0'],
     worksFor: {
       '@type': 'Organization',
       name: 'Phigros Query',
@@ -108,70 +65,75 @@ export default async function AboutPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-neutral-950 text-gray-900 dark:text-gray-50">
-      {/* BreadcrumbList 结构化数据 */}
-      <script
-        type="application/ld+json"
-        // 说明：JSON-LD 属于“无需执行的结构化数据”，随 HTML 输出可提升爬虫抓取稳定性。
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
-      />
-      {/* Person 结构化数据 */}
-      <script
-        type="application/ld+json"
-        // 说明：JSON-LD 属于“无需执行的结构化数据”，随 HTML 输出可提升爬虫抓取稳定性。
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(personJsonLd) }}
-      />
-      {/* Header */}
-      <SiteHeader />
+    <PageShell
+      variant="plain"
+      header={<SiteHeader />}
+      beforeMain={
+        <>
+          {/* BreadcrumbList 结构化数据 */}
+          <script
+            type="application/ld+json"
+            // 说明：JSON-LD 属于“无需执行的结构化数据”，随 HTML 输出可提升爬虫抓取稳定性。
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+          />
 
-      {/* Main */}
-      <main className="px-4 py-10 sm:py-14">
-        <div className="mx-auto max-w-4xl space-y-10">
-          {/* 顶部：头像 + 昵称（聊天软件风格） */}
-          <section className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-            <div className="h-16 w-16 rounded-full overflow-hidden bg-gray-100 dark:bg-neutral-800">
-              <Image
-                src={AVATAR_SRC}
-                alt="头像"
-                width={64}
-                height={64}
-                className="h-16 w-16 rounded-full object-cover object-center"
-                priority
-              />
-            </div>
-            <div className="text-center sm:text-left">
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">弦塔</h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Phigros 查询 · 主要（现在是唯一）维护者</p>
-            </div>
-          </section>
+          {/* Person 结构化数据 */}
+          <script
+            type="application/ld+json"
+            // 说明：JSON-LD 属于“无需执行的结构化数据”，随 HTML 输出可提升爬虫抓取稳定性。
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(personJsonLd) }}
+          />
+        </>
+      }
+    >
+      <div className="space-y-10">
+        {/* 顶部：头像 + 昵称（聊天软件风格） */}
+        <section className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <div className="h-16 w-16 rounded-full overflow-hidden bg-gray-100 dark:bg-neutral-800">
+            <Image
+              src={AVATAR_SRC}
+              alt="头像"
+              width={64}
+              height={64}
+              className="h-16 w-16 rounded-full object-cover object-center"
+              priority
+            />
+          </div>
+          <div className="text-center sm:text-left">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">弦塔</h1>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Phigros 查询 · 主要（现在是唯一）维护者</p>
+          </div>
+        </section>
 
-          {/* 可自填区域：从预编译 HTML 渲染 */}
-          <section className="border border-gray-200 dark:border-neutral-800 rounded-xl p-4 sm:p-5">
-            {aboutError ? (
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                无法加载 About 内容（{aboutError}）。
-              </div>
-            ) : aboutHtml ? (
-              <article className="prose prose-sm sm:prose dark:prose-invert max-w-none">
-                {/* 安全约束：仅允许渲染来自“预编译 + sanitize-html 白名单净化”的本地产物，禁止绕开该链路渲染外部 HTML。 */}
-                <div dangerouslySetInnerHTML={{ __html: aboutHtml }} />
-              </article>
-            ) : (
-              <div className="text-sm text-gray-400 dark:text-gray-500">暂无内容</div>
-            )}
-          </section>
+        {/* 可自填区域：从预编译 HTML 渲染 */}
+        <section className="border border-gray-200 dark:border-neutral-800 rounded-xl p-4 sm:p-5">
+          {aboutError ? (
+            <div className="text-sm text-gray-500 dark:text-gray-400">无法加载 About 内容（{aboutError}）。</div>
+          ) : aboutHtml ? (
+            <article className="prose prose-sm sm:prose dark:prose-invert max-w-none">
+              {/* 安全约束：仅允许渲染来自“预编译 + sanitize-html 白名单净化”的本地产物，禁止绕开该链路渲染外部 HTML。 */}
+              <div dangerouslySetInnerHTML={{ __html: aboutHtml }} />
+            </article>
+          ) : (
+            <div className="text-sm text-gray-400 dark:text-gray-500">暂无内容</div>
+          )}
+        </section>
 
-          {/* 客户端动态部分：感谢服务提供商 + 服务统计 */}
-          <AboutClientSections />
+        {/* 客户端动态部分：感谢服务提供商 + 服务统计 */}
+        <AboutClientSections />
 
-          {/* 服务支持（静态内容） */}
-          <section className="space-y-3">
-            <h2 className="text-xl font-semibold">服务支持</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {supportLinks.map((section) => (
+        {/* 服务支持（静态内容） */}
+        <section className="space-y-3">
+          <h2 className="text-xl font-semibold">服务支持</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {SUPPORT_LINK_SECTIONS.map((section) => {
+              const Icon = section.icon;
+              return (
                 <div key={section.title} className="border border-gray-200 dark:border-neutral-800 rounded-xl p-4">
                   <div className="mb-3 flex items-center gap-2">
-                    <span className="text-gray-500 dark:text-gray-400">{section.icon}</span>
+                    <span className="text-gray-500 dark:text-gray-400">
+                      <Icon className="w-6 h-6" aria-hidden="true" />
+                    </span>
                     <h3 className="text-base font-medium">{section.title}</h3>
                   </div>
                   <ul className="space-y-2">
@@ -189,16 +151,12 @@ export default async function AboutPage() {
                     ))}
                   </ul>
                 </div>
-              ))}
-            </div>
-          </section>
-
-          {/* 简短页脚 */}
-          <footer className="pt-4 border-t border-gray-200 dark:border-neutral-800 text-sm text-gray-500 dark:text-gray-400">
-            © 2025 Phigros Query · <Link href="/agreement" className="hover:text-blue-600 dark:hover:text-blue-400">用户协议</Link> · <Link href="/privacy" className="hover:text-blue-600 dark:hover:text-blue-400">隐私协议</Link>
-          </footer>
-        </div>
-      </main>
-    </div>
+              );
+            })}
+          </div>
+        </section>
+      </div>
+    </PageShell>
   );
 }
+

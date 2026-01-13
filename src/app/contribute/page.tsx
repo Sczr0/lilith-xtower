@@ -1,9 +1,8 @@
 import { SiteHeader } from '../components/SiteHeader';
 import { PageShell } from '../components/PageShell';
 import { buttonStyles, cardStyles } from '../components/ui/styles';
+import { SURVEY_URL } from '../config/survey.config';
 import { TipForm } from './components/TipForm';
-
-const SURVEY_URL = 'https://v.wjx.cn/vm/twyt7dF.aspx#';
 
 export default function ContributePage() {
   return (
@@ -50,4 +49,3 @@ export default function ContributePage() {
     </PageShell>
   );
 }
-

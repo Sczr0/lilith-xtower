@@ -10,6 +10,7 @@ import { RotatingTips } from '../components/RotatingTips';
 import { useAuth } from '../contexts/AuthContext';
 import { AuthStorage } from '../lib/storage/auth';
 import { UnifiedAPI } from '../lib/api/unified';
+import { stringifyJsonForDisplay } from '../utils/redactJson';
 import type {
   UnifiedApiBindResponse,
   UnifiedApiLevelKind,
@@ -54,6 +55,58 @@ const extractErrorMessage = (payload: unknown, fallback: string) => {
   const message = typeof p.message === 'string' ? p.message : undefined;
   return error || message || fallback;
 };
+
+function ResponseJsonDetails({ data, className = 'mt-4' }: { data: unknown; className?: string }) {
+  const [showRaw, setShowRaw] = useState(false);
+
+  const redactedText = useMemo(() => stringifyJsonForDisplay(data), [data]);
+  const rawText = useMemo(() => (showRaw ? stringifyJsonForDisplay(data, { redacted: false }) : ''), [data, showRaw]);
+
+  const handleRevealRaw = () => {
+    if (showRaw) return;
+    const ok = window.confirm(
+      '原始响应可能包含敏感信息（如 token/用户标识）。仅建议在本机可控环境排障使用，并避免截图/复制分享。确定要显示吗？',
+    );
+    if (!ok) return;
+    setShowRaw(true);
+  };
+
+  return (
+    <details className={cx(className)}>
+      <summary className="cursor-pointer select-none text-sm text-gray-600 dark:text-gray-400">查看响应 JSON（默认脱敏）</summary>
+      <pre className="mt-3 p-3 rounded bg-gray-100/70 dark:bg-gray-900/50 overflow-x-auto text-xs text-gray-700 dark:text-gray-300">
+        <code>{redactedText}</code>
+      </pre>
+      <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-[11px] text-gray-500 dark:text-gray-500">
+          提示：脱敏会遮罩 token/secret 等字段，用于降低误泄露风险。
+        </p>
+        {showRaw ? (
+          <button
+            type="button"
+            className={buttonStyles({ variant: 'outline', size: 'sm' })}
+            onClick={() => setShowRaw(false)}
+          >
+            隐藏原始 JSON
+          </button>
+        ) : (
+          <button
+            type="button"
+            className={buttonStyles({ variant: 'outline', size: 'sm' })}
+            onClick={handleRevealRaw}
+          >
+            显示原始 JSON
+          </button>
+        )}
+      </div>
+      {showRaw && (
+        <pre className="mt-3 p-3 rounded border border-amber-200 dark:border-amber-800 bg-amber-50/40 dark:bg-amber-900/10 overflow-x-auto text-xs text-gray-700 dark:text-gray-300">
+          <code>{rawText}</code>
+        </pre>
+      )}
+    </details>
+  );
+}
 
 async function fetchSiteUserId(): Promise<string> {
   const res = await fetch('/api/auth/user-id', {
@@ -300,17 +353,11 @@ export default function UnifiedApiDashboardPage() {
 
       setBindState({ loading: false, error: null, data: res });
 
-      const haveApiToken = res?.data?.haveApiToken;
-      const shouldAutoFillDefaultApiToken = haveApiToken === 1 && !apiToken.trim();
-      if (shouldAutoFillDefaultApiToken) {
-        setApiToken(DEFAULT_API_TOKEN);
-      }
-
       const apiUserIdForList = res?.data?.internal_id ? String(res.data.internal_id).trim() : '';
       if (apiUserIdForList && !apiUserId.trim()) {
         setApiUserId(apiUserIdForList);
       }
-      const apiTokenForList = (apiToken.trim() || (shouldAutoFillDefaultApiToken ? DEFAULT_API_TOKEN : '')).trim();
+      const apiTokenForList = apiToken.trim();
       const tokenForList = token.trim();
 
       if (tokenForList && apiUserIdForList && apiTokenForList) {
@@ -654,7 +701,7 @@ export default function UnifiedApiDashboardPage() {
                   <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white/60 dark:bg-neutral-950/30 p-3">
                     <div className="text-xs text-gray-500 dark:text-gray-400">API Token 状态（haveApiToken）</div>
                     <div className="mt-1 font-mono text-sm">{bindState.data.data.haveApiToken}</div>
-                    <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">0=未设置；1=可用默认值 {DEFAULT_API_TOKEN}；2=已自定义</div>
+                    <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">0=未设置；1=可用默认值；2=已自定义</div>
                   </div>
                 </div>
               </div>
@@ -692,6 +739,9 @@ export default function UnifiedApiDashboardPage() {
                       .filter((value): value is string => !!value)
                       .join(' / ')}
                     。
+                    {bindState.data?.data?.haveApiToken === 1 && !apiToken.trim() ? (
+                      <span className="ml-1">haveApiToken=1 时可直接点击「填入默认值」。</span>
+                    ) : null}
                   </p>
                 )}
 
@@ -729,7 +779,7 @@ export default function UnifiedApiDashboardPage() {
                       value={apiToken}
                       onChange={(e) => setApiToken(e.target.value)}
                       type={showApiToken ? 'text' : 'password'}
-                      placeholder={DEFAULT_API_TOKEN}
+                      placeholder="api_token"
                       autoComplete="off"
                       disabled={!isAuthenticated}
                     />
@@ -749,7 +799,7 @@ export default function UnifiedApiDashboardPage() {
                     </button>
                   </div>
                   <p className="mt-2 text-xs text-gray-500 dark:text-gray-500">
-                    提示：若上方 haveApiToken=1，通常可直接使用默认值 {DEFAULT_API_TOKEN}；否则请按联合API侧的实际值填写。
+                    提示：若上方 haveApiToken=1，可点击「填入默认值」使用 {DEFAULT_API_TOKEN}；否则请按联合API侧的实际值填写。
                   </p>
               </div>
 
@@ -903,14 +953,7 @@ export default function UnifiedApiDashboardPage() {
                 <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{playerIdListState.loading ? '加载中...' : '暂无数据'}</p>
               )}
 
-              {playerIdListState.data && (
-                <details className="mt-4">
-                  <summary className="cursor-pointer select-none text-sm text-gray-600 dark:text-gray-400">查看原始响应 JSON</summary>
-                  <pre className="mt-3 p-3 rounded bg-gray-100/70 dark:bg-gray-900/50 overflow-x-auto text-xs text-gray-700 dark:text-gray-300">
-                    <code>{JSON.stringify(playerIdListState.data, null, 2)}</code>
-                  </pre>
-                </details>
-              )}
+              {playerIdListState.data && <ResponseJsonDetails data={playerIdListState.data} className="mt-4" />}
             </div>
           </section>
 
@@ -968,14 +1011,7 @@ export default function UnifiedApiDashboardPage() {
                   <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">{ranklistByRankState.loading ? '加载中...' : '暂无数据'}</p>
                 )}
 
-                {ranklistByRankState.data && (
-                  <details className="mt-3">
-                    <summary className="cursor-pointer select-none text-sm text-gray-600 dark:text-gray-400">查看原始响应 JSON</summary>
-                    <pre className="mt-3 p-3 rounded bg-gray-100/70 dark:bg-gray-900/50 overflow-x-auto text-xs text-gray-700 dark:text-gray-300">
-                      <code>{JSON.stringify(ranklistByRankState.data, null, 2)}</code>
-                    </pre>
-                  </details>
-                )}
+                {ranklistByRankState.data && <ResponseJsonDetails data={ranklistByRankState.data} className="mt-3" />}
               </div>
 
               <div className="border-t border-gray-200/60 dark:border-neutral-800/60 pt-6">
@@ -1029,14 +1065,7 @@ export default function UnifiedApiDashboardPage() {
                   <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">{ranklistByUserState.loading ? '加载中...' : '暂无数据'}</p>
                 )}
 
-                {ranklistByUserState.data && (
-                  <details className="mt-3">
-                    <summary className="cursor-pointer select-none text-sm text-gray-600 dark:text-gray-400">查看原始响应 JSON</summary>
-                    <pre className="mt-3 p-3 rounded bg-gray-100/70 dark:bg-gray-900/50 overflow-x-auto text-xs text-gray-700 dark:text-gray-300">
-                      <code>{JSON.stringify(ranklistByUserState.data, null, 2)}</code>
-                    </pre>
-                  </details>
-                )}
+                {ranklistByUserState.data && <ResponseJsonDetails data={ranklistByUserState.data} className="mt-3" />}
               </div>
             </div>
           </section>
@@ -1154,14 +1183,7 @@ export default function UnifiedApiDashboardPage() {
                 <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{scoreListUserState.loading ? '加载中...' : '暂无数据'}</p>
               )}
 
-              {scoreListUserState.data && (
-                <details className="mt-4">
-                  <summary className="cursor-pointer select-none text-sm text-gray-600 dark:text-gray-400">查看原始响应 JSON</summary>
-                  <pre className="mt-3 p-3 rounded bg-gray-100/70 dark:bg-gray-900/50 overflow-x-auto text-xs text-gray-700 dark:text-gray-300">
-                    <code>{JSON.stringify(scoreListUserState.data, null, 2)}</code>
-                  </pre>
-                </details>
-              )}
+              {scoreListUserState.data && <ResponseJsonDetails data={scoreListUserState.data} className="mt-4" />}
             </div>
           </section>
         </div>

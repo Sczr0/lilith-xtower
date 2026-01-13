@@ -1,14 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { Markdown } from '../../components/Markdown';
-
-interface QAItem {
-  id: string;
-  question: string;
-  answer: string;
-  category: 'login' | 'usage' | 'technical' | 'security';
-}
+import type { QAItem } from '../types';
 
 interface QAListProps {
   qaData: QAItem[];
@@ -27,7 +22,6 @@ const categories = {
  */
 export function QAList({ qaData }: QAListProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const filteredQA = selectedCategory
     ? qaData.filter((item) => item.category === selectedCategory)
@@ -77,14 +71,11 @@ export function QAList({ qaData }: QAListProps) {
       {/* QA List */}
       <div className="space-y-4">
         {filteredQA.map((item) => (
-          <div
+          <details
             key={item.id}
-            className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-xl border border-gray-200/50 dark:border-gray-700/50 overflow-hidden transition-all duration-200 hover:shadow-lg"
+            className="group bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-xl border border-gray-200/50 dark:border-gray-700/50 overflow-hidden transition-all duration-200 hover:shadow-lg"
           >
-            <button
-              onClick={() => setExpandedId(expandedId === item.id ? null : item.id)}
-              className="w-full px-6 py-4 flex items-start justify-between gap-4 text-left"
-            >
+            <summary className="w-full px-6 py-4 flex items-start justify-between gap-4 text-left cursor-pointer list-none [&::-webkit-details-marker]:hidden">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-2">
                   <span
@@ -99,32 +90,19 @@ export function QAList({ qaData }: QAListProps) {
                   {item.question}
                 </h3>
               </div>
-              <svg
-                className={`w-5 h-5 text-gray-500 dark:text-gray-400 flex-shrink-0 transition-transform ${
-                  expandedId === item.id ? 'rotate-180' : ''
-                }`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
-            </button>
-            {expandedId === item.id && (
-              <div className="px-6 pb-4">
-                <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <div className="text-gray-700 dark:text-gray-300 prose prose-sm dark:prose-invert max-w-none">
-                    <Markdown>{item.answer}</Markdown>
-                  </div>
+              <ChevronDown
+                className="w-5 h-5 text-gray-500 dark:text-gray-400 flex-shrink-0 transition-transform group-open:rotate-180"
+                aria-hidden="true"
+              />
+            </summary>
+            <div className="px-6 pb-4">
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="text-gray-700 dark:text-gray-300 prose prose-sm dark:prose-invert max-w-none">
+                  <Markdown>{item.answer}</Markdown>
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          </details>
         ))}
       </div>
     </>

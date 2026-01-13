@@ -1,4 +1,5 @@
 import type { PromoBannerConfig } from "../utils/promoBanner";
+import { SURVEY_URL } from "./survey.config";
 
 /**
  * 宣传横幅配置说明
@@ -22,7 +23,7 @@ export const promoBannerConfig: PromoBannerConfig = {
       id: "year-end-survey",
       title: "2025 年度问卷调查",
       description: "约 5-10 分钟填写，帮助我们改进功能优先级与体验细节",
-      href: "https://v.wjx.cn/vm/twyt7dF.aspx#",
+      href: SURVEY_URL,
       cta: "参与问卷调查",
       gradient: "from-blue-600 via-indigo-600 to-cyan-500",
       textColor: "text-white",
