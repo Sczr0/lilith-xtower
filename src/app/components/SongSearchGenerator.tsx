@@ -9,7 +9,7 @@ import { LoadingPlaceholder, LoadingSpinner } from './LoadingIndicator';
 
 // 支持通过 showDescription 隐藏组件内的描述，避免与外层重复
 export function SongSearchGenerator({ showTitle = true, showDescription = true }: { showTitle?: boolean; showDescription?: boolean }) {
-  const { credential } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [songQuery, setSongQuery] = useState('');
   const { startTask, clearResult } = useGenerationManager();
   const isLoading = useGenerationBusy('song');
@@ -38,8 +38,8 @@ export function SongSearchGenerator({ showTitle = true, showDescription = true }
   }, [imageUrl]);
 
   const handleSearch = async () => {
-    if (!credential) {
-      setError('未找到登录凭证，请重新登录。');
+    if (!isAuthenticated) {
+      setError('请先登录后再查询。');
       return;
     }
 
@@ -67,7 +67,7 @@ export function SongSearchGenerator({ showTitle = true, showDescription = true }
     try {
       // 使用验证后的歌曲ID调用图片生成接口
       await startTask('song', () =>
-        ImageAPI.generateSongImage(songId!, credential)
+        ImageAPI.generateSongImage(songId!)
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : '查询失败';

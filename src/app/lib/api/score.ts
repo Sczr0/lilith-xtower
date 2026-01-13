@@ -1,4 +1,3 @@
-import { AuthCredential } from '../types/auth';
 import {
   RksResponse,
   RksHistoryResponse,
@@ -9,21 +8,18 @@ import {
   ServiceStatsResponse,
   StatsSummaryApiResponse,
 } from '../types/score';
-import { buildAuthRequestBody } from './auth';
 import { extractProblemMessage } from './problem';
 
 const BASE_URL = '/api';
 
 export class ScoreAPI {
-  static async getRksList(credential: AuthCredential): Promise<RksResponse> {
-    const requestBody = buildAuthRequestBody(credential);
-
+  static async getRksList(): Promise<RksResponse> {
     const response = await fetch(`${BASE_URL}/save?calculate_rks=true`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(requestBody),
+      body: JSON.stringify({}),
     });
 
     if (!response.ok) {
@@ -166,11 +162,9 @@ export class ScoreAPI {
    * 获取用户 RKS 历史变化记录
    */
   static async getRksHistory(
-    credential: AuthCredential,
     options?: { limit?: number; offset?: number }
   ): Promise<RksHistoryResponse> {
     const requestBody = {
-      auth: buildAuthRequestBody(credential),
       limit: options?.limit ?? 50,
       offset: options?.offset ?? 0,
     };

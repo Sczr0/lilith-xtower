@@ -1,5 +1,3 @@
-import { AuthCredential } from '../types/auth';
-import { buildAuthRequestBody } from './auth';
 import { extractProblemMessage } from './problem';
 import type {
   AliasUpdatePayload,
@@ -102,12 +100,11 @@ export class LeaderboardAPI {
     return data;
   }
 
-  static async getMyRanking(credential: AuthCredential): Promise<LeaderboardMeResponse> {
-    const body = buildAuthRequestBody(credential);
+  static async getMyRanking(): Promise<LeaderboardMeResponse> {
     const response = await fetch(`${BASE_URL}/leaderboard/rks/me`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify({}),
     });
 
     if (!response.ok) {
@@ -118,21 +115,16 @@ export class LeaderboardAPI {
     return response.json() as Promise<LeaderboardMeResponse>;
   }
 
-  static async updateAlias(credential: AuthCredential, payload: AliasUpdatePayload): Promise<void> {
+  static async updateAlias(payload: AliasUpdatePayload): Promise<void> {
     const alias = payload.alias?.trim();
     if (!alias) {
       throw new Error('别名不能为空');
     }
 
-    const body = {
-      alias,
-      auth: buildAuthRequestBody(credential),
-    };
-
     const response = await fetch(`${BASE_URL}/leaderboard/alias`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ alias }),
     });
 
     if (response.status === 409) {
@@ -154,18 +146,12 @@ export class LeaderboardAPI {
   }
 
   static async updateProfileSettings(
-    credential: AuthCredential,
     options: UpdateProfileOptions,
   ): Promise<void> {
-    const body = {
-      auth: buildAuthRequestBody(credential),
-      ...options,
-    };
-
     const response = await fetch(`${BASE_URL}/leaderboard/profile`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify(options),
     });
 
     if (!response.ok) {

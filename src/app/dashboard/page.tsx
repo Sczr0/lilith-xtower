@@ -131,13 +131,13 @@ export default function Dashboard() {
 
     // 阶段3：1500ms 后预取 API 数据
     const stage3Timer = setTimeout(() => {
-      if (!isAuthenticated || !credential) return;
+      if (!isAuthenticated) return;
       
       runWhenIdle(() => {
         // 预取 RKS 数据
-        const rksKey = `rks_${credential.type}`;
+        const rksKey = 'rks';
         if (!getPrefetchedData(rksKey)) {
-          prefetchRksData(credential);
+          prefetchRksData();
         }
 
         // 预取排行榜数据

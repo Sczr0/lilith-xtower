@@ -7,8 +7,6 @@ import type { UnifiedApiSectionId } from './components/UnifiedApiSidebar';
 import { buttonStyles, cardStyles, cx, inputStyles } from '../components/ui/styles';
 import { RotatingTips } from '../components/RotatingTips';
 import { useAuth } from '../contexts/AuthContext';
-import type { AuthCredential } from '../lib/types/auth';
-import { buildAuthRequestBody } from '../lib/api/auth';
 import { AuthStorage } from '../lib/storage/auth';
 import { UnifiedAPI } from '../lib/api/unified';
 import type {
@@ -56,12 +54,12 @@ const extractErrorMessage = (payload: unknown, fallback: string) => {
   return error || message || fallback;
 };
 
-async function fetchSiteUserId(credential: AuthCredential): Promise<string> {
+async function fetchSiteUserId(): Promise<string> {
   const res = await fetch('/api/auth/user-id', {
     method: 'POST',
     cache: 'no-store',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify(buildAuthRequestBody(credential)),
+    body: JSON.stringify({}),
   });
 
   const text = await res.text();
@@ -200,13 +198,6 @@ export default function UnifiedApiDashboardPage() {
   };
 
   useEffect(() => {
-    // 说明：当前登录为 session 时，尽量把 SessionToken 回填到 token 输入框（不覆盖用户已输入的内容）
-    if (!credential || token.trim()) return;
-    if (credential.type !== 'session') return;
-    setToken(credential.token);
-  }, [credential, token]);
-
-  useEffect(() => {
     // 说明：绑定成功后把 internal_id 回填到 api_user_id（不覆盖用户已手动输入的内容）
     const internalId = bindState.data?.data?.internal_id ? String(bindState.data.data.internal_id).trim() : '';
     if (!internalId) return;
@@ -215,14 +206,14 @@ export default function UnifiedApiDashboardPage() {
 
   useEffect(() => {
     // 说明：根据本站登录凭证，向本站后端请求生成去敏 userId（本站ID）
-    if (!credential) {
+    if (!isAuthenticated) {
       setSiteUserIdState({ loading: false, error: '请先登录本站以生成 userId', data: null });
       return;
     }
 
     let cancelled = false;
     setSiteUserIdState({ loading: true, error: null, data: null });
-    fetchSiteUserId(credential)
+    fetchSiteUserId()
       .then((userId) => {
         if (cancelled) return;
         setSiteUserIdState({ loading: false, error: null, data: userId });
@@ -239,7 +230,7 @@ export default function UnifiedApiDashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [credential]);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     // 说明：同步 TapTap 版本（是否国际服）；当用户切换版本后，userId 也可能不同
@@ -613,9 +604,9 @@ export default function UnifiedApiDashboardPage() {
                   {showToken ? '隐藏' : '显示'}
                 </button>
               </div>
-              {credential?.type !== 'session' && isAuthenticated && (
+              {isAuthenticated && (
                 <p className="mt-2 text-xs text-gray-500 dark:text-gray-500">
-                  如果你不确定 token，可按文档获取后手动填写；使用 SessionToken 登录时通常可以自动填入。
+                  如果你不确定 token，可按文档获取后手动填写。出于安全考虑，本站不会在前端自动回填 SessionToken。
                 </p>
               )}
             </div>

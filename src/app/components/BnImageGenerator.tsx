@@ -60,7 +60,7 @@ export function BnImageGenerator({
   showSvgSource = false,
   debugExport = false,
 }: BnImageGeneratorProps) {
-  const { credential } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [nInput, setNInput] = useState(`${DEFAULT_N}`);
   const [generatedN, setGeneratedN] = useState(DEFAULT_N);
   const [theme, setTheme] = useState<BestNTheme>('dark');
@@ -105,8 +105,8 @@ export function BnImageGenerator({
   }, [resultBlob, format]);
 
   const handleGenerate = async () => {
-    if (!credential) {
-      setError('未找到登录凭证，请重新登录。');
+    if (!isAuthenticated) {
+      setError('请先登录后再生成图片。');
       return;
     }
 
@@ -127,7 +127,7 @@ export function BnImageGenerator({
     try {
       // 使用全局任务管理，避免页面切换中断并阻止同类重复请求；结果由上下文保存
       await startTask('best-n', async () => {
-        return ImageAPI.generateBestNImage(parsed, credential, theme, format);
+        return ImageAPI.generateBestNImage(parsed, theme, format);
       });
       setGeneratedN(parsed);
     } catch (error) {

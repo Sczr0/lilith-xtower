@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { notFound } from 'next/navigation'
 import { SITE_URL } from '../utils/site-url'
 
 export const metadata: Metadata = {
@@ -31,5 +32,10 @@ export const metadata: Metadata = {
 }
 
 export default function DebugAuthLayout({ children }: { children: React.ReactNode }) {
+  // 生产环境默认禁用调试入口，避免敏感信息泄露。
+  // 如确需线上排障，可在部署环境设置 DEBUG_AUTH_ENABLED=1 临时开启，并确保不会被收录/公开。
+  const isEnabled = process.env.NODE_ENV !== 'production' || process.env.DEBUG_AUTH_ENABLED === '1'
+  if (!isEnabled) notFound()
+
   return children
 }

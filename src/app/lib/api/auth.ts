@@ -1,41 +1,10 @@
 import {
   QRCodeResponse,
   QRCodeStatusResponse,
-  AuthRequest,
-  AuthCredential,
 } from '../types/auth';
 import { AuthStorage } from '../storage/auth';
 
 const BASE_URL = '/api';
-
-export const buildAuthRequestBody = (credential: AuthCredential): AuthRequest => {
-  const taptapVersion = AuthStorage.getTapTapVersion();
-  switch (credential.type) {
-    case 'session':
-      return {
-        sessionToken: credential.token,
-        taptapVersion: taptapVersion
-      };
-    case 'api':
-      return {
-        externalCredentials: {
-          apiUserId: credential.api_user_id,
-          apiToken: credential.api_token ?? null,
-        },
-        taptapVersion: taptapVersion
-      };
-    case 'platform':
-      return {
-        externalCredentials: {
-          platform: credential.platform,
-          platformId: credential.platform_id,
-        },
-        taptapVersion: taptapVersion
-      };
-    default:
-      throw new Error('不支持的凭证类型');
-  }
-};
 
 /**
  * API调用工具类
@@ -125,99 +94,6 @@ export class AuthAPI {
       return { status, sessionToken: data.sessionToken };
     } catch (error) {
       console.error('查询扫码状态失败:', error);
-      throw error instanceof Error ? error : new Error('网络错误，请检查网络连接');
-    }
-  }
-
-  /**
-   * 验证登录凭证有效性
-   * @returns { isValid: boolean, shouldLogout: boolean, error?: string }
-   * - isValid: 凭证是否有效
-   * - shouldLogout: 是否应该退出登录（清除凭证）
-   * - error: 错误信息
-   */
-  static async validateCredential(credential: AuthCredential): Promise<{
-    isValid: boolean;
-    shouldLogout: boolean;
-    error?: string;
-  }> {
-    try {
-      const requestBody = buildAuthRequestBody(credential);
-
-      const response = await fetch(`${BASE_URL}/save`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      // 如果返回200，说明凭证有效
-      if (response.ok) {
-        return { isValid: true, shouldLogout: false };
-      }
-
-      // 4xx 错误：凭证问题，应该退出登录
-      if (response.status >= 400 && response.status < 500) {
-        return {
-          isValid: false,
-          shouldLogout: true,
-          error: '登录凭证已过期或无效，请重新登录'
-        };
-      }
-
-      // 5xx 错误：服务器问题，保留凭证
-      if (response.status >= 500) {
-        return {
-          isValid: false,
-          shouldLogout: false,
-          error: '服务器暂时无法访问，请稍后再试'
-        };
-      }
-
-      // 其他错误
-      return {
-        isValid: false,
-        shouldLogout: false,
-        error: '网络错误，请检查网络连接'
-      };
-    } catch (error) {
-      console.error('验证凭证失败:', error);
-      // 网络错误不应该清除凭证
-      return {
-        isValid: false,
-        shouldLogout: false,
-        error: '网络错误，请检查网络连接'
-      };
-    }
-  }
-
-  /**
-   * 获取用户云存档数据（用于验证凭证和获取用户信息）
-   */
-  static async getCloudSaves(credential: AuthCredential): Promise<unknown> {
-    try {
-      const requestBody = buildAuthRequestBody(credential);
-
-      const response = await fetch(`${BASE_URL}/save`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (!response.ok) {
-        if (response.status === 401 || response.status === 400) {
-          throw new Error('登录凭证无效或已过期');
-        }
-        throw new Error('获取用户数据失败');
-      }
-
-      const data = await response.json();
-      return data as unknown;
-    } catch (error) {
-      console.error('获取用户数据失败:', error);
       throw error instanceof Error ? error : new Error('网络错误，请检查网络连接');
     }
   }

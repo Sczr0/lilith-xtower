@@ -108,7 +108,7 @@ function formatTime(isoString: string): string {
 }
 
 export function RksHistoryPanel({ showTitle = true }: RksHistoryPanelProps) {
-  const { credential } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [historyData, setHistoryData] = useState<RksHistoryResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -146,13 +146,13 @@ export function RksHistoryPanel({ showTitle = true }: RksHistoryPanelProps) {
   }, [lastChangeTime]);
 
   useEffect(() => {
-    if (!credential) return;
+    if (!isAuthenticated) return;
 
     const loadHistory = async () => {
       setIsLoading(true);
       setError(null);
       try {
-        const data = await ScoreAPI.getRksHistory(credential, { limit: 50 });
+        const data = await ScoreAPI.getRksHistory({ limit: 50 });
         setHistoryData(data);
       } catch (err) {
         const message = err instanceof Error ? err.message : '加载失败';
@@ -163,13 +163,13 @@ export function RksHistoryPanel({ showTitle = true }: RksHistoryPanelProps) {
     };
 
     loadHistory();
-  }, [credential]);
+  }, [isAuthenticated]);
 
   const loadMore = async () => {
-    if (!credential || !historyData) return;
+    if (!isAuthenticated || !historyData) return;
     
     try {
-      const data = await ScoreAPI.getRksHistory(credential, {
+      const data = await ScoreAPI.getRksHistory({
         limit: 50,
         offset: historyData.items.length,
       });

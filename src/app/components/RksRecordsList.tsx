@@ -332,7 +332,7 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
     setError(null);
 
     try {
-      const response = await ScoreAPI.getRksList(credential);
+      const response = await ScoreAPI.getRksList();
       const newRecords = response.data.records || [];
       setRecords(newRecords);
       const now = Date.now();

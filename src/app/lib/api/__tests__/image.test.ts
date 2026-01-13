@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ImageAPI } from '../image';
-import type { AuthCredential } from '../../types/auth';
 
 const installLocalStorageMock = () => {
   const storage = {
@@ -35,12 +34,11 @@ afterEach(() => {
 
 describe('ImageAPI.generateBestNImage', () => {
   it('passes format via query string (svg)', async () => {
-    const credential: AuthCredential = { type: 'session', token: 't', timestamp: Date.now() };
     const svgBlob = new Blob(['<svg xmlns="http://www.w3.org/2000/svg"></svg>'], { type: 'image/svg+xml' });
     const mockFetch = createFetchBlobMock(svgBlob);
     globalThis.fetch = mockFetch as unknown as typeof fetch;
 
-    await ImageAPI.generateBestNImage(27, credential, 'dark', 'svg');
+    await ImageAPI.generateBestNImage(27, 'dark', 'svg');
 
     expect(mockFetch).toHaveBeenCalledTimes(1);
     const [url, init] = mockFetch.mock.calls[0]!;
@@ -53,12 +51,11 @@ describe('ImageAPI.generateBestNImage', () => {
   });
 
   it('passes format via query string (png)', async () => {
-    const credential: AuthCredential = { type: 'session', token: 't', timestamp: Date.now() };
     const pngBlob = new Blob(['png'], { type: 'image/png' });
     const mockFetch = createFetchBlobMock(pngBlob);
     globalThis.fetch = mockFetch as unknown as typeof fetch;
 
-    await ImageAPI.generateBestNImage(27, credential, 'white', 'png');
+    await ImageAPI.generateBestNImage(27, 'white', 'png');
 
     const [url, init] = mockFetch.mock.calls[0]!;
     expect(String(url)).toContain('/api/image/bn?format=png');

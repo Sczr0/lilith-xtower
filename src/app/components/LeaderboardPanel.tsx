@@ -166,7 +166,7 @@ const renderChartItems = (items: PublicProfileResponse['apTop3']) => {
 };
 
 export function LeaderboardPanel() {
-  const { credential } = useAuth();
+  const { credential, isAuthenticated } = useAuth();
 
   const [topPageSize, setTopPageSize] = useState(() => {
     if (typeof window === 'undefined') return LEADERBOARD_TOP_LIMIT_DEFAULT;
@@ -312,7 +312,7 @@ export function LeaderboardPanel() {
   };
 
   const handleFetchMyRank = async () => {
-    if (!credential) {
+    if (!isAuthenticated) {
       setMyRankError('请先登录后再查询排名');
       return;
     }
@@ -320,7 +320,7 @@ export function LeaderboardPanel() {
     setIsMyRankLoading(true);
     setMyRankError(null);
     try {
-      const data = await LeaderboardAPI.getMyRanking(credential);
+      const data = await LeaderboardAPI.getMyRanking();
       setMyRank(data);
     } catch (error) {
       setMyRank(null);
@@ -331,7 +331,7 @@ export function LeaderboardPanel() {
   };
 
   const handleAliasUpdate = async () => {
-    if (!credential) {
+    if (!isAuthenticated) {
       setAliasError('请先登录后再绑定别名');
       return;
     }
@@ -341,7 +341,7 @@ export function LeaderboardPanel() {
     setIsAliasUpdating(true);
     try {
       const nextAlias = aliasInput.trim();
-      await LeaderboardAPI.updateAlias(credential, { alias: nextAlias });
+      await LeaderboardAPI.updateAlias({ alias: nextAlias });
       setSavedAlias(nextAlias);
       try {
         localStorage.setItem(LEADERBOARD_ALIAS_STORAGE_KEY, nextAlias);
@@ -357,7 +357,7 @@ export function LeaderboardPanel() {
   };
 
   const handleProfileUpdate = async () => {
-    if (!credential) {
+    if (!isAuthenticated) {
       setProfileError('请先登录后再调整公开设置');
       return;
     }
@@ -372,7 +372,7 @@ export function LeaderboardPanel() {
         showApTop3,
         showRksComposition,
       };
-      await LeaderboardAPI.updateProfileSettings(credential, {
+      await LeaderboardAPI.updateProfileSettings({
         isPublic: isProfilePublic,
         showBestTop3: showBestTop3,
         showApTop3: showApTop3,

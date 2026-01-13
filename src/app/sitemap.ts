@@ -20,7 +20,6 @@ const routeConfigs: RouteConfig[] = [
   { path: '/agreement', priority: 0.3, changeFrequency: 'yearly', source: 'src/app/agreement/page.tsx' },
   { path: '/privacy', priority: 0.3, changeFrequency: 'yearly', source: 'src/app/privacy/page.tsx' },
   { path: '/contribute', priority: 0.4, changeFrequency: 'monthly', source: 'src/app/contribute/page.tsx' },
-  { path: '/debug-auth', priority: 0.2, changeFrequency: 'monthly', source: 'src/app/debug-auth/page.tsx' },
   { path: '/demo/score-card', priority: 0.2, changeFrequency: 'monthly', source: 'src/app/demo/score-card/page.tsx' },
   { path: '/demo/bestn-svg', priority: 0.2, changeFrequency: 'monthly', source: 'src/app/demo/bestn-svg/page.tsx' },
 ]

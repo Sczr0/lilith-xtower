@@ -63,6 +63,15 @@ export default function ContributePage() {
             </div>
 
             <form id="tip-form" action={handleSubmit} className="space-y-4">
+              {/* 反机器人蜜罐字段：正常用户不可见，若被填写则服务端会静默丢弃 */}
+              <input
+                type="text"
+                name="website"
+                tabIndex={-1}
+                autoComplete="off"
+                aria-hidden="true"
+                className="hidden"
+              />
               <div>
                 <label htmlFor="tip" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   你的 Tip 内容

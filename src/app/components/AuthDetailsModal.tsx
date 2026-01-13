@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect } from 'react';
-import { AuthCredential } from '../lib/types/auth';
+import type { AuthCredentialSummary } from '../lib/auth/credentialSummary';
 
 interface AuthDetailsModalProps {
-  credential: AuthCredential;
+  credential: AuthCredentialSummary;
   isOpen: boolean;
   onClose: () => void;
 }
@@ -64,7 +64,7 @@ export function AuthDetailsModal({ credential, isOpen, onClose }: AuthDetailsMod
             <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
               <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-2">SessionToken</h4>
               <code className="block bg-gray-100 dark:bg-gray-900 p-3 rounded text-xs break-all text-gray-800 dark:text-gray-200">
-                {credential.token}
+                {credential.tokenMasked}
               </code>
             </div>
           </div>
@@ -97,11 +97,11 @@ export function AuthDetailsModal({ credential, isOpen, onClose }: AuthDetailsMod
                     {credential.api_user_id}
                   </code>
                 </div>
-                {credential.api_token && (
+                {credential.api_token_masked && (
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">API Token:</span>
                     <code className="bg-gray-100 dark:bg-gray-900 px-2 py-1 rounded text-xs text-gray-800 dark:text-gray-200 break-all">
-                      {credential.api_token}
+                      {credential.api_token_masked}
                     </code>
                   </div>
                 )}
@@ -200,8 +200,8 @@ export function AuthDetailsModal({ credential, isOpen, onClose }: AuthDetailsMod
                 安全提示
               </h3>
               <ul className="text-xs text-blue-700 dark:text-blue-400 space-y-1">
-                <li>• 您的凭证安全存储在浏览器本地存储中</li>
-                <li>• 请勿将凭证信息分享给他人</li>
+                <li>• 本页不会展示完整 token，仅展示脱敏摘要</li>
+                <li>• 凭证存储在 HttpOnly 会话 Cookie 中（仅服务端可读）</li>
                 <li>• 如有安全疑虑，请及时退出登录并重新登录</li>
               </ul>
             </div>

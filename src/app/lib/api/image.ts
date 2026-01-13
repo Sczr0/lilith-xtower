@@ -1,9 +1,7 @@
-import { AuthCredential } from '../types/auth';
-import { buildAuthRequestBody } from './auth';
 
-// 在浏览器端使用同源 /api 避免 CORS 预检；仅在服务端允许环境变量覆盖
-const BASE_URL: string =
-  typeof window !== 'undefined' ? '/api' : (process.env.NEXT_PUBLIC_API as string) ?? '/api';
+
+// 说明：客户端使用同源 /api，由服务端会话代理注入鉴权信息（P0-1）。
+const BASE_URL = '/api';
 const DEFAULT_TIMEOUT_MS = 30000;
 
 export type BestNTheme = 'dark' | 'white';
@@ -12,7 +10,6 @@ export type ImageFormat = 'png' | 'svg';
 export class ImageAPI {
   static async generateBestNImage(
     n: number,
-    credential: AuthCredential,
     theme: BestNTheme = 'dark',
     format: ImageFormat = 'png',
   ): Promise<Blob> {
@@ -20,9 +17,7 @@ export class ImageAPI {
       throw new Error('N 值必须为正整数');
     }
 
-    const auth = buildAuthRequestBody(credential);
     const body = {
-      ...auth,
       n,
       // 后端主题：white/black；兼容前端枚举
       theme: theme === 'white' ? 'white' : 'black',
@@ -62,24 +57,20 @@ export class ImageAPI {
 
   static async generateBestNSVG(
     n: number,
-    credential: AuthCredential,
     theme: BestNTheme = 'dark',
   ): Promise<string> {
-    const blob = await ImageAPI.generateBestNImage(n, credential, theme, 'svg');
+    const blob = await ImageAPI.generateBestNImage(n, theme, 'svg');
     return blob.text();
   }
 
   static async generateSongImage(
     songQuery: string,
-    credential: AuthCredential,
   ): Promise<Blob> {
     if (!songQuery.trim()) {
       throw new Error('歌曲关键词不能为空');
     }
 
-    const auth = buildAuthRequestBody(credential);
     const body = {
-      ...auth,
       song: songQuery,
     };
 

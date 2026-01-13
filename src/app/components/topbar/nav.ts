@@ -40,7 +40,7 @@ export const SITE_NAV_ITEMS: NavItem[] = [
 export const DASHBOARD_NAV_ITEMS: NavItem[] = [
   { href: '/about', label: '关于' },
   { href: '/contribute', label: '投稿' },
-  { href: '/debug-auth', label: '调试' },
+  { href: '/auth', label: '认证' },
 ];
 
 /**
@@ -51,5 +51,5 @@ export const UNIFIED_API_DASHBOARD_NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', label: '个人仪表盘' },
   { href: '/about', label: '关于' },
   { href: '/contribute', label: '投稿' },
-  { href: '/debug-auth', label: '调试' },
+  { href: '/auth', label: '认证' },
 ];

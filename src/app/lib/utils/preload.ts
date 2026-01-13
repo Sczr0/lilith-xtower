@@ -3,8 +3,6 @@
  * 提供统一的资源预加载、数据预取和缓存管理功能
  */
 
-import type { AuthCredential } from '../types/auth';
-import { buildAuthRequestBody } from '../api/auth';
 import { LeaderboardAPI } from '../api/leaderboard';
 import { LEADERBOARD_TOP_LIMIT_DEFAULT } from '../constants/leaderboard';
 
@@ -116,16 +114,15 @@ export function clearPrefetchCache(key?: string): void {
 /**
  * 预取 RKS 数据
  */
-export async function prefetchRksData(credential: AuthCredential): Promise<void> {
+export async function prefetchRksData(): Promise<void> {
   if (!shouldPreload()) return;
   
-  const key = `rks_${credential.type}`;
+  const key = 'rks';
   await prefetchData(key, async () => {
-    const requestBody = buildAuthRequestBody(credential);
     const response = await fetch('/api/save?calculate_rks=true', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody),
+      body: JSON.stringify({}),
     });
     if (!response.ok) throw new Error('Failed to prefetch RKS data');
     return response.json();
@@ -265,12 +262,12 @@ export function prefetchPage(href: string): void {
 /**
  * 登录后的预加载任务
  */
-export function runPostLoginPreload(credential: AuthCredential): void {
+export function runPostLoginPreload(): void {
   if (!shouldPreload()) return;
   
   runWhenIdle(() => {
     // 预取 RKS 数据
-    prefetchRksData(credential);
+    prefetchRksData();
     
     // 预取排行榜
     prefetchLeaderboard();

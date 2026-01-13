@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { AuthState, AuthCredential } from '../lib/types/auth';
+import type { AuthCredential } from '../lib/types/auth';
 import { AuthStorage } from '../lib/storage/auth';
 import { AuthAPI } from '../lib/api/auth';
 import { RotatingTips } from '../components/RotatingTips';
@@ -11,8 +11,16 @@ const AgreementModal = dynamic(() => import('../components/AgreementModal').then
 
 import { useServiceReachability } from '../hooks/useServiceReachability';
 import { runPostLoginPreload, clearPrefetchCache } from '../lib/utils/preload';
+import type { AuthCredentialSummary, SessionStatusResponse } from '../lib/auth/credentialSummary';
 
 const AGREEMENT_KEY = 'phigros_agreement_accepted';
+
+type AuthState = {
+  isAuthenticated: boolean;
+  credential: AuthCredentialSummary | null;
+  isLoading: boolean;
+  error: string | null;
+};
 
 interface AuthContextType extends AuthState {
   login: (credential: AuthCredential) => Promise<void>;
@@ -26,49 +34,16 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-/**
- * 同步读取 localStorage 中的凭证（仅在客户端执行）
- * 用于初始化时立即获取认证状态，避免阻塞首屏渲染
- */
-function getInitialAuthState(): AuthState {
-  if (typeof window === 'undefined') {
-    // SSR 时返回默认状态
-    return {
-      isAuthenticated: false,
-      credential: null,
-      isLoading: false,
-      error: null,
-    };
-  }
-  
-  try {
-    const credential = AuthStorage.getCredential();
-    if (credential) {
-      return {
-        isAuthenticated: true,
-        credential,
-        isLoading: false,
-        error: null,
-      };
-    }
-  } catch (error) {
-    console.error('读取凭证失败:', error);
-  }
-  
-  return {
+export function AuthProvider({ children }: AuthProviderProps) {
+  // 说明：登录态由服务端 HttpOnly 会话 Cookie 决定；客户端不再读取 localStorage 的凭证（P0-1）。
+  const [authState, setAuthState] = useState<AuthState>({
     isAuthenticated: false,
     credential: null,
-    isLoading: false,
+    isLoading: true,
     error: null,
-  };
-}
-
-export function AuthProvider({ children }: AuthProviderProps) {
-  // 乐观渲染：同步读取 localStorage，不阻塞首屏
-  const [authState, setAuthState] = useState<AuthState>(getInitialAuthState);
+  });
   const [showAgreement, setShowAgreement] = useState(false);
   const [agreementHtml, setAgreementHtml] = useState<string>('');
-  const setPendingCredential = useState<AuthCredential | null>(null)[1];
   const [isInitialized, setIsInitialized] = useState(false);
 
   // 当出现"服务器暂时无法访问/网络错误"时，轮询健康端点，恢复后移除横幅
@@ -83,37 +58,58 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (isInitialized) return;
     setIsInitialized(true);
 
-    // 如果已登录，后台进行健康检查
-    if (authState.isAuthenticated && authState.credential) {
-      // 异步健康检查，不阻塞 UI
-      AuthAPI.checkHealth()
-        .then(ok => {
-          if (!ok) {
-            setAuthState(prev => ({ ...prev, error: '服务器暂时无法访问，请稍后再试' }));
-          }
-        })
-        .catch(() => {
-          // 忽略健康检查错误，不影响用户体验
+    // 1) 初始化：从服务端 session 读取登录态
+    fetch('/api/session', { method: 'GET', cache: 'no-store', headers: { Accept: 'application/json' } })
+      .then(async (res) => {
+        const payload = (await res.json().catch(() => null)) as (SessionStatusResponse & { error?: string }) | null;
+        if (!res.ok || !payload) {
+          throw new Error(payload?.error || `获取会话失败（${res.status}）`);
+        }
+        // 仅在已登录时做后台健康检查（不阻塞 UI）
+        if (payload.isAuthenticated) {
+          AuthAPI.checkHealth()
+            .then(ok => {
+              if (!ok) setAuthState(prev => ({ ...prev, error: '服务器暂时无法访问，请稍后再试' }));
+            })
+            .catch(() => {
+              // 忽略健康检查错误，不影响用户体验
+            });
+        }
+        setAuthState({
+          isAuthenticated: payload.isAuthenticated,
+          credential: payload.credential,
+          isLoading: false,
+          error: null,
         });
-    }
+      })
+      .catch((error) => {
+        const message = error instanceof Error ? error.message : '初始化认证状态失败';
+        setAuthState({ isAuthenticated: false, credential: null, isLoading: false, error: message });
+      });
   }, [isInitialized, authState.isAuthenticated, authState.credential]);
 
   const proceedLogin = async (credential: AuthCredential) => {
     try {
       setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
 
-      const result = await AuthAPI.validateCredential(credential);
-      if (!result.isValid) {
-        throw new Error(result.error || '登录凭证验证失败，请重新登录');
+      const taptapVersion = AuthStorage.getTapTapVersion();
+      const res = await fetch('/api/session/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ credential, taptapVersion }),
+      });
+      const data = (await res.json().catch(() => null)) as
+        | { success: true; credential: AuthCredentialSummary; taptapVersion: string }
+        | { success: false; message: string }
+        | null;
+      if (!res.ok || !data || data.success !== true) {
+        throw new Error((data && 'message' in data && data.message) ? data.message : `登录失败（${res.status}）`);
       }
 
-      // 仅在验证通过后保存凭证
-      AuthStorage.saveCredential(credential);
-
-      setAuthState({ isAuthenticated: true, credential, isLoading: false, error: null });
+      setAuthState({ isAuthenticated: true, credential: data.credential, isLoading: false, error: null });
 
       // 登录成功后预加载关键数据
-      runPostLoginPreload(credential);
+      runPostLoginPreload();
 
       if (typeof window !== 'undefined') {
         window.location.href = '/dashboard';
@@ -136,17 +132,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
 
-      const result = await AuthAPI.validateCredential(credential);
-      if (!result.isValid) {
-        throw new Error(result.error || '登录凭证验证失败，请重新登录');
+      const taptapVersion = AuthStorage.getTapTapVersion();
+      const res = await fetch('/api/session/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ credential, taptapVersion }),
+      });
+      const data = (await res.json().catch(() => null)) as
+        | { success: true; credential: AuthCredentialSummary; taptapVersion: string }
+        | { success: false; message: string }
+        | null;
+      if (!res.ok || !data || data.success !== true) {
+        throw new Error((data && 'message' in data && data.message) ? data.message : `登录失败（${res.status}）`);
       }
 
-      AuthStorage.saveCredential(credential);
-      setAuthState({ isAuthenticated: true, credential, isLoading: false, error: null });
+      setAuthState({ isAuthenticated: true, credential: data.credential, isLoading: false, error: null });
 
       // 简化模式：不给 html，则弹窗走“勾选确认”
       setAgreementHtml('');
-      setPendingCredential(credential);
       setShowAgreement(true);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '登录失败';
@@ -156,7 +159,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const handleAgree = async () => {
     setShowAgreement(false);
-    setPendingCredential(null);
 
     // 保存协议接受状态并跳转
     localStorage.setItem(AGREEMENT_KEY, 'true');
@@ -167,15 +169,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const handleCloseAgreement = () => {
     setShowAgreement(false);
-    setPendingCredential(null);
 
     // 用户拒绝协议，清除凭证和登录状态
-    AuthStorage.clearCredential();
+    fetch('/api/session/logout', { method: 'POST' }).catch(() => {});
     setAuthState({ isAuthenticated: false, credential: null, isLoading: false, error: '您需要同意用户协议才能使用本服务' });
   };
 
   const logout = () => {
-    AuthStorage.clearCredential();
+    fetch('/api/session/logout', { method: 'POST' }).catch(() => {});
     localStorage.removeItem(AGREEMENT_KEY);
     // 清除与用户相关的缓存
     try {
@@ -194,14 +195,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const validateCurrentCredential = async (): Promise<boolean> => {
-    if (!authState.credential) return false;
     try {
-      const result = await AuthAPI.validateCredential(authState.credential);
-      if (result.shouldLogout) {
-        // 凭证无效，退出登录
-        logout();
-      }
-      return result.isValid;
+      const res = await fetch('/api/session/validate', {
+        method: 'POST',
+        headers: { Accept: 'application/json' },
+      });
+      const data = (await res.json().catch(() => null)) as
+        | { isValid: boolean; shouldLogout: boolean; error?: string }
+        | null;
+
+      if (!res.ok || !data) return false;
+      if (data.shouldLogout) logout();
+      return !!data.isValid;
     } catch (error) {
       console.error('验证凭证失败:', error);
       return false;
