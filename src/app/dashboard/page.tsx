@@ -233,9 +233,9 @@ export default function Dashboard() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-950 flex items-center justify-center">
-        <div className="flex flex-col items-center">
-          <h1 className="sr-only">正在加载个人成绩仪表盘 - Phigros Query</h1>
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="flex flex-col items-center" role="status" aria-live="polite">
+          <span className="sr-only">正在加载个人成绩仪表盘 - Phigros Query</span>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" aria-hidden="true"></div>
           <RotatingTips />
         </div>
       </div>

@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 import { AuthStorage } from '../lib/storage/auth';
 import { preloadTapTapQr, runWhenIdle, shouldPreload } from '../lib/utils/preload';
 import { SiteHeader } from '../components/SiteHeader';
+import { RadioGroup } from '../components/ui/RadioGroup';
 import { LoginMethodSelector } from './components/LoginMethodSelector';
 
 function LoginMethodLoading(props: { error?: Error | null; isLoading?: boolean; pastDelay?: boolean }) {
@@ -186,29 +187,37 @@ export default function LoginPage() {
               <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-2xl p-4 sm:p-6 lg:p-8 shadow-lg border border-gray-200/50 dark:border-gray-700/50">
                 {/* TapTap版本选择 */}
                 <div className="mb-6">
-                  <h3 className="text-base sm:text-lg font-medium mb-3 text-gray-900 dark:text-gray-100">选择TapTap版本</h3>
-                  <div className="flex gap-4">
-                    <button
-                      onClick={() => handleVersionChange('cn')}
-                      className={`flex-1 py-3 px-4 rounded-xl transition-all duration-300 ${
+                  <h3 id="taptap-version-title" className="text-base sm:text-lg font-medium mb-3 text-gray-900 dark:text-gray-100">
+                    选择TapTap版本
+                  </h3>
+                  <RadioGroup.Root
+                    aria-labelledby="taptap-version-title"
+                    orientation="horizontal"
+                    className="flex gap-4"
+                    value={taptapVersion}
+                    onValueChange={(v) => handleVersionChange(v as TapTapVersion)}
+                  >
+                    <RadioGroup.Item
+                      value="cn"
+                      className={`flex-1 py-3 px-4 rounded-xl transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                         taptapVersion === 'cn'
                           ? 'bg-blue-500 text-white shadow-lg border-2 border-blue-600'
                           : 'bg-gray-100 dark:bg-gray-700/50 border-2 border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-700'
                       }`}
                     >
                       <span className="font-medium">国内版</span>
-                    </button>
-                    <button
-                      onClick={() => handleVersionChange('global')}
-                      className={`flex-1 py-3 px-4 rounded-xl transition-all duration-300 ${
+                    </RadioGroup.Item>
+                    <RadioGroup.Item
+                      value="global"
+                      className={`flex-1 py-3 px-4 rounded-xl transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                         taptapVersion === 'global'
                           ? 'bg-blue-500 text-white shadow-lg border-2 border-blue-600'
                           : 'bg-gray-100 dark:bg-gray-700/50 border-2 border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-700'
                       }`}
                     >
                       <span className="font-medium">国际版</span>
-                    </button>
-                  </div>
+                    </RadioGroup.Item>
+                  </RadioGroup.Root>
                 </div>
                 
                 {isAuthenticated && credential && (

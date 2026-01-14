@@ -14,6 +14,7 @@ export const revalidate = 600;
 export default async function SponsorsPage() {
   const initialPerPage = 24;
   let initialData: { items: SponsorItem[]; page: number; totalPage: number } | null = null;
+  let initialLoadFailed = false;
 
   try {
     const result = await fetchAfdianSponsorsCached(1, initialPerPage);
@@ -23,10 +24,13 @@ export default async function SponsorsPage() {
         page: 1,
         totalPage: result.payload.data.total_page || 1,
       };
+    } else if (!result.ok || result.payload.ec !== 200) {
+      initialLoadFailed = true;
     }
   } catch {
     // 说明：SSR 首屏列表为“尽力而为”，失败时由客户端继续拉取（或展示错误提示）。
     initialData = null;
+    initialLoadFailed = true;
   }
 
   return (
@@ -48,7 +52,11 @@ export default async function SponsorsPage() {
           </div>
 
           {/* 赞助者列表：客户端组件处理分页交互 */}
-          <SponsorsList initialPerPage={initialPerPage} initialData={initialData} />
+          <SponsorsList
+            initialPerPage={initialPerPage}
+            initialData={initialData}
+            initialLoadFailed={initialLoadFailed}
+          />
 
           {/* 简短页脚 */}
           <footer className="pt-4 border-t border-gray-200 dark:border-neutral-800 text-sm text-gray-500 dark:text-gray-400">

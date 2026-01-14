@@ -109,7 +109,7 @@ export default async function AboutPage() {
         {/* 可自填区域：从预编译 HTML 渲染 */}
         <section className="border border-gray-200 dark:border-neutral-800 rounded-xl p-4 sm:p-5">
           {aboutError ? (
-            <div className="text-sm text-gray-500 dark:text-gray-400">无法加载 About 内容（{aboutError}）。</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">无法加载 About 内容，请稍后重试。</div>
           ) : aboutHtml ? (
             <article className="prose prose-sm sm:prose dark:prose-invert max-w-none">
               {/* 安全约束：仅允许渲染来自“预编译 + sanitize-html 白名单净化”的本地产物，禁止绕开该链路渲染外部 HTML。 */}

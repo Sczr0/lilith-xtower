@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 import { UnifiedApiDashboardShell } from './components/UnifiedApiDashboardShell';
 import { UnifiedApiToolsSection } from './components/sections/UnifiedApiToolsSection';
@@ -55,20 +55,26 @@ async function fetchSiteUserId(): Promise<string> {
 export default function UnifiedApiDashboardPage() {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
-  const [activeSection, setActiveSection] = useState<UnifiedApiSectionId>('bind');
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  const syncSectionToUrl = (sectionId: UnifiedApiSectionId) => {
-    if (typeof window === 'undefined') return;
-    try {
-      const url = new URL(window.location.href);
-      url.searchParams.set('tab', sectionId);
-      history.replaceState(null, '', url.toString());
-    } catch {}
-  };
+  // 说明：与 /dashboard 保持一致，以 query 参数作为“单一来源”。
+  const activeSection = useMemo<UnifiedApiSectionId>(() => {
+    const tab = searchParams.get('tab');
+    return tab && isUnifiedApiSectionId(tab) ? tab : 'bind';
+  }, [searchParams]);
 
   const handleSectionChange = (sectionId: UnifiedApiSectionId) => {
-    setActiveSection(sectionId);
-    syncSectionToUrl(sectionId);
+    const params = new URLSearchParams(searchParams.toString());
+    if (sectionId === 'bind') {
+      params.delete('tab');
+    } else {
+      params.set('tab', sectionId);
+    }
+
+    const qs = params.toString();
+    const nextUrl = qs ? `${pathname}?${qs}` : pathname;
+    router.replace(nextUrl, { scroll: false });
   };
 
   // 说明：作为“另一个仪表盘”，这里与 /dashboard 保持一致的鉴权行为：未登录直接跳转 /login。
@@ -78,36 +84,6 @@ export default function UnifiedApiDashboardPage() {
       router.replace('/login');
     }
   }, [isAuthenticated, isLoading, router]);
-
-  // 说明：支持通过 query 直达指定分组，例如：/unified-api-dashboard?tab=tools
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const p = new URLSearchParams(window.location.search);
-      const tab = p.get('tab');
-      if (tab && isUnifiedApiSectionId(tab)) {
-        setActiveSection(tab);
-      }
-    } catch {}
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const onPopState = () => {
-      try {
-        const p = new URLSearchParams(window.location.search);
-        const tab = p.get('tab');
-        const nextSection = tab && isUnifiedApiSectionId(tab) ? tab : 'bind';
-        setActiveSection(nextSection);
-      } catch {}
-    };
-
-    window.addEventListener('popstate', onPopState);
-    return () => {
-      window.removeEventListener('popstate', onPopState);
-    };
-  }, []);
 
   const [siteUserIdState, setSiteUserIdState] = useState<AsyncState<string>>({
     loading: false,

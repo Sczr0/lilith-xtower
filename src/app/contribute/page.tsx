@@ -10,7 +10,6 @@ export default function ContributePage() {
       variant="gradient"
       header={<SiteHeader />}
       footerVariant="rights"
-      footerText="? 2025 Phigros Query. All Rights Reserved."
       mainClassName="relative z-10 flex-1 p-4 sm:p-6 lg:p-8"
       containerClassName="max-w-2xl mx-auto space-y-8"
     >
@@ -33,7 +32,14 @@ export default function ContributePage() {
       >
         <div className="flex items-center gap-3 mb-4 opacity-75">
           <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg text-purple-600 dark:text-purple-400">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              className="w-6 h-6"
+              aria-hidden="true"
+              focusable="false"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
             </svg>
           </div>

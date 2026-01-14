@@ -13,14 +13,16 @@ type SponsorsListInitialData = {
 type SponsorsListProps = {
   initialPerPage?: number;
   initialData?: SponsorsListInitialData | null;
+  initialLoadFailed?: boolean;
 };
 
-export default function SponsorsList({ initialPerPage = 12, initialData }: SponsorsListProps) {
+export default function SponsorsList({ initialPerPage = 12, initialData, initialLoadFailed }: SponsorsListProps) {
   const [items, setItems] = useState<SponsorItem[]>(() => initialData?.items ?? []);
   const [page, setPage] = useState(() => initialData?.page ?? 1);
   const [totalPage, setTotalPage] = useState(() => initialData?.totalPage ?? 1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hadSsrFailure, setHadSsrFailure] = useState(() => Boolean(initialLoadFailed));
   const preloadedRef = useRef<Set<string>>(new Set());
 
   const load = useCallback(async (nextPage: number, perPage = initialPerPage) => {
@@ -34,6 +36,7 @@ export default function SponsorsList({ initialPerPage = 12, initialData }: Spons
       setItems((prev) => (nextPage === 1 ? newItems : [...prev, ...newItems]));
       setTotalPage(data.data.total_page || 1);
       setPage(nextPage);
+      if (nextPage === 1) setHadSsrFailure(false);
       
       // 预加载头像图片（首批立即加载，后续批次延迟加载）
       if (shouldPreload() && newItems.length > 0) {
@@ -82,6 +85,11 @@ export default function SponsorsList({ initialPerPage = 12, initialData }: Spons
 
   return (
     <div className="space-y-3">
+      {hadSsrFailure && items.length === 0 && !error && (
+        <div className="text-sm text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-900/40 rounded-lg px-3 py-2">
+          首屏加载失败，正在重试…（如持续失败，请刷新页面）
+        </div>
+      )}
       {error && (
         <div className="text-sm text-red-600 dark:text-red-400">{error}</div>
       )}

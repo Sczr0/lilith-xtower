@@ -63,7 +63,12 @@ export default async function QAPage() {
   };
 
   return (
-    <PageShell variant="gradient" main={false}>
+    <PageShell
+      variant="gradient"
+      header={<SiteHeader />}
+      mainClassName="relative z-10 flex-1 p-4 sm:p-6 lg:p-8"
+      containerClassName="max-w-4xl mx-auto"
+    >
       {/* FAQPage 结构化数据 */}
       <script
         type="application/ld+json"
@@ -76,65 +81,50 @@ export default async function QAPage() {
         // 说明：JSON-LD 属于“无需执行的结构化数据”，随 HTML 输出可提升爬虫抓取稳定性。
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(breadcrumbJsonLd) }}
       />
-      {/* Header */}
-      <SiteHeader />
-
-      {/* Main Content */}
-      <main className="relative z-10 flex-1 p-4 sm:p-6 lg:p-8">
-        <div className="max-w-4xl mx-auto">
-          {/* Title */}
-          <div className="text-center mb-8">
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 text-gray-900 dark:text-gray-100">
-              常见问题
-            </h1>
-            <p className="text-base sm:text-lg text-gray-600 dark:text-gray-400">
-              快速找到您需要的答案
-            </p>
-          </div>
-
-          {/* QA List (客户端交互组件) */}
-          <QAList qaData={qaData} />
-
-          {/* Contact Section */}
-          <div className="mt-8 bg-blue-50 dark:bg-blue-900/20 rounded-xl p-6 border border-blue-200 dark:border-blue-800">
-            <h2 className="text-xl font-bold text-blue-900 dark:text-blue-100 mb-2">
-              没有找到答案？
-            </h2>
-            <p className="text-blue-700 dark:text-blue-300 mb-4">
-              如果您的问题没有在这里找到答案，欢迎通过以下方式联系我们：
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <a
-                href="https://qm.qq.com/q/pbbOzU72aA"
-                target="_blank"
-                rel="noopener noreferrer"
-                className={buttonStyles({ variant: 'primary' })}
-              >
-                加入官方群聊 空间站「索终」
-              </a>
-              <Link
-                href="/about"
-                className={buttonStyles({ variant: 'primary' })}
-              >
-                查看关于页面
-              </Link>
-              <Link
-                href="/"
-                className={buttonStyles({ variant: 'outline' })}
-              >
-                返回主页
-              </Link>
-            </div>
-          </div>
-        </div>
-      </main>
-
-      {/* Footer */}
-      <footer className="relative z-10 flex items-center justify-center h-16 backdrop-blur-sm bg-white/30 dark:bg-gray-900/30 border-t border-gray-200/50 dark:border-gray-700/50 mt-8">
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          © 2025 Phigros Query. All Rights Reserved.
+      {/* Title */}
+      <div className="text-center mb-8">
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 text-gray-900 dark:text-gray-100">
+          常见问题
+        </h1>
+        <p className="text-base sm:text-lg text-gray-600 dark:text-gray-400">
+          快速找到您需要的答案
         </p>
-      </footer>
+      </div>
+
+      {/* QA List (客户端交互组件) */}
+      <QAList qaData={qaData} />
+
+      {/* Contact Section */}
+      <div className="mt-8 bg-blue-50 dark:bg-blue-900/20 rounded-xl p-6 border border-blue-200 dark:border-blue-800">
+        <h2 className="text-xl font-bold text-blue-900 dark:text-blue-100 mb-2">
+          没有找到答案？
+        </h2>
+        <p className="text-blue-700 dark:text-blue-300 mb-4">
+          如果您的问题没有在这里找到答案，欢迎通过以下方式联系我们：
+        </p>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <a
+            href="https://qm.qq.com/q/pbbOzU72aA"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={buttonStyles({ variant: 'primary' })}
+          >
+            加入官方群聊 空间站「索终」
+          </a>
+          <Link
+            href="/about"
+            className={buttonStyles({ variant: 'primary' })}
+          >
+            查看关于页面
+          </Link>
+          <Link
+            href="/"
+            className={buttonStyles({ variant: 'outline' })}
+          >
+            返回主页
+          </Link>
+        </div>
+      </div>
     </PageShell>
   );
 }

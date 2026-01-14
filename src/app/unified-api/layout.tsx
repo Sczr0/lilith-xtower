@@ -3,8 +3,8 @@ import { SITE_URL } from '../utils/site-url';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: '联合API接入 | Phigros Query',
-  description: '用于将本站账号绑定到第三方联合查分 API，并展示用户已绑定的所有平台账号。',
+  title: '联合API接入（历史入口） | Phigros Query',
+  description: '历史入口：访问该路由会自动跳转到联合 API 仪表盘（/unified-api-dashboard）。',
   keywords: ['Phigros', '联合查分API', '联合API', '绑定', '平台账号', '账号列表'],
   robots: {
     index: false,
@@ -12,21 +12,21 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: 'website',
-    url: '/unified-api',
-    title: '联合API接入 | Phigros Query',
-    description: '用于将本站账号绑定到第三方联合查分 API，并展示用户已绑定的所有平台账号。',
+    url: '/unified-api-dashboard',
+    title: '联合API接入（历史入口） | Phigros Query',
+    description: '历史入口：访问该路由会自动跳转到联合 API 仪表盘（/unified-api-dashboard）。',
     siteName: 'Phigros Query',
     locale: 'zh_CN',
     images: [{ url: '/og', width: 1200, height: 630 }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: '联合API接入 | Phigros Query',
-    description: '用于将本站账号绑定到第三方联合查分 API，并展示用户已绑定的所有平台账号。',
+    title: '联合API接入（历史入口） | Phigros Query',
+    description: '历史入口：访问该路由会自动跳转到联合 API 仪表盘（/unified-api-dashboard）。',
     images: ['/og'],
   },
   alternates: {
-    canonical: '/unified-api',
+    canonical: '/unified-api-dashboard',
   },
 };
 
