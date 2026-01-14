@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTips } from "./TipsProvider";
 
 interface RotatingTipsProps {
@@ -20,46 +20,30 @@ interface RotatingTipsProps {
 export function RotatingTips({ intervalMs = 3000, randomize = true, className = "" }: RotatingTipsProps) {
   const { tips, state } = useTips();
   const [idx, setIdx] = useState(0);
-  const [order, setOrder] = useState<number[]>([]);
+  const [seed, setSeed] = useState(0);
   const timerRef = useRef<number | null>(null);
 
-  // 重建播放顺序（随机/顺序）
-  useEffect(() => {
-    const n = tips.length;
-    if (n === 0) {
-      setOrder([]);
-      setIdx(0);
-      return;
-    }
-    const base = Array.from({ length: n }, (_, i) => i);
-    if (randomize) {
-      // Fisher-Yates 洗牌
-      for (let i = base.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [base[i], base[j]] = [base[j], base[i]];
-      }
-    }
-    setOrder(base);
-    setIdx(0);
-  }, [tips, randomize]);
+  const order = useMemo(() => buildOrder(tips.length, randomize, seed), [tips.length, randomize, seed]);
 
   // 轮播计时器
   useEffect(() => {
-    if (timerRef.current) window.clearInterval(timerRef.current);
-    const len = (order.length || tips.length) || 1;
+    if (timerRef.current) {
+      window.clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+
+    const len = tips.length;
+    if (len <= 0) return;
+
     timerRef.current = window.setInterval(() => {
       setIdx((i) => {
         const next = (i + 1) % len;
-        // 到达一轮末尾时在随机模式下重洗，避免固定顺序循环
-        if (randomize && next === 0 && (order.length || tips.length) > 1) {
-          const n = tips.length;
-          const arr = Array.from({ length: n }, (_, k) => k);
-          for (let a = arr.length - 1; a > 0; a--) {
-            const b = Math.floor(Math.random() * (a + 1));
-            [arr[a], arr[b]] = [arr[b], arr[a]];
-          }
-          setOrder(arr);
+
+        // 到达一轮末尾时在随机模式下重洗（通过 seed 变更生成新的确定性顺序）
+        if (randomize && next === 0 && len > 1) {
+          setSeed((s) => s + 1);
         }
+
         return next;
       });
     }, Math.max(1000, intervalMs));
@@ -67,7 +51,7 @@ export function RotatingTips({ intervalMs = 3000, randomize = true, className = 
       if (timerRef.current) window.clearInterval(timerRef.current);
       timerRef.current = null;
     };
-  }, [tips, order, randomize, intervalMs]);
+  }, [tips.length, randomize, intervalMs]);
 
   const currentIndex = order.length ? order[idx % order.length] : idx % (tips.length || 1);
   const tip = tips.length ? tips[currentIndex] : state === "loading" ? "加载中…" : "";
@@ -84,3 +68,22 @@ export function RotatingTips({ intervalMs = 3000, randomize = true, className = 
   );
 }
 
+function buildOrder(length: number, randomize: boolean, seed: number): number[] {
+  if (length <= 0) return [];
+  const base = Array.from({ length }, (_, i) => i);
+  if (!randomize || length <= 1) return base;
+
+  // 说明：使用固定 seed 的伪随机，保证同一轮渲染顺序稳定；seed 变化时重新洗牌。
+  let state = (seed || 1) >>> 0;
+  const nextRand = () => {
+    // LCG: Numerical Recipes
+    state = (state * 1664525 + 1013904223) >>> 0;
+    return state / 4294967296;
+  };
+
+  for (let i = base.length - 1; i > 0; i--) {
+    const j = Math.floor(nextRand() * (i + 1));
+    [base[i], base[j]] = [base[j], base[i]];
+  }
+  return base;
+}

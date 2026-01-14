@@ -1,17 +1,17 @@
 'use client';
 
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Sidebar, TabId } from './components/Sidebar';
 import { DashboardHeader } from './components/DashboardHeader';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AnnouncementModal } from '../components/AnnouncementModal';
 import { MenuGuide } from './components/MenuGuide';
-import { getPrefetchedData, prefetchRksData, prefetchLeaderboard, prefetchServiceStats, runWhenIdle, shouldPreload } from '../lib/utils/preload';
-import { LEADERBOARD_TOP_LIMIT_DEFAULT } from '../lib/constants/leaderboard';
-import type { Announcement, SongUpdate } from '../lib/types/content';
 import { RotatingTips } from '../components/RotatingTips';
 import { DashboardTabContent } from './components/DashboardTabContent';
+import { useDashboardPrefetch } from './hooks/useDashboardPrefetch';
+import { useDashboardContent } from './hooks/useDashboardContent';
+import { useClientValue } from '../hooks/useClientValue';
 const AGREEMENT_KEY = 'phigros_agreement_accepted';
 
 const isTabId = (value: string): value is TabId =>
@@ -34,193 +34,29 @@ export default function Dashboard() {
   const tabParam = searchParams.get('tab');
   const activeTab: TabId = tabParam && isTabId(tabParam) ? tabParam : 'best-n';
   const debugExport = parseDebugExport(searchParams.get('debug'));
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [songUpdates, setSongUpdates] = useState<SongUpdate[]>([]);
-  const [songUpdatesStatus, setSongUpdatesStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [songUpdatesError, setSongUpdatesError] = useState<string | null>(null);
-  const [showAnnouncements, setShowAnnouncements] = useState(false);
-  const [showAllAnnouncements, setShowAllAnnouncements] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  // 仅在用户已同意用户协议后，才显示首次使用提醒与公告，避免与协议弹窗叠加造成混乱
-  const [showMenuGuide, setShowMenuGuide] = useState(false);
-  const [agreementAccepted, setAgreementAccepted] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    try { return localStorage.getItem(AGREEMENT_KEY) === 'true'; } catch { return false; }
-  });
+  const [menuGuideDismissed, setMenuGuideDismissed] = useState(false);
+  const agreementAccepted = useClientValue(() => localStorage.getItem(AGREEMENT_KEY) === 'true', false);
+  const showMenuGuide = agreementAccepted && !menuGuideDismissed;
+
+  useDashboardPrefetch({ isAuthenticated });
+  const {
+    announcements,
+    showAnnouncements,
+    showAllAnnouncements,
+    openAnnouncements,
+    closeAnnouncements,
+    songUpdates,
+    songUpdatesStatus,
+    songUpdatesError,
+    reloadSongUpdates,
+  } = useDashboardContent({ isAuthenticated, agreementAccepted });
 
   const handleTabChange = useCallback((tabId: TabId) => {
     const next = new URLSearchParams(searchParams.toString());
     next.set('tab', tabId);
     router.replace(`/dashboard?${next.toString()}`, { scroll: false });
   }, [router, searchParams]);
-
-  // 预取关键数据（如果尚未预取）
-
-  // 分阶段预加载策略：
-  // 阶段1（立即）：预热当前 Tab 相关组件
-  // 阶段2（500ms后）：预热其他 Tab 组件
-  // 阶段3（1500ms后）：预取 API 数据
-  // 阶段4（3000ms后）：预取其他页面
-  useEffect(() => {
-    if (typeof window === 'undefined' || !shouldPreload()) return;
-
-    // 阶段1：立即预热当前 Tab（best-n）相关组件
-    runWhenIdle(() => {
-      import('../components/BnImageGenerator');
-    }, 100);
-
-    // 阶段2：500ms 后预热其他 Tab 组件
-    const stage2Timer = setTimeout(() => {
-      runWhenIdle(() => {
-        // 按使用频率排序预加载
-        import('../components/RksRecordsList');      // RKS 列表 - 常用
-        import('../components/SongSearchGenerator'); // 单曲查询 - 常用
-        import('../components/LeaderboardPanel');    // 排行榜 - 常用
-        import('../components/SongUpdateCard');      // 新曲速递 - 较少用
-        import('../components/PlayerScoreRenderer'); // 玩家成绩渲染 - 较少用
-      });
-    }, 500);
-
-    // 阶段3：1500ms 后预取 API 数据
-    const stage3Timer = setTimeout(() => {
-      if (!isAuthenticated) return;
-      
-      runWhenIdle(() => {
-        // 预取 RKS 数据
-        const rksKey = 'rks';
-        if (!getPrefetchedData(rksKey)) {
-          prefetchRksData();
-        }
-
-        // 预取排行榜数据
-        const leaderboardKey = `leaderboard_top_${LEADERBOARD_TOP_LIMIT_DEFAULT}`;
-        if (!getPrefetchedData(leaderboardKey)) {
-          prefetchLeaderboard(LEADERBOARD_TOP_LIMIT_DEFAULT);
-        }
-
-        // 预取服务统计数据
-        const statsKey = 'service_stats';
-        if (!getPrefetchedData(statsKey)) {
-          prefetchServiceStats();
-        }
-      });
-    }, 1500);
-
-    // 阶段4：3000ms 后预取其他页面
-    const stage4Timer = setTimeout(() => {
-      runWhenIdle(() => {
-        // 预取用户可能访问的其他页面
-        void router.prefetch('/about');
-        void router.prefetch('/qa');
-        void router.prefetch('/sponsors');
-        void router.prefetch('/privacy');
-        void router.prefetch('/agreement');
-      });
-    }, 3000);
-
-    return () => {
-      clearTimeout(stage2Timer);
-      clearTimeout(stage3Timer);
-      clearTimeout(stage4Timer);
-    };
-  }, [isAuthenticated, router]);
-
-  useEffect(() => {
-    // 与 AuthContext 中的 AGREEMENT_KEY 保持一致
-    const AGREEMENT_KEY = 'phigros_agreement_accepted';
-    try {
-      const accepted = typeof window !== 'undefined' && localStorage.getItem(AGREEMENT_KEY) === 'true';
-      setAgreementAccepted(!!accepted);
-      // 只有在已同意用户协议后，才允许显示首次使用提醒
-      setShowMenuGuide(!!accepted);
-    } catch {}
-  }, [isAuthenticated]);
-
-  const loadSongUpdates = useCallback(async (signal?: AbortSignal) => {
-    setSongUpdatesStatus('loading');
-    setSongUpdatesError(null);
-
-    try {
-      const updatesRes = await fetch('/api/content/song-updates', { signal });
-      if (!updatesRes.ok) {
-        setSongUpdatesStatus('error');
-        setSongUpdatesError('新曲速递加载失败，请稍后重试。');
-        return;
-      }
-
-      const data = await updatesRes.json();
-      setSongUpdates(data);
-      setSongUpdatesStatus('success');
-    } catch (err) {
-      if (signal?.aborted) return;
-      const message = err instanceof Error ? err.message : 'unknown error';
-      if (/aborted|aborterror/i.test(message)) return;
-
-      setSongUpdatesStatus('error');
-      setSongUpdatesError('新曲速递加载失败，请检查网络后重试。');
-    }
-  }, []);
-
-  // 当已同意协议且存在未读公告时，触发展示
-  useEffect(() => {
-    if (!agreementAccepted || announcements.length === 0) return;
-    try {
-      const dismissedStr = localStorage.getItem('dismissed_announcements');
-      const dismissed = dismissedStr ? new Set<string>(JSON.parse(dismissedStr)) : new Set<string>();
-      const unread = announcements.filter((a: Announcement) => !dismissed.has(a.id));
-      if (unread.length > 0) {
-        setShowAllAnnouncements(false);
-        setShowAnnouncements(true);
-      }
-    } catch {}
-  }, [agreementAccepted, announcements]);
-
-  // 加载公告数据
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    const controller = new AbortController();
-    const { signal } = controller;
-    const loadContent = async () => {
-      try {
-        // 获取公告
-        const announcementsRes = await fetch('/api/content/announcements', { signal });
-        if (announcementsRes.ok) {
-          const data = await announcementsRes.json();
-          setAnnouncements(data);
-          
-          // 检查是否有未读公告
-          const dismissedStr = localStorage.getItem('dismissed_announcements');
-          const dismissed = dismissedStr ? new Set(JSON.parse(dismissedStr)) : new Set();
-          const unread = data.filter((a: Announcement) => !dismissed.has(a.id));
-          
-          // 仅当已同意用户协议时才展示公告，避免与协议弹窗叠加
-          if (agreementAccepted && unread.length > 0) {
-            setShowAllAnnouncements(false);
-            setShowAnnouncements(true);
-          }
-        }
-      } catch (error) {
-        if (signal.aborted) return;
-        console.error('加载内容失败:', error);
-      }
-    };
-
-    // 登录后立即加载内容，无需等待协议判定
-    loadContent();
-
-    return () => controller.abort();
-  }, [isAuthenticated, agreementAccepted]);
-
-  // 加载新曲速递数据（独立于公告，避免因协议判定变化触发重复请求）
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    const controller = new AbortController();
-    loadSongUpdates(controller.signal);
-
-    return () => controller.abort();
-  }, [isAuthenticated, loadSongUpdates]);
 
   // 说明：未登录时软跳转 /login，避免硬刷新带来的体验割裂。
   useEffect(() => {
@@ -257,7 +93,7 @@ export default function Dashboard() {
       songUpdates={songUpdates}
       songUpdatesStatus={songUpdatesStatus}
       songUpdatesError={songUpdatesError}
-      onRetrySongUpdates={() => void loadSongUpdates()}
+      onRetrySongUpdates={() => void reloadSongUpdates()}
     />
   );
 
@@ -268,7 +104,7 @@ export default function Dashboard() {
         <AnnouncementModal
           announcements={announcements}
           showAll={showAllAnnouncements}
-          onClose={() => setShowAnnouncements(false)}
+          onClose={closeAnnouncements}
         />
       )}
 
@@ -282,17 +118,17 @@ export default function Dashboard() {
           onTabChange={handleTabChange}
           isMobileOpen={isMobileMenuOpen}
           onMobileClose={() => setIsMobileMenuOpen(false)}
-          onOpenAnnouncements={() => { setShowAllAnnouncements(true); setShowAnnouncements(true); }}
+          onOpenAnnouncements={() => openAnnouncements({ showAll: true })}
         />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* First-time Menu Guide - Only show when announcements are not visible */}
-        {!showAnnouncements && showMenuGuide && <MenuGuide onDismiss={() => setShowMenuGuide(false)} />}
+        {!showAnnouncements && showMenuGuide && <MenuGuide onDismiss={() => setMenuGuideDismissed(true)} />}
 
         {/* Header with integrated menu button */}
         <DashboardHeader
-          onOpenAnnouncements={() => { setShowAllAnnouncements(true); setShowAnnouncements(true); }}
+          onOpenAnnouncements={() => openAnnouncements({ showAll: true })}
           onOpenMenu={() => setIsMobileMenuOpen(true)}
         />
 

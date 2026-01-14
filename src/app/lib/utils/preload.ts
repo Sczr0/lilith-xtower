@@ -11,16 +11,162 @@ const prefetchCache = new Map<string, { data: unknown; timestamp: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5分钟缓存
 
 /**
+ * RUM：预取/预热命中率观测
+ *
+ * 说明：
+ * - 只在生产环境按采样率上报，避免影响开发体验；
+ * - 以“预取 key”为单位统计：cacheKeys 表示“完成预取”的 key；hitKeys 表示“后续实际使用到缓存”的 key。
+ */
+type PrefetchRumState = {
+  enabled: boolean;
+  cachedKeys: Set<string>;
+  hitKeys: Set<string>;
+  flushTimer: number | null;
+  flushed: boolean;
+};
+
+const PREFETCH_RUM_ENDPOINT = '/api/rum-prefetch';
+const PREFETCH_RUM_SAMPLE_RATE = (() => {
+  const raw = process.env.NEXT_PUBLIC_WEB_VITALS_SAMPLE_RATE;
+  const n = raw ? Number(raw) : NaN;
+  if (!Number.isFinite(n)) return 1;
+  return Math.min(Math.max(n, 0), 1);
+})();
+
+let prefetchRumState: PrefetchRumState | null = null;
+
+function sendPrefetchRum(payload: unknown) {
+  try {
+    const body = JSON.stringify(payload);
+    if (navigator.sendBeacon) {
+      const blob = new Blob([body], { type: 'application/json' });
+      navigator.sendBeacon(PREFETCH_RUM_ENDPOINT, blob);
+    } else {
+      fetch(PREFETCH_RUM_ENDPOINT, {
+        method: 'POST',
+        keepalive: true,
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      }).catch(() => {});
+    }
+  } catch {
+    /* swallow */
+  }
+}
+
+function getPrefetchEnvSnapshot() {
+  try {
+    const nav = navigator as NavigatorWithConnection;
+    const conn = nav?.connection;
+    const deviceMemory = typeof nav?.deviceMemory === 'number' ? nav.deviceMemory : undefined;
+    const hardwareConcurrency =
+      typeof nav?.hardwareConcurrency === 'number' ? nav.hardwareConcurrency : undefined;
+    return {
+      deviceMemory,
+      hardwareConcurrency,
+      connection: conn
+        ? {
+            effectiveType: typeof conn.effectiveType === 'string' ? conn.effectiveType : undefined,
+            downlink: typeof conn.downlink === 'number' ? conn.downlink : undefined,
+            rtt: typeof conn.rtt === 'number' ? conn.rtt : undefined,
+            saveData: !!conn.saveData,
+          }
+        : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
+function flushPrefetchRum(state: PrefetchRumState) {
+  if (!state.enabled || state.flushed) return;
+  if (!state.cachedKeys.size) return;
+
+  state.flushed = true;
+  if (state.flushTimer !== null) {
+    window.clearTimeout(state.flushTimer);
+    state.flushTimer = null;
+  }
+
+  const cacheCount = state.cachedKeys.size;
+  const hitCount = state.hitKeys.size;
+  const hitRate = cacheCount ? Math.round((hitCount / cacheCount) * 1000) / 1000 : 0;
+
+  const payload = {
+    t: Date.now(),
+    path: typeof location !== 'undefined' ? location.pathname : undefined,
+    cacheCount,
+    hitCount,
+    hitRate,
+    cacheKeys: Array.from(state.cachedKeys).slice(0, 20),
+    hitKeys: Array.from(state.hitKeys).slice(0, 20),
+    ...getPrefetchEnvSnapshot(),
+  };
+
+  sendPrefetchRum(payload);
+}
+
+function ensurePrefetchRumState(): PrefetchRumState | null {
+  if (typeof window === 'undefined') return null;
+  if (prefetchRumState) return prefetchRumState;
+
+  const enabled = process.env.NODE_ENV === 'production' && Math.random() <= PREFETCH_RUM_SAMPLE_RATE;
+  const state: PrefetchRumState = {
+    enabled,
+    cachedKeys: new Set(),
+    hitKeys: new Set(),
+    flushTimer: null,
+    flushed: false,
+  };
+  prefetchRumState = state;
+
+  if (!enabled) return state;
+
+  const flush = () => flushPrefetchRum(state);
+  window.addEventListener('pagehide', flush, { capture: true });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flush();
+  });
+
+  return state;
+}
+
+function schedulePrefetchRumFlush(state: PrefetchRumState) {
+  if (!state.enabled || state.flushed) return;
+  if (state.flushTimer !== null) return;
+  state.flushTimer = window.setTimeout(() => flushPrefetchRum(state), 30_000);
+}
+
+function trackPrefetchCache(key: string) {
+  const state = ensurePrefetchRumState();
+  if (!state?.enabled) return;
+  state.cachedKeys.add(key);
+  schedulePrefetchRumFlush(state);
+}
+
+function trackPrefetchHit(key: string) {
+  const state = ensurePrefetchRumState();
+  if (!state?.enabled) return;
+  // 仅统计“确实发生过预取”的 key，避免误报
+  if (!state.cachedKeys.has(key)) return;
+  state.hitKeys.add(key);
+  schedulePrefetchRumFlush(state);
+}
+
+/**
  * 检查是否应该进行预加载（考虑用户偏好）
  */
 // 扩展 Navigator 类型以支持 Network Information API
 interface NetworkInformation {
   saveData?: boolean;
   effectiveType?: string;
+  downlink?: number;
+  rtt?: number;
 }
 
 interface NavigatorWithConnection extends Navigator {
   connection?: NetworkInformation;
+  deviceMemory?: number;
 }
 
 export function shouldPreload(): boolean {
@@ -37,6 +183,25 @@ export function shouldPreload(): boolean {
     // 检查网络类型（慢速网络不预加载）
     const effectiveType = nav?.connection?.effectiveType;
     if (effectiveType === 'slow-2g' || effectiveType === '2g') return false;
+
+    // 检查弱网指标（数值越低越差）
+    const downlink = nav?.connection?.downlink;
+    if (typeof downlink === 'number' && Number.isFinite(downlink) && downlink > 0 && downlink < 1.5) return false;
+    const rtt = nav?.connection?.rtt;
+    if (typeof rtt === 'number' && Number.isFinite(rtt) && rtt > 0 && rtt > 600) return false;
+
+    // 检查设备性能（低端设备更激进地禁用预热/预取，避免抢占主线程/带宽）
+    const deviceMemory = nav?.deviceMemory;
+    if (typeof deviceMemory === 'number' && Number.isFinite(deviceMemory) && deviceMemory > 0 && deviceMemory < 4) return false;
+    const hardwareConcurrency = nav?.hardwareConcurrency;
+    if (
+      typeof hardwareConcurrency === 'number' &&
+      Number.isFinite(hardwareConcurrency) &&
+      hardwareConcurrency > 0 &&
+      hardwareConcurrency < 4
+    ) {
+      return false;
+    }
     
     return true;
   } catch {
@@ -82,6 +247,7 @@ export async function prefetchData<T>(
   try {
     const data = await fetcher();
     prefetchCache.set(key, { data, timestamp: Date.now() });
+    trackPrefetchCache(key);
     return data;
   } catch (error) {
     console.warn(`[prefetch] Failed to prefetch ${key}:`, error);
@@ -95,6 +261,7 @@ export async function prefetchData<T>(
 export function getPrefetchedData<T>(key: string): T | null {
   const cached = prefetchCache.get(key);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    trackPrefetchHit(key);
     return cached.data as T;
   }
   return null;

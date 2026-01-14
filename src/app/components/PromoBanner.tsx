@@ -2,7 +2,7 @@
 
 import type { KeyboardEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, Pause, Play, X } from "lucide-react";
 import { promoBannerConfig } from "../config/promo-banner.config";
 import {
@@ -11,6 +11,7 @@ import {
   selectActiveSlides,
 } from "../utils/promoBanner";
 import { isExternalHref } from "./topbar/nav";
+import { useClientValue } from "../hooks/useClientValue";
 
 /**
  * 顶部轮播活动横幅
@@ -18,15 +19,17 @@ import { isExternalHref } from "./topbar/nav";
  * - 按配置决定哪些页面显示/隐藏
  * - 无操作时自动收起，手动关闭写入 localStorage，防止再次出现
  */
-export function PromoBanner() {
-  const pathname = usePathname() ?? "/";
+export function PromoBanner({ pathname }: { pathname: string }) {
   const router = useRouter();
   const dismissKey = buildDismissKey(promoBannerConfig);
 
   const slides = useMemo(() => selectActiveSlides(promoBannerConfig, pathname), [pathname]);
 
-  const [mounted, setMounted] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
+  // 说明：首帧先按“已关闭”处理，避免被 localStorage 中的关闭状态反向闪烁。
+  const dismissedByStorage = useClientValue(() => window.localStorage.getItem(dismissKey) === "1", true);
+  const [dismissedByUser, setDismissedByUser] = useState(false);
+  const dismissed = dismissedByUser || dismissedByStorage;
+
   const [collapsed, setCollapsed] = useState(false);
   const [hovering, setHovering] = useState(false);
   const [current, setCurrent] = useState(0);
@@ -34,25 +37,9 @@ export function PromoBanner() {
   const autoHideTimer = useRef<NodeJS.Timeout | null>(null);
   const autoPlayTimer = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => setMounted(true), []);
-
-  // 初始化 dismiss 状态，监听 campaign 变化
-  useEffect(() => {
-    if (!mounted) return;
-    const stored = typeof window !== "undefined" ? window.localStorage.getItem(dismissKey) : null;
-    setDismissed(stored === "1");
-    setCollapsed(false);
-  }, [mounted, dismissKey, pathname]);
-
-  // 路由变化时回到第一条
-  useEffect(() => {
-    setCurrent(0);
-    setCollapsed(false);
-  }, [pathname, slides.length]);
-
   // 自动播放
   useEffect(() => {
-    if (!mounted || dismissed || collapsed) return;
+    if (dismissed || collapsed) return;
     if (slides.length <= 1) return;
     if (hovering || paused) return;
 
@@ -65,11 +52,11 @@ export function PromoBanner() {
     return () => {
       if (autoPlayTimer.current) clearInterval(autoPlayTimer.current);
     };
-  }, [mounted, dismissed, collapsed, hovering, paused, slides.length]);
+  }, [dismissed, collapsed, hovering, paused, slides.length]);
 
   // 自动收起
   useEffect(() => {
-    if (!mounted || dismissed || collapsed) return;
+    if (dismissed || collapsed) return;
     if (hovering) return;
     if (!slides[current]) return;
 
@@ -80,9 +67,8 @@ export function PromoBanner() {
     return () => {
       if (autoHideTimer.current) clearTimeout(autoHideTimer.current);
     };
-  }, [mounted, dismissed, collapsed, hovering, current, slides]);
+  }, [dismissed, collapsed, hovering, current, slides]);
 
-  if (!mounted) return null;
   if (dismissed) return null;
   if (slides.length === 0) return null;
 
@@ -90,7 +76,7 @@ export function PromoBanner() {
   const gradient = slide.gradient ?? "from-slate-900 via-slate-800 to-slate-700";
 
   const handleDismiss = () => {
-    setDismissed(true);
+    setDismissedByUser(true);
     try {
       window.localStorage.setItem(dismissKey, "1");
     } catch {}

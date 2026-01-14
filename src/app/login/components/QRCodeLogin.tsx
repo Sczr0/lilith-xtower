@@ -12,6 +12,7 @@ import {
 } from '../../lib/taptap/qrLogin';
 import QRCode from 'qrcode';
 import { getPreloadedQrData, clearPreloadedQrData } from '../../lib/utils/preload';
+import { useClientValue } from '../../hooks/useClientValue';
 
 interface QRCodeLoginProps {
   taptapVersion: TapTapVersion;
@@ -31,7 +32,10 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
   const [error, setError] = useState<string>('');
   // 移动端深链：用于在移动端直接跳转 TapTap 确认登录
   const [taptapDeepLink, setTaptapDeepLink] = useState<string>('');
-  const [isMobile, setIsMobile] = useState<boolean>(false);
+  const isMobile = useClientValue(() => {
+    const ua = navigator.userAgent || '';
+    return /Mobile|Android|iP(hone|od|ad)|HarmonyOS|Huawei/i.test(ua);
+  }, false);
   const pollAbortRef = useRef<AbortController | null>(null);
   const expireTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -121,13 +125,12 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
 
   // 组件挂载时自动获取二维码
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const ua = navigator.userAgent || '';
-      const mobile = /Mobile|Android|iP(hone|od|ad)|HarmonyOS|Huawei/i.test(ua);
-      setIsMobile(mobile);
-    }
-    getQRCode();
+    // 说明：通过异步调度触发拉码，避免在 effect 同步阶段直接触发一串 setState（符合 React 19 hooks 规则）。
+    const timer = window.setTimeout(() => {
+      void getQRCode();
+    }, 0);
     return () => {
+      window.clearTimeout(timer);
       cancelPolling();
     };
   }, [getQRCode, cancelPolling]);

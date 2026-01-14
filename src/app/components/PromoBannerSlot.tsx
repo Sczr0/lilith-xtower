@@ -2,8 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
-import { runWhenIdle, shouldPreload } from "../lib/utils/preload";
+import { shouldPreload } from "../lib/utils/preload";
 
 // 说明：PromoBanner 是“可选交互组件”，放在 app/layout 会让其 JS 进入所有页面的共享布局入口。
 // 为降低首屏解析成本（INP/LCP 关键路径），这里用 dynamic 将其拆分为按需 chunk，并在空闲期再加载。
@@ -20,28 +19,12 @@ function isPromoBannerExcludedPath(pathname: string): boolean {
 
 export function PromoBannerSlot() {
   const pathname = usePathname() ?? "/";
-  const [enabled, setEnabled] = useState(false);
+  // 省流/弱网偏好下不加载可选活动横幅，减少带宽与主线程占用
+  if (!shouldPreload()) return null;
+  if (isPromoBannerExcludedPath(pathname)) return null;
 
-  useEffect(() => {
-    // 省流/弱网偏好下不加载可选活动横幅，减少带宽与主线程占用
-    if (!shouldPreload()) {
-      setEnabled(false);
-      return;
-    }
-
-    if (isPromoBannerExcludedPath(pathname)) {
-      setEnabled(false);
-      return;
-    }
-
-    // 已启用则不重复调度
-    if (enabled) return;
-
-    runWhenIdle(() => setEnabled(true), 1200);
-  }, [enabled, pathname]);
-
-  if (!enabled) return null;
-  return <PromoBanner />;
+  // 说明：以 pathname 作为 key，路由切换时自动重置横幅内部状态（current/collapsed 等）。
+  return <PromoBanner key={pathname} pathname={pathname} />;
 }
 
 export default PromoBannerSlot;

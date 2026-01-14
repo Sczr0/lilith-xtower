@@ -6,28 +6,29 @@ import { ImageAPI } from '../lib/api/image';
 import { useGenerationBusy, useGenerationManager, useGenerationResult } from '../contexts/GenerationContext';
 import { searchSongId } from '../lib/api/song';
 import { LoadingPlaceholder, LoadingSpinner } from './LoadingIndicator';
+import { useClientValue } from '../hooks/useClientValue';
 
 // 支持通过 showDescription 隐藏组件内的描述，避免与外层重复
 export function SongSearchGenerator({ showTitle = true, showDescription = true }: { showTitle?: boolean; showDescription?: boolean }) {
   const { isAuthenticated } = useAuth();
-  const [songQuery, setSongQuery] = useState('');
+  const urlPrefill = useClientValue(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const value = params.get('song') || params.get('q');
+      return value?.trim() ?? '';
+    } catch {
+      return '';
+    }
+  }, '');
+
+  // 说明：支持 URL 预填（song/q），但一旦用户开始输入，以用户输入为准（允许清空）。
+  const [songQueryOverride, setSongQueryOverride] = useState<string | null>(null);
+  const songQuery = songQueryOverride ?? urlPrefill;
   const { startTask, clearResult } = useGenerationManager();
   const isLoading = useGenerationBusy('song');
   const resultBlob = useGenerationResult<Blob>('song');
   const imageUrl = useMemo(() => (resultBlob ? URL.createObjectURL(resultBlob) : null), [resultBlob]);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const value = params.get('song') || params.get('q');
-      const next = value?.trim() ?? '';
-      if (next) {
-        setSongQuery(next);
-      }
-    } catch {}
-  }, []);
 
   useEffect(() => {
     return () => {
@@ -43,7 +44,8 @@ export function SongSearchGenerator({ showTitle = true, showDescription = true }
       return;
     }
 
-    if (!songQuery.trim()) {
+    const query = songQuery.trim();
+    if (!query) {
       setError('请输入歌曲名称或关键词。');
       return;
     }
@@ -53,7 +55,7 @@ export function SongSearchGenerator({ showTitle = true, showDescription = true }
     // 先通过搜索接口验证歌曲是否存在
     let songId: string | null = null;
     try {
-      songId = await searchSongId(songQuery);
+      songId = await searchSongId(query);
       if (!songId) {
         setError('未找到匹配的歌曲，请检查输入的歌曲名称或尝试使用歌曲ID。');
         return;
@@ -101,7 +103,7 @@ export function SongSearchGenerator({ showTitle = true, showDescription = true }
         <input
           type="text"
           value={songQuery}
-          onChange={(e) => setSongQuery(e.target.value)}
+          onChange={(e) => setSongQueryOverride(e.target.value)}
           onKeyPress={handleKeyPress}
           placeholder="例如：Spasmodic、Cthugha 等"
           className="flex-1 min-w-0 w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -138,7 +140,7 @@ export function SongSearchGenerator({ showTitle = true, showDescription = true }
           <div className="flex flex-wrap gap-3">
             <a
               href={imageUrl}
-              download={`${songQuery}.png`}
+              download={`${songQuery || 'song'}.png`}
               className="inline-flex items-center justify-center rounded-lg border border-blue-500 px-4 py-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30"
             >
               下载图片

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { X, AlertTriangle } from 'lucide-react';
+import { useClientValue } from '../hooks/useClientValue';
 
 interface MaintenanceBannerProps {
   message: string;
@@ -13,22 +14,20 @@ interface MaintenanceBannerProps {
  * 用户可以手动关闭，关闭状态保存在 localStorage
  */
 export function MaintenanceBanner({ message }: MaintenanceBannerProps) {
-  const [isVisible, setIsVisible] = useState(false);
+  const [dismissedByUser, setDismissedByUser] = useState(false);
 
-  useEffect(() => {
-    // 检查用户是否已关闭过横幅
-    const dismissed = localStorage.getItem('maintenance_banner_dismissed');
-    if (!dismissed) {
-      setIsVisible(true);
-    }
-  }, []);
+  // 说明：首屏与静态 HTML 保持一致（默认不展示），hydration 后再读取 localStorage 决定是否展示。
+  const shouldShowByStorage = useClientValue(
+    () => localStorage.getItem('maintenance_banner_dismissed') !== 'true',
+    false
+  );
 
   const handleDismiss = () => {
-    setIsVisible(false);
+    setDismissedByUser(true);
     localStorage.setItem('maintenance_banner_dismissed', 'true');
   };
 
-  if (!isVisible) {
+  if (!shouldShowByStorage || dismissedByUser) {
     return null;
   }
 

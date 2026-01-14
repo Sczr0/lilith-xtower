@@ -1,7 +1,7 @@
 'use client';
 
 import * as Dialog from '@radix-ui/react-dialog';
-import { useState, useRef, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface AgreementModalProps {
   html: string;
@@ -16,36 +16,40 @@ export function AgreementModal({ html, onAgree, onClose }: AgreementModalProps) 
   const [scrolledToBottom, setScrolledToBottom] = useState(false);
   const [isNearBottom, setIsNearBottom] = useState(false);
   const [checked, setChecked] = useState(false);
-  const contentRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
+
+  const syncScrollFlags = useCallback((contentElement: HTMLDivElement | null) => {
+    if (!contentElement) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = contentElement;
+
+    // 内容不需要滚动：视为“已阅读完毕”，避免让用户陷入无法继续的状态。
+    if (scrollHeight <= clientHeight) {
+      setScrolledToBottom(true);
+      setIsNearBottom(true);
+      return;
+    }
+
+    const scrollPercentage = scrollTop / (scrollHeight - clientHeight);
+    const bottomThreshold = 0.9; // 90% 位置视为接近底部
+
+    setIsNearBottom(scrollPercentage >= bottomThreshold);
+
+    if (scrollTop + clientHeight >= scrollHeight - 10) {
+      setScrolledToBottom(true);
+    }
+  }, []);
+
+  const setContentRef = useCallback((node: HTMLDivElement | null) => {
+    contentRef.current = node;
+    syncScrollFlags(node);
+  }, [syncScrollFlags]);
 
   useEffect(() => {
     if (!open) onClose();
   }, [open, onClose]);
 
-  const handleScroll = () => {
-    const contentElement = contentRef.current;
-    if (contentElement) {
-      const { scrollTop, scrollHeight, clientHeight } = contentElement;
-      const scrollPercentage = scrollTop / (scrollHeight - clientHeight);
-      const bottomThreshold = 0.9; // 90% 位置视为底部
-
-      setIsNearBottom(scrollPercentage >= bottomThreshold);
-
-      if (scrollTop + clientHeight >= scrollHeight - 10) {
-        setScrolledToBottom(true);
-      }
-    }
-  };
-
-  useEffect(() => {
-    const contentElement = contentRef.current;
-    if (contentElement) {
-      if (contentElement.scrollHeight <= contentElement.clientHeight) {
-        setScrolledToBottom(true);
-        setIsNearBottom(true);
-      }
-    }
-  }, [html]);
+  const handleScroll = () => syncScrollFlags(contentRef.current);
 
   // 简化模式下，仅提示并要求勾选
   if (simpleMode) {
@@ -178,7 +182,7 @@ export function AgreementModal({ html, onAgree, onClose }: AgreementModalProps) 
 
         {/* Content */}
         <div
-          ref={contentRef}
+          ref={setContentRef}
           onScroll={handleScroll}
           className="flex-1 p-8 overflow-y-auto bg-white dark:bg-gray-800"
         >

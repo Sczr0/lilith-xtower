@@ -199,6 +199,15 @@ export function AuthInspectorPage({ mode }: AuthInspectorPageProps) {
             </div>
           </div>
 
+          {mode === 'debug' && (
+            <div className="rounded-xl border border-amber-200/70 dark:border-amber-900/60 bg-amber-50/70 dark:bg-amber-900/10 p-4 text-sm text-amber-900 dark:text-amber-100">
+              <div className="font-medium">调试模式提示</div>
+              <p className="mt-1 text-amber-800/90 dark:text-amber-200/90">
+                本页仅用于线上排障与技术支持。请勿截图/录屏分享；如需提供信息，请优先使用下方“更多详情”的遮罩 JSON。
+              </p>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-gray-200/50 dark:border-gray-700/50">
               <div className="text-xs font-medium tracking-wider uppercase text-gray-500 dark:text-gray-400 mb-3">认证状态</div>

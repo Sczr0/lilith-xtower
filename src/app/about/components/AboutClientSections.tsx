@@ -1,34 +1,27 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { ServiceStats } from '../../components/ServiceStats';
+import { useClientValue } from '../../hooks/useClientValue';
 
 /**
  * About 页面的客户端动态部分
  * 包含：平台检测、服务统计、赞助者列表
  */
 export function AboutClientSections() {
-  // 检测部署平台（只在客户端判断，避免 hydration mismatch）
-  const [isVercel, setIsVercel] = useState(false);
-  const [isNetlify, setIsNetlify] = useState(false);
+  // 检测部署平台：
+  // - 首屏使用 serverValue（空字符串）保证与静态 HTML 一致，避免 hydration mismatch。
+  // - hydration 后再读取浏览器 hostname，对齐真实部署环境。
+  const hostname = useClientValue(() => window.location.hostname, '');
 
-  useEffect(() => {
-    const hostname = window.location.hostname;
-    
-    // 优先判断 Netlify
-    const isNetlifyHost = hostname.includes('netlify.app') || hostname === 'startrip.xtower.site';
-    
-    setIsNetlify(isNetlifyHost);
-    
-    // Vercel：排除 Netlify 域名后再判断
-    setIsVercel(
-      !isNetlifyHost && (
-        hostname.includes('vercel.app') || 
-        hostname.includes('xtower.site') // 匹配所有其他 xtower.site 相关域名
-      )
-    );
-  }, []);
+  // 优先判断 Netlify
+  const isNetlify = hostname.includes('netlify.app') || hostname === 'startrip.xtower.site';
+
+  // Vercel：排除 Netlify 域名后再判断
+  const isVercel =
+    !!hostname &&
+    !isNetlify &&
+    (hostname.includes('vercel.app') || hostname.includes('xtower.site')); // 匹配所有其他 xtower.site 相关域名
 
   const serviceProviders = [
     {
