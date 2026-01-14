@@ -42,23 +42,9 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // 全站 CSP（按需放宽第三方脚本）
+        // 全站响应缓存策略（CSP 已迁移到 middleware.ts 以支持 per-request nonce）
         source: '/:path*',
         headers: [
-          {
-            key: 'Content-Security-Policy',
-            value: [
-              "default-src 'self'",
-              // 允许内联脚本用于少量必要场景（如品牌字体 loader）；放宽 umami 域名
-              "script-src 'self' 'unsafe-inline' https://cloud.umami.is https://static.cloudflareinsights.com https://rjsperf.myalicdn.com",
-              "connect-src 'self' https://cloud.umami.is https://cloudflareinsights.com https://api-gateway.umami.dev https://api.umami.is https://seekend.xtower.site https://accounts.tapapis.com https://accounts.tapapis.cn https://afdian.com https://pic1.afdiancdn.com  https://somnia.xtower.site https://rjsperf.myalicdn.com",
-              "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: blob: https://accounts.tapapis.com https://accounts.tapapis.cn https://accounts.taptap.io https://accounts.taptap.cn https://pic1.afdiancdn.com https://somnia.xtower.site",
-              "font-src 'self'",
-              "frame-ancestors 'self'",
-              "object-src 'none'; base-uri 'self'; form-action 'self'",
-            ].join('; '),
-          },
           {
             // 允许边缘/代理缓存 SSR 输出，降低 TTFB
             key: 'Cache-Control',

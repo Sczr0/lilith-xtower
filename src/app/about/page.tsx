@@ -2,6 +2,7 @@ import Image from 'next/image';
 import { PageShell } from '../components/PageShell';
 import { SiteHeader } from '../components/SiteHeader';
 import { getPrecompiledAssetServer, hasPrecompiledAsset } from '../lib/precompiled-server';
+import { safeJsonLdStringify } from '../lib/security/safeJsonLdStringify';
 import { SITE_URL } from '../utils/site-url';
 import { AboutClientSections } from './components/AboutClientSections';
 import { SUPPORT_LINK_SECTIONS } from './supportLinks';
@@ -74,14 +75,14 @@ export default async function AboutPage() {
           <script
             type="application/ld+json"
             // 说明：JSON-LD 属于“无需执行的结构化数据”，随 HTML 输出可提升爬虫抓取稳定性。
-            dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+            dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(breadcrumbJsonLd) }}
           />
 
           {/* Person 结构化数据 */}
           <script
             type="application/ld+json"
             // 说明：JSON-LD 属于“无需执行的结构化数据”，随 HTML 输出可提升爬虫抓取稳定性。
-            dangerouslySetInnerHTML={{ __html: JSON.stringify(personJsonLd) }}
+            dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(personJsonLd) }}
           />
         </>
       }
@@ -159,4 +160,3 @@ export default async function AboutPage() {
     </PageShell>
   );
 }
-

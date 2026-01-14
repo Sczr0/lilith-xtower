@@ -4,6 +4,7 @@ import { PageShell } from '../components/PageShell';
 import { buttonStyles } from '../components/ui/styles';
 import { QAList } from './components/QAList';
 import { getAllQA } from '../lib/qa';
+import { safeJsonLdStringify } from '../lib/security/safeJsonLdStringify';
 import { SITE_URL } from '../utils/site-url';
 import { DEFAULT_QA_DATA } from './defaultQAData';
 import type { QAItem } from './types';
@@ -67,13 +68,13 @@ export default async function QAPage() {
       <script
         type="application/ld+json"
         // 说明：JSON-LD 属于“无需执行的结构化数据”，随 HTML 输出可提升爬虫抓取稳定性。
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(faqJsonLd) }}
       />
       {/* BreadcrumbList 结构化数据 */}
       <script
         type="application/ld+json"
         // 说明：JSON-LD 属于“无需执行的结构化数据”，随 HTML 输出可提升爬虫抓取稳定性。
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(breadcrumbJsonLd) }}
       />
       {/* Header */}
       <SiteHeader />

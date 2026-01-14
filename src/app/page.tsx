@@ -1,10 +1,18 @@
+import type { Metadata } from 'next';
 import { BarChart3, Image as ImageIcon, List } from 'lucide-react';
 import { SiteHeader } from './components/SiteHeader';
 import { HomeStartButton } from './components/HomeStartButton';
 import { PreloadLinks } from './components/PreloadLinks';
 import { PageShell } from './components/PageShell';
 import { buttonStyles, cardStyles } from './components/ui/styles';
+import { safeJsonLdStringify } from './lib/security/safeJsonLdStringify';
 import { SITE_URL } from './utils/site-url';
+
+export const metadata: Metadata = {
+  alternates: {
+    canonical: '/',
+  },
+};
 
 /**
  * 首页 - SSG 静态生成
@@ -65,7 +73,7 @@ export default function Home() {
           <script
             type="application/ld+json"
             // 说明：JSON-LD 属于“无需执行的结构化数据”，随 HTML 输出可提升爬虫抓取稳定性。
-            dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+            dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(jsonLd) }}
           />
 
           {/* 预加载关键路由和资源 */}
@@ -139,4 +147,3 @@ export default function Home() {
     </PageShell>
   );
 }
-

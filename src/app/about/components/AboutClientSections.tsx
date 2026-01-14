@@ -61,10 +61,11 @@ export function AboutClientSections() {
       name: 'Netlify',
       url: 'https://www.netlify.com',
       logo: (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src="https://www.netlify.com/assets/badges/netlify-badge-color-accent.svg"
+        <Image
+          src="/netlify-badge-color-accent.svg"
           alt="Deploys by Netlify"
+          width={160}
+          height={32}
           className="h-8 w-auto"
         />
       ),
