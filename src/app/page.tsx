@@ -15,7 +15,8 @@ export const metadata: Metadata = {
 };
 
 /**
- * 首页 - SSG 静态生成
+ * 首页
+ * 说明：为配合 CSP nonce（middleware.ts），RootLayout 强制按请求渲染（dynamic = 'force-dynamic'）。
  * 结构化数据在服务端渲染，Header 由客户端组件处理登录状态。
  */
 export default function Home() {

@@ -31,6 +31,10 @@ const ENABLE_VERCEL_ANALYTICS = (() => {
   return raw === "1" || raw === "true";
 })();
 
+// 说明：middleware.ts 为每个请求生成 CSP nonce。
+// Next.js 只有在按请求渲染 HTML 时才能把 nonce 注入到其内联脚本；若静态化则会因脚本缺少 nonce 被 CSP 阻止，出现白屏。
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
