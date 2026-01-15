@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { NextRequest } from 'next/server';
 
 type EnvSnapshot = Record<string, string | undefined>;
 
@@ -18,7 +19,7 @@ const createReq = (host: string) =>
   ({
     headers: new Headers({ host }),
     nextUrl: new URL(`http://${host}/api/unified/test`),
-  }) as any;
+  }) as unknown as NextRequest;
 
 const createFetchOkMock = () =>
   vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(async () => {

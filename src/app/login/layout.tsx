@@ -1,8 +1,6 @@
 import type { Metadata } from 'next'
-import { SITE_URL } from '../utils/site-url'
 
 export const metadata: Metadata = {
-  metadataBase: new URL(SITE_URL),
   title: '登录系统 | Phigros Query 入口',
   description: '欢迎登录 Phigros Query。我们支持 TapTap 扫码、SessionToken 以及 API 凭证等多种安全登录方式。登录后您可以查看详细的 Phigros 成绩统计、生成个性化的 Best N 成绩卡片，并使用我们的数据分析服务，尽力保护您的账号数据安全。',
   robots: {

@@ -1,9 +1,6 @@
 import type { Metadata } from 'next';
 
-import { SITE_URL } from '../utils/site-url';
-
 export const metadata: Metadata = {
-  metadataBase: new URL(SITE_URL),
   title: '联合API 仪表盘 | Phigros Query',
   description: '联合API 专属仪表盘：用于绑定、账号管理与查询工具等功能的集中入口。',
   robots: {
@@ -38,4 +35,3 @@ export default function UnifiedApiDashboardLayout({ children }: { children: Reac
     </>
   );
 }
-

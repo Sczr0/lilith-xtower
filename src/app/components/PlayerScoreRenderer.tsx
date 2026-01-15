@@ -427,7 +427,14 @@ export function PlayerScoreRenderer() {
             </button>
           </div>
           <div className="flex justify-center">
-            <img src={resultImage} alt="渲染结果" className="max-w-full rounded-lg shadow-lg" />
+            {/* eslint-disable-next-line @next/next/no-img-element -- 说明：渲染结果为 blob: URL（本地对象 URL），不适合 next/image 的远程优化链路 */}
+            <img
+              src={resultImage}
+              alt="渲染结果"
+              className="max-w-full rounded-lg shadow-lg"
+              loading="lazy"
+              decoding="async"
+            />
           </div>
         </section>
       )}

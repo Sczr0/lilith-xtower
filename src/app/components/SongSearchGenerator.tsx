@@ -131,10 +131,13 @@ export function SongSearchGenerator({ showTitle = true, showDescription = true }
       {imageUrl ? (
         <div className="space-y-4">
           <div className="relative w-full overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+            {/* eslint-disable-next-line @next/next/no-img-element -- 说明：生成结果为 blob: URL（本地对象 URL），不适合 next/image 的远程优化链路 */}
             <img
               src={imageUrl}
               alt={`${songQuery} 成绩图片`}
               className="w-full h-auto"
+              loading="lazy"
+              decoding="async"
             />
           </div>
           <div className="flex flex-wrap gap-3">

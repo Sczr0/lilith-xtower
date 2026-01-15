@@ -1,4 +1,8 @@
+import Link from 'next/link';
+import { PageShell } from '../components/PageShell';
+import { SiteFooter } from '../components/SiteFooter';
 import { SiteHeader } from '../components/SiteHeader';
+import { buttonStyles } from '../components/ui/styles';
 import { AgreementContent } from './components/AgreementContent';
 import { getPrecompiledAssetServer } from '../lib/precompiled-server';
 import type { PrecompiledSignatureInfo } from '../lib/precompiled-types';
@@ -24,18 +28,40 @@ export default async function AgreementPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white text-gray-900 dark:bg-neutral-950 dark:text-gray-50">
-      <SiteHeader />
-
+    <PageShell
+      variant="plain"
+      header={<SiteHeader />}
+      main={false}
+      afterMain={
+        <div className="px-4 pb-10 sm:pb-14">
+          <div className="mx-auto max-w-7xl">
+            <SiteFooter />
+          </div>
+        </div>
+      }
+    >
       {error ? (
         <div className="px-4">
-          <div className="mx-auto mt-16 max-w-xl rounded-lg border border-red-200 bg-red-50 px-6 py-6 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
-            {error}
+          <div className="mx-auto mt-16 max-w-xl space-y-4">
+            <div className="rounded-lg border border-red-200 bg-red-50 px-6 py-6 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
+              {error}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Link href="/" className={buttonStyles({ variant: 'primary', size: 'sm' })}>
+                返回首页
+              </Link>
+              <Link href="/agreement" className={buttonStyles({ variant: 'outline', size: 'sm' })}>
+                刷新页面
+              </Link>
+              <Link href="/contribute" className={buttonStyles({ variant: 'outline', size: 'sm' })}>
+                反馈问题
+              </Link>
+            </div>
           </div>
         </div>
       ) : (
         <AgreementContent htmlContent={htmlContent} tocItems={tocItems} signatureInfo={signatureInfo} />
       )}
-    </div>
+    </PageShell>
   );
 }

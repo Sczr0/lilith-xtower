@@ -237,7 +237,6 @@ export function BnImageGenerator({
       } catch (e) {
         // 兜底：如果内联导致内存/体积问题，则退回 blob: URL 模式
         if (debugExport) {
-          // eslint-disable-next-line no-console
           console.warn('[BestNExport] export fallback to embedImages=object:', e);
         }
         blob = await renderWithMode('object');
@@ -342,10 +341,13 @@ export function BnImageGenerator({
                 </div>
               ) 
             ) : (
+              // eslint-disable-next-line @next/next/no-img-element -- 说明：生成结果为 blob: URL（本地对象 URL），不适合 next/image 的远程优化链路
               <img
                 src={imageUrl}
                 alt={`Best ${generatedN} 成绩图片`}
                 className="w-full h-auto"
+                loading="lazy"
+                decoding="async"
               />
             )}
           </div>

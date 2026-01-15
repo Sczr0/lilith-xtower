@@ -22,7 +22,8 @@ export async function PUT(request: NextRequest) {
 
   const rawBody = (await request.json().catch(() => ({}))) as Record<string, unknown>
   // 客户端不允许提交 auth 字段（由服务端注入）
-  const { auth: _ignored, ...options } = rawBody
+  const options: Record<string, unknown> = { ...rawBody }
+  delete options.auth
 
   const upstream = `${getSeekendApiBaseUrl()}/leaderboard/profile`
   const controller = new AbortController()
@@ -51,4 +52,3 @@ export async function PUT(request: NextRequest) {
     clearTimeout(timeout)
   }
 }
-

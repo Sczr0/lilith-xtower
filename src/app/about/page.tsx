@@ -93,7 +93,7 @@ export default async function AboutPage() {
           <div className="h-16 w-16 rounded-full overflow-hidden bg-gray-100 dark:bg-neutral-800">
             <Image
               src={AVATAR_SRC}
-              alt="头像"
+              alt="弦塔头像"
               width={64}
               height={64}
               className="h-16 w-16 rounded-full object-cover object-center"

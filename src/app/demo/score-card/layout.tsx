@@ -1,8 +1,6 @@
 import type { Metadata } from 'next'
-import { SITE_URL } from '../../utils/site-url'
 
 export const metadata: Metadata = {
-  metadataBase: new URL(SITE_URL),
   title: '成绩单演示 | Phigros Query',
   description: 'Phigros 成绩单样式演示，展示多种成绩卡片设计与图片生成效果，预览不同风格的分享模板。',
   robots: {

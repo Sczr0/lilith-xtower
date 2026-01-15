@@ -72,7 +72,7 @@ async function fetchAfdianSponsors(
     }
 
     return { ok: true, status: res.status, payload: safePayload };
-  } catch (error) {
+  } catch {
     return { ok: false, status: 500, payload: { ec: 500, em: 'fetch sponsors failed', data: undefined } };
   }
 }
@@ -86,4 +86,3 @@ export const fetchAfdianSponsorsCached = unstable_cache(
   ['afdian-sponsors'],
   { revalidate: 300 },
 );
-

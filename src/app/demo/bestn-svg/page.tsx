@@ -1,6 +1,6 @@
 import React from 'react';
-import { BnImageGenerator } from '../../components/BnImageGenerator';
 import { SiteHeader } from '../../components/SiteHeader';
+import { BestnSvgDemoClient } from './components/BestnSvgDemoClient';
 
 export default function Page({
   searchParams,
@@ -30,13 +30,7 @@ export default function Page({
           </p>
         </header>
 
-        <BnImageGenerator
-          showTitle={false}
-          showDescription={false}
-          format="svg"
-          showSvgSource
-          debugExport={debug}
-        />
+        <BestnSvgDemoClient debugExport={debug} />
       </div>
     </div>
   );

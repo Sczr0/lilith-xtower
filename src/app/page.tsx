@@ -97,7 +97,7 @@ export default function Home() {
         </section>
 
         {/* 功能概览 */}
-        <section id="features" className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <section id="features" className="scroll-mt-20 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className={cardStyles({ padding: 'sm' })}>
             <div className="mb-3 flex items-center justify-center">
               <ImageIcon className="w-6 h-6 text-blue-600 dark:text-blue-400" aria-hidden="true" />

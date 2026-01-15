@@ -1,8 +1,6 @@
 import type { Metadata } from 'next'
-import { SITE_URL } from '../utils/site-url'
 
 export const metadata: Metadata = {
-  metadataBase: new URL(SITE_URL),
   title: '用户协议 | Phigros Query',
   description: '欢迎阅读 Phigros Query 用户协议与服务条款。本协议详细说明了我们的服务范围、数据使用与隐私保护规范、用户的权利与义务以及相关法律条款。为了保障您的合法权益，请在开始使用我们的成绩查询与分析服务前仔细阅读并理解相关内容。',
   keywords: ['Phigros', '用户协议', '服务条款', '数据使用', '用户权利', '法律条款', '使用规范'],

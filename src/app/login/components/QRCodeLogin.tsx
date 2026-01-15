@@ -161,12 +161,14 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
       {status === 'scanning' && (qrCodeDataUrl || qrCodeImage) && (
         <div className="flex flex-col items-center space-y-4">
           <div className="bg-white p-4 rounded-lg shadow-lg">
+            {/* eslint-disable-next-line @next/next/no-img-element -- 说明：二维码为 data: 或第三方短期资源，迁移 next/image 收益有限且会引入 remotePatterns 维护成本 */}
             <img
               src={qrCodeDataUrl || qrCodeImage}
               alt="登录二维码"
               className="w-64 h-64 object-contain"
               width={256}
               height={256}
+              decoding="async"
               referrerPolicy="no-referrer"
             />
           </div>

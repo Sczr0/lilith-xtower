@@ -1,8 +1,6 @@
 import type { Metadata } from 'next'
-import { SITE_URL } from '../utils/site-url'
 
 export const metadata: Metadata = {
-  metadataBase: new URL(SITE_URL),
   title: '认证信息 | Phigros Query',
   description: '查看当前登录状态与基础认证信息（敏感字段默认遮罩）。',
   keywords: ['Phigros', '认证信息', '登录状态', '技术支持'],
@@ -33,4 +31,3 @@ export const metadata: Metadata = {
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return children
 }
-

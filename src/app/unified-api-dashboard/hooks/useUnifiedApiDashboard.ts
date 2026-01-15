@@ -153,6 +153,19 @@ export function useUnifiedApiDashboard(): UnifiedApiDashboardModel {
   const [showToken, setShowToken] = useState(false);
   const [showApiToken, setShowApiToken] = useState(false);
 
+  // 说明：敏感字段“明文显示”增加防误触兜底 —— 显示后短时间自动回隐藏
+  useEffect(() => {
+    if (!showToken) return;
+    const timer = window.setTimeout(() => setShowToken(false), 15_000);
+    return () => window.clearTimeout(timer);
+  }, [showToken]);
+
+  useEffect(() => {
+    if (!showApiToken) return;
+    const timer = window.setTimeout(() => setShowApiToken(false), 15_000);
+    return () => window.clearTimeout(timer);
+  }, [showApiToken]);
+
   // 说明：复制提示（轻量提示，不引入 toast 依赖）
   const [copyHint, setCopyHint] = useState<string | null>(null);
 
@@ -338,4 +351,3 @@ export function useUnifiedApiDashboard(): UnifiedApiDashboardModel {
     handleRefreshList,
   };
 }
-

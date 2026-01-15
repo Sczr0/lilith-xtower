@@ -1,8 +1,6 @@
 import type { Metadata } from 'next';
-import { SITE_URL } from '../utils/site-url';
 
 export const metadata: Metadata = {
-  metadataBase: new URL(SITE_URL),
   title: '联合API接入（历史入口） | Phigros Query',
   description: '历史入口：访问该路由会自动跳转到联合 API 仪表盘（/unified-api-dashboard）。',
   keywords: ['Phigros', '联合查分API', '联合API', '绑定', '平台账号', '账号列表'],

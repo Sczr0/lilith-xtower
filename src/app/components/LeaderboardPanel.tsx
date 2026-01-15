@@ -166,7 +166,7 @@ const renderChartItems = (items: PublicProfileResponse['apTop3']) => {
 };
 
 export function LeaderboardPanel() {
-  const { credential, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   const [topPageSize, setTopPageSize] = useState(() => {
     if (typeof window === 'undefined') return LEADERBOARD_TOP_LIMIT_DEFAULT;

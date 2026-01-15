@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 interface Options {
   shouldPoll: boolean;
@@ -17,37 +17,40 @@ export function useServiceReachability({ shouldPoll, url = DEFAULT_URL, onReacha
   const backoffIndexRef = useRef(0);
   const isPollingRef = useRef(false);
 
-  const delays = [5000, 10000, 30000, 60000];
+  const delaysRef = useRef([5000, 10000, 30000, 60000]);
+  const tickRef = useRef<(() => Promise<void>) | null>(null);
 
-  const clearTimer = () => {
+  const clearTimer = useCallback(() => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
-  };
+  }, []);
 
-  const stop = () => {
+  const stop = useCallback(() => {
     clearTimer();
     abortRef.current?.abort();
     abortRef.current = null;
     isPollingRef.current = false;
     backoffIndexRef.current = 0;
-  };
+  }, [clearTimer]);
 
-  const schedule = (delay: number) => {
+  const schedule = useCallback((delay: number) => {
     clearTimer();
-    timerRef.current = window.setTimeout(tick, delay);
-  };
+    timerRef.current = window.setTimeout(() => {
+      void tickRef.current?.();
+    }, delay);
+  }, [clearTimer]);
 
-  const tick = async () => {
+  tickRef.current = async () => {
     if (isPollingRef.current) return;
     if (document.hidden) {
-      // 延迟到页面可见时再尝试
+      // 说明：延迟到页面可见时再尝试
       schedule(2000);
       return;
     }
     if (navigator && typeof navigator.onLine === "boolean" && !navigator.onLine) {
-      // 离线状态下等待网络恢复
+      // 说明：离线状态下等待网络恢复
       schedule(3000);
       return;
     }
@@ -64,7 +67,7 @@ export function useServiceReachability({ shouldPoll, url = DEFAULT_URL, onReacha
       const res = await fetch(url, {
         method: "GET",
         cache: "no-store",
-        headers: { "Accept": "application/json" },
+        headers: { Accept: "application/json" },
         signal: ac.signal,
       });
 
@@ -91,6 +94,7 @@ export function useServiceReachability({ shouldPoll, url = DEFAULT_URL, onReacha
     }
 
     // 失败：指数退避直至封顶
+    const delays = delaysRef.current;
     const idx = backoffIndexRef.current;
     const delay = delays[Math.min(idx, delays.length - 1)];
     backoffIndexRef.current = Math.min(idx + 1, delays.length - 1);
@@ -117,5 +121,5 @@ export function useServiceReachability({ shouldPoll, url = DEFAULT_URL, onReacha
       document.removeEventListener("visibilitychange", handleVisible);
       stop();
     };
-  }, [shouldPoll, url]);
+  }, [shouldPoll, url, schedule, stop]);
 }

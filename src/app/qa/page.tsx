@@ -12,6 +12,17 @@ import type { QAItem } from './types';
 // ISR: 每小时重新验证一次
 export const revalidate = 3600;
 
+function normalizeFaqAnswerForJsonLd(answer: string): string {
+  return answer
+    .replace(/\r\n/g, '\n')
+    // 说明：FAQPage 的 acceptedAnswer.text 更推荐“纯文本”，这里做最小规范化以提升富摘要稳定性
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Markdown 链接：[text](url) -> text
+    .replace(/`([^`]+)`/g, '$1') // Inline code -> text
+    .replace(/\n+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 /**
  * 常见问题页面 - SSR + ISR
  * 在服务端获取 QA 数据，每小时重新验证
@@ -37,7 +48,7 @@ export default async function QAPage() {
       name: item.question,
       acceptedAnswer: {
         '@type': 'Answer',
-        text: item.answer,
+        text: normalizeFaqAnswerForJsonLd(item.answer),
       },
     })),
   };

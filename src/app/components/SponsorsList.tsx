@@ -91,7 +91,27 @@ export default function SponsorsList({ initialPerPage = 12, initialData, initial
         </div>
       )}
       {error && (
-        <div className="text-sm text-red-600 dark:text-red-400">{error}</div>
+        <div className="text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950/30 border border-red-200/70 dark:border-red-900/40 rounded-lg px-3 py-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <span>{error}</span>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="px-3 py-1.5 rounded-lg border border-red-300/80 dark:border-red-800/60 text-xs hover:bg-red-100/60 dark:hover:bg-red-900/20"
+                onClick={() => void load(1, initialPerPage)}
+                disabled={loading}
+              >
+                重试
+              </button>
+              <a
+                className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-neutral-700 text-xs hover:bg-gray-50 dark:hover:bg-neutral-800"
+                href="/sponsors"
+              >
+                刷新页面
+              </a>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* 列表 */}

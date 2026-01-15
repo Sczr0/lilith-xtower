@@ -52,7 +52,6 @@ function debugPrefix(options?: { debugTag?: string }): string {
 function dlog(options: { debug?: boolean; debugTag?: string } | undefined, ...args: unknown[]) {
   if (!debugEnabled(options)) return;
   try {
-    // eslint-disable-next-line no-console
     console.log(debugPrefix(options), ...args);
   } catch {}
 }
@@ -65,10 +64,8 @@ function dgroup(
   if (!debugEnabled(options)) return fn();
   const prefix = debugPrefix(options);
   try {
-    // eslint-disable-next-line no-console
     console.group(`${prefix} ${title}`);
     fn();
-    // eslint-disable-next-line no-console
     console.groupEnd();
   } catch {
     fn();
