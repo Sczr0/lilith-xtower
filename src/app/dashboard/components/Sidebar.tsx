@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import Link from 'next/link';
 import { THEME_NAME_MOBILE, THEME_NAME_DESKTOP } from '../../lib/constants/themeNames';
+import { DASHBOARD_NAV_ITEMS } from '../../components/topbar/nav';
 
 export type TabId = 'best-n' | 'single-query' | 'rks-list' | 'leaderboard' | 'song-updates' | 'player-score-render' | 'stats';
 
@@ -22,6 +23,24 @@ interface SidebarProps {
   isMobileOpen?: boolean;
   onMobileClose?: () => void;
   onOpenAnnouncements?: () => void;
+}
+
+const ACTION_LINK_ICON_D_BY_HREF: Record<string, string> = {
+  '/about': 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+  '/contribute':
+    'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z',
+  '/auth':
+    'M12 11c1.105 0 2 .895 2 2v2a2 2 0 11-4 0v-2c0-1.105.895-2 2-2zm-4 0V8a4 4 0 118 0v3m-8 0h8a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2v-6a2 2 0 012-2z',
+};
+
+function ActionLinkIcon({ href, className }: { href: string; className: string }) {
+  const d = ACTION_LINK_ICON_D_BY_HREF[href] ?? ACTION_LINK_ICON_D_BY_HREF['/about'];
+
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={d} />
+    </svg>
+  );
 }
 
 export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobileClose, onOpenAnnouncements }: SidebarProps) {
@@ -219,50 +238,17 @@ export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobile
                 </svg>
                 公告
               </button>
-              <Link
-                href="/about"
-                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                关于
-              </Link>
-
-              <Link
-                href="/contribute"
-                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-                投稿
-              </Link>
-              
-              <Link
-                href="/debug-auth"
-                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                </svg>
-                调试页面
-              </Link>
-
-              <Link
-                href="/unified-api-dashboard"
-                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13.828 10.172a4 4 0 00-5.656 0l-1.414 1.414a4 4 0 105.656 5.656l1.414-1.414m-2.828-2.828a4 4 0 005.656 0l1.414-1.414a4 4 0 10-5.656-5.656l-1.414 1.414"
-                  />
-                </svg>
-                联合API接入
-              </Link>
+              {/* 说明：移动端底部操作入口需要与桌面端 TopBar 的 DASHBOARD_NAV_ITEMS 保持一致，避免出现“桌面端没有但移动端有”的入口。 */}
+              {DASHBOARD_NAV_ITEMS.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  <ActionLinkIcon href={item.href} className="w-4 h-4" />
+                  {item.label}
+                </Link>
+              ))}
 
               <div className="flex items-center px-3 py-2">
                 <span className="text-sm text-gray-700 dark:text-gray-300">主题</span>
@@ -328,18 +314,11 @@ export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobile
             </Link>
 
             <Link
-              href="/unified-api-dashboard"
+              href="/auth"
               className="w-full flex items-center justify-center px-3 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              title="联合API接入"
+              title="认证"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13.828 10.172a4 4 0 00-5.656 0l-1.414 1.414a4 4 0 105.656 5.656l1.414-1.414m-2.828-2.828a4 4 0 005.656 0l1.414-1.414a4 4 0 10-5.656-5.656l-1.414 1.414"
-                />
-              </svg>
+              <ActionLinkIcon href="/auth" className="w-5 h-5" />
             </Link>
             
             <button
