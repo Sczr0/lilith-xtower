@@ -10,6 +10,7 @@ import {
   QrCodeData,
   requestTapTapDeviceCode,
 } from '../../lib/taptap/qrLogin';
+import { buildTapTapLoginAuthDeepLink, normalizeTapTapConfirmUrl } from '../../lib/taptap/deeplink';
 import QRCode from 'qrcode';
 import { getPreloadedQrData, clearPreloadedQrData } from '../../lib/utils/preload';
 import { useClientValue } from '../../hooks/useClientValue';
@@ -30,12 +31,14 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'scanning' | 'success' | 'error' | 'expired'>('idle');
   const [error, setError] = useState<string>('');
-  // 移动端深链：用于在移动端直接跳转 TapTap 确认登录
-  const [taptapDeepLink, setTaptapDeepLink] = useState<string>('');
+  // 移动端确认链接：scheme 优先唤起 TapTap，https 作为兜底（新开标签页）
+  const [taptapConfirmUrl, setTaptapConfirmUrl] = useState<string>('');
   const isMobile = useClientValue(() => {
     const ua = navigator.userAgent || '';
     return /Mobile|Android|iP(hone|od|ad)|HarmonyOS|Huawei/i.test(ua);
   }, false);
+  const taptapWebConfirmUrl = normalizeTapTapConfirmUrl(taptapConfirmUrl);
+  const taptapSchemeConfirmUrl = buildTapTapLoginAuthDeepLink(taptapWebConfirmUrl || taptapConfirmUrl);
   const pollAbortRef = useRef<AbortController | null>(null);
   const expireTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -80,8 +83,8 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
       } catch {
         setQrCodeDataUrl(codeData.qrcodeUrl);
       }
-      // 移动端深链优先使用带 user_code 的完整链接，避免跳转后还需要手动输入验证码
-      setTaptapDeepLink(codeData.qrcodeUrl || codeData.verificationUrl);
+      // 移动端：优先使用携带 user_code 的完整链接，避免跳转后还需要手动输入验证码
+      setTaptapConfirmUrl(codeData.qrcodeUrl || codeData.verificationUrl);
       setStatus('scanning');
 
       // 二维码过期定时
@@ -183,7 +186,7 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
           </div>
 
           {/* 移动端下属登录方式：直接跳转 TapTap 确认登录（桌面端隐藏） */}
-          {isMobile && taptapDeepLink && (
+          {isMobile && taptapConfirmUrl && (
             <div className="w-full max-w-sm pt-2 md:hidden">
               <div className="relative flex items-center py-2">
                 <div className="flex-grow border-t border-gray-200 dark:border-gray-700"></div>
@@ -191,11 +194,21 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
                 <div className="flex-grow border-t border-gray-200 dark:border-gray-700"></div>
               </div>
               <a
-                href={taptapDeepLink}
+                href={taptapSchemeConfirmUrl || taptapWebConfirmUrl || taptapConfirmUrl}
                 className="mt-3 block w-full text-center px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 去 TapTap 中确认登录
               </a>
+              {(taptapWebConfirmUrl || taptapConfirmUrl) && (
+                <a
+                  href={taptapWebConfirmUrl || taptapConfirmUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 block w-full text-center text-xs text-blue-600 hover:underline dark:text-blue-400"
+                >
+                  无法唤起 TapTap？在新标签页打开确认页
+                </a>
+              )}
               <p className="mt-2 text-xs text-center text-gray-600 dark:text-gray-400">
                 确认后请回到浏览器阅读并同意《用户协议》，然后返回本页等待完成登录。
               </p>
