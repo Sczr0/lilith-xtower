@@ -87,6 +87,9 @@ export default function RootLayout({
         {/* Umami Cloud API Gateway */}
         <link rel="preconnect" href="https://api-gateway.umami.dev" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="//api-gateway.umami.dev" />
+        {/* 资源站预连接 */}
+        <link rel="preconnect" href="https://somnia.xtower.site" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="//somnia.xtower.site" />
         {/* font preload removed to reduce blocking download */}
         <Script
           src="https://cloud.umami.is/script.js"
