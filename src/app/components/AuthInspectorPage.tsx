@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 
 import { useAuth } from '../contexts/AuthContext';
+import type { AuthCredential } from '../lib/types/auth';
 import { SiteHeader } from './SiteHeader';
 
 type AuthInspectorMode = 'safe' | 'debug';
@@ -17,6 +18,9 @@ export function AuthInspectorPage({ mode }: AuthInspectorPageProps) {
 
   const [verifying, setVerifying] = useState(false);
   const [verifyResult, setVerifyResult] = useState<null | 'valid' | 'invalid'>(null);
+  const [fullCredential, setFullCredential] = useState<AuthCredential | null>(null);
+  const [revealingFullCredential, setRevealingFullCredential] = useState(false);
+  const [revealFullCredentialError, setRevealFullCredentialError] = useState<string | null>(null);
 
   const formatTimestamp = (timestamp: number) => {
     return new Date(timestamp).toLocaleString('zh-CN', {
@@ -38,6 +42,50 @@ export function AuthInspectorPage({ mode }: AuthInspectorPageProps) {
       setVerifyResult(ok ? 'valid' : 'invalid');
     } finally {
       setVerifying(false);
+    }
+  };
+
+  const clearFullCredential = () => {
+    setFullCredential(null);
+    setRevealFullCredentialError(null);
+  };
+
+  const handleRevealFullCredential = async () => {
+    if (revealingFullCredential) return;
+    if (!isAuthenticated) {
+      setFullCredential(null);
+      setRevealFullCredentialError('当前未登录，无法获取完整凭证');
+      return;
+    }
+
+    setRevealingFullCredential(true);
+    setRevealFullCredentialError(null);
+    // 安全：避免在失败时继续显示旧的完整凭证
+    setFullCredential(null);
+
+    try {
+      const res = await fetch('/api/session/reveal', {
+        method: 'POST',
+        cache: 'no-store',
+        headers: { Accept: 'application/json' },
+      });
+
+      const data = (await res.json().catch(() => null)) as
+        | { success: true; credential: AuthCredential }
+        | { success: false; error: string }
+        | null;
+
+      if (!res.ok || !data || data.success !== true) {
+        const message = data && 'error' in data ? data.error : `获取完整凭证失败（${res.status}）`;
+        throw new Error(message);
+      }
+
+      setFullCredential(data.credential);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '获取完整凭证失败';
+      setRevealFullCredentialError(message);
+    } finally {
+      setRevealingFullCredential(false);
     }
   };
 
@@ -268,7 +316,7 @@ export function AuthInspectorPage({ mode }: AuthInspectorPageProps) {
                 </div>
               )}
               <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-                提示：本页不会展示完整 token。如需技术支持，请提供下方“更多详情”中的遮罩信息。
+                提示：本页默认不会展示完整 token。如需排障，可提供下方“更多详情”的遮罩信息；确需完整凭证时，可手动选择“展示完整凭证信息”（高风险）。
               </div>
             </div>
 
@@ -283,6 +331,54 @@ export function AuthInspectorPage({ mode }: AuthInspectorPageProps) {
                 <pre className="mt-3 p-3 rounded bg-gray-100/70 dark:bg-gray-900/50 overflow-x-auto text-xs text-gray-700 dark:text-gray-300">
                   <code>{JSON.stringify(sanitizedCredential, null, 2)}</code>
                 </pre>
+              </details>
+
+              <details
+                className="mt-4 group"
+                onToggle={(event) => {
+                  // 安全：折叠后立即清空完整凭证，避免误展示/误复制
+                  if (!event.currentTarget.open) clearFullCredential();
+                }}
+              >
+                <summary className="text-xs cursor-pointer select-none text-rose-600/90 dark:text-rose-300 hover:text-rose-700 dark:hover:text-rose-200">
+                  展示完整凭证信息（高风险，仅用于排障，点击后会从服务器获取一次）
+                </summary>
+                <div className="mt-3 rounded-lg border border-rose-200/70 dark:border-rose-900/60 bg-rose-50/60 dark:bg-rose-900/10 p-4">
+                  <p className="text-xs text-rose-800/90 dark:text-rose-200/90">
+                    警告：完整凭证可直接用于登录/调用接口。请勿截图/录屏分享；仅在你明确需要时手动获取，并在完成后点击“隐藏并清空”。
+                  </p>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      onClick={handleRevealFullCredential}
+                      disabled={!isAuthenticated || revealingFullCredential}
+                      className="px-3 py-1.5 rounded-lg border border-rose-200/70 bg-rose-50/80 hover:bg-rose-50 text-rose-700 shadow-sm transition disabled:opacity-60 dark:border-rose-800/60 dark:bg-rose-900/20 dark:text-rose-200"
+                    >
+                      {revealingFullCredential ? '获取中…' : '从服务器获取一次并展示'}
+                    </button>
+                    <button
+                      onClick={clearFullCredential}
+                      disabled={revealingFullCredential && !fullCredential}
+                      className="px-3 py-1.5 rounded-lg border border-gray-200/70 bg-white/70 hover:bg-white text-gray-700 shadow-sm transition disabled:opacity-60 dark:border-gray-700/60 dark:bg-gray-800/50 dark:text-gray-200"
+                    >
+                      隐藏并清空
+                    </button>
+                  </div>
+
+                  {!isAuthenticated && (
+                    <div className="mt-3 text-xs text-gray-600 dark:text-gray-300">当前未登录，无法获取完整凭证。</div>
+                  )}
+
+                  {revealFullCredentialError && (
+                    <div className="mt-3 text-xs text-rose-700 dark:text-rose-300">{revealFullCredentialError}</div>
+                  )}
+
+                  {fullCredential && (
+                    <pre className="mt-3 p-3 rounded bg-gray-100/70 dark:bg-gray-900/50 overflow-x-auto text-xs text-gray-700 dark:text-gray-300">
+                      <code>{JSON.stringify(fullCredential, null, 2)}</code>
+                    </pre>
+                  )}
+                </div>
               </details>
             </div>
           </div>
