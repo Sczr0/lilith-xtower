@@ -12,6 +12,7 @@ import {
 } from "../utils/promoBanner";
 import { isExternalHref } from "./topbar/nav";
 import { useClientValue } from "../hooks/useClientValue";
+import { buildGoHref } from "../utils/outbound";
 
 /**
  * 顶部轮播活动横幅
@@ -86,6 +87,11 @@ export function PromoBanner({ pathname }: { pathname: string }) {
 
   const handleClickSlide = () => {
     if (!slide.href) return;
+    const goHref = buildGoHref(slide.href);
+    if (goHref) {
+      window.open(goHref, "_blank", "noopener,noreferrer");
+      return;
+    }
     if (slide.newTab) {
       window.open(slide.href, "_blank", "noopener,noreferrer");
       return;

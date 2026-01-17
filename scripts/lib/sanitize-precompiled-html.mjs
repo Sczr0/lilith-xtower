@@ -27,7 +27,7 @@ export function sanitizeWithHeadingIds(html) {
     'img',
   ];
   const allowedAttributes = {
-    a: ['href', 'name', 'target', 'title', 'rel'],
+    a: ['href', 'name', 'target', 'title', 'rel', 'referrerpolicy'],
     code: ['class'],
     img: ['src', 'alt', 'title', 'width', 'height'],
     h1: ['id', 'data-heading-id'],
@@ -39,6 +39,8 @@ export function sanitizeWithHeadingIds(html) {
   };
 
   const clean = sanitizeHtml(html, {
+    // 说明：允许形如 //example.com 的协议相对链接（会在 transformTags 里规范化为 https）
+    allowProtocolRelative: true,
     allowedTags,
     allowedAttributes,
     allowedSchemesByTag: {
@@ -61,16 +63,28 @@ export function sanitizeWithHeadingIds(html) {
       ),
       a: (_tagName, attribs) => {
         const href = attribs.href || '';
-        // 绝对 http/https 视为外链；补齐 rel 以避免 opener 风险
-        const isExternal = /^https?:\/\//i.test(href);
+        // 站外跳转提示页：仅对“会离开本站的 web 链接”启用（http/https/协议相对）。
+        const isExternalWeb = /^https?:\/\//i.test(href) || href.startsWith('//');
+        const normalized = href.startsWith('//') ? `https:${href}` : href;
+        const goHref = isExternalWeb ? `/go?url=${encodeURIComponent(normalized)}` : null;
+
         let rel = attribs.rel || '';
-        if (isExternal) {
+        if (isExternalWeb) {
           const parts = new Set(rel.split(/\s+/).filter(Boolean));
           parts.add('noopener');
           parts.add('noreferrer');
           rel = Array.from(parts).join(' ');
         }
-        return { tagName: 'a', attribs: { ...attribs, rel } };
+
+        return {
+          tagName: 'a',
+          attribs: {
+            ...attribs,
+            href: goHref ?? href,
+            // 说明：外链统一新标签打开，并显式禁止发送 Referer。
+            ...(isExternalWeb ? { target: '_blank', rel, referrerpolicy: 'no-referrer' } : { rel }),
+          },
+        };
       },
     },
   });

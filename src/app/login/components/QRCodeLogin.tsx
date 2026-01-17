@@ -14,6 +14,7 @@ import { buildTapTapLoginAuthDeepLink, normalizeTapTapConfirmUrl } from '../../l
 import QRCode from 'qrcode';
 import { getPreloadedQrData, clearPreloadedQrData } from '../../lib/utils/preload';
 import { useClientValue } from '../../hooks/useClientValue';
+import { buildGoHref } from '../../utils/outbound';
 
 interface QRCodeLoginProps {
   taptapVersion: TapTapVersion;
@@ -201,9 +202,13 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
               </a>
               {(taptapWebConfirmUrl || taptapConfirmUrl) && (
                 <a
-                  href={taptapWebConfirmUrl || taptapConfirmUrl}
+                  href={
+                    buildGoHref(taptapWebConfirmUrl || taptapConfirmUrl) ??
+                    (taptapWebConfirmUrl || taptapConfirmUrl)
+                  }
                   target="_blank"
                   rel="noopener noreferrer"
+                  referrerPolicy="no-referrer"
                   className="mt-2 block w-full text-center text-xs text-blue-600 hover:underline dark:text-blue-400"
                 >
                   无法唤起 TapTap？在新标签页打开确认页

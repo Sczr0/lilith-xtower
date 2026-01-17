@@ -10,6 +10,7 @@ import { UnifiedApiBindSection } from './components/sections/UnifiedApiBindSecti
 import { UnifiedApiSiteUserIdSection } from './components/sections/UnifiedApiSiteUserIdSection';
 import { UnifiedApiToolsSection } from './components/sections/UnifiedApiToolsSection';
 import { useUnifiedApiDashboard } from './hooks/useUnifiedApiDashboard';
+import { buildGoHref } from '../utils/outbound';
 
 const DEFAULT_API_TOKEN = 'pgrTk';
 
@@ -95,7 +96,10 @@ export default function UnifiedApiDashboardPage() {
             <div className="flex flex-wrap gap-2">
               <a
                 className={buttonStyles({ variant: 'outline', size: 'sm' })}
-                href="https://s.apifox.cn/67f5ad8d-931b-429e-b456-e9dea1161e77/llms.txt"
+                href={
+                  buildGoHref('https://s.apifox.cn/67f5ad8d-931b-429e-b456-e9dea1161e77/llms.txt') ??
+                  'https://s.apifox.cn/67f5ad8d-931b-429e-b456-e9dea1161e77/llms.txt'
+                }
                 target="_blank"
                 rel="noreferrer"
               >

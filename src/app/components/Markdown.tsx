@@ -3,6 +3,9 @@
 import dynamic from 'next/dynamic';
 import type { ComponentProps, ComponentType } from 'react';
 import type ReactMarkdownComponent from 'react-markdown';
+import type { Components } from 'react-markdown';
+
+import { buildGoHref } from '../utils/outbound';
 
 type ReactMarkdownProps = ComponentProps<typeof ReactMarkdownComponent>;
 
@@ -32,7 +35,36 @@ export type MarkdownProps = ReactMarkdownProps & {
 };
 
 export function Markdown(props: MarkdownProps) {
-  return <ReactMarkdown {...props} />;
+  const components: Components = {
+    ...(props.components ?? {}),
+    a: ({ node: _node, href, children, ...rest }) => {
+      // 说明：react-markdown 会注入 node 属性；此处不透传到 DOM，且显式“使用”以避免 lint unused 警告。
+      void _node;
+      const rawHref = typeof href === 'string' ? href : '';
+      const goHref = rawHref ? buildGoHref(rawHref) : null;
+      if (goHref) {
+        return (
+          <a
+            {...rest}
+            href={goHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            referrerPolicy="no-referrer"
+          >
+            {children}
+          </a>
+        );
+      }
+
+      return (
+        <a {...rest} href={rawHref}>
+          {children}
+        </a>
+      );
+    },
+  };
+
+  return <ReactMarkdown {...props} components={components} />;
 }
 
 export default Markdown;

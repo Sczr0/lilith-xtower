@@ -30,11 +30,13 @@ describe('sanitizeWithHeadingIds', () => {
     expect(out).toContain('id="custom-id"');
   });
 
-  it('adds rel to external links', () => {
+  it('rewrites external links to /go and adds rel/target/referrerpolicy', () => {
     const out = sanitizeWithHeadingIds('<a href="https://example.com">x</a>');
+    expect(out).toContain('href="/go?url=https%3A%2F%2Fexample.com"');
+    expect(out).toContain('target="_blank"');
+    expect(out).toContain('referrerpolicy="no-referrer"');
     expect(out).toContain('rel="');
     expect(out).toContain('noopener');
     expect(out).toContain('noreferrer');
   });
 });
-

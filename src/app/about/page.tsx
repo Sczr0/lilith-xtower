@@ -4,6 +4,7 @@ import { SiteHeader } from '../components/SiteHeader';
 import { getPrecompiledAssetServer, hasPrecompiledAsset } from '../lib/precompiled-server';
 import { safeJsonLdStringify } from '../lib/security/safeJsonLdStringify';
 import { SITE_URL } from '../utils/site-url';
+import { buildGoHref } from '../utils/outbound';
 import { AboutClientSections } from './components/AboutClientSections';
 import { SUPPORT_LINK_SECTIONS } from './supportLinks';
 
@@ -141,9 +142,10 @@ export default async function AboutPage() {
                     {section.links.map((link) => (
                       <li key={link.url}>
                         <a
-                          href={link.url}
+                          href={link.external ? buildGoHref(link.url) ?? link.url : link.url}
                           target={link.external ? '_blank' : undefined}
                           rel={link.external ? 'noopener noreferrer' : undefined}
+                          referrerPolicy={link.external ? 'no-referrer' : undefined}
                           className="text-sm text-blue-600 hover:underline dark:text-blue-400"
                         >
                           {link.name}

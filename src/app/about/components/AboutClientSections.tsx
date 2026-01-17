@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import { ServiceStats } from '../../components/ServiceStats';
 import { useClientValue } from '../../hooks/useClientValue';
+import { buildGoHref } from '../../utils/outbound';
 
 /**
  * About 页面的客户端动态部分
@@ -77,9 +78,10 @@ export function AboutClientSections() {
           {serviceProviders.map((provider) => (
             <a
               key={provider.name}
-              href={provider.url}
+              href={buildGoHref(provider.url) ?? provider.url}
               target="_blank"
               rel="noopener noreferrer"
+              referrerPolicy="no-referrer"
               className="border border-gray-200 dark:border-neutral-800 rounded-xl p-5 hover:border-gray-300 dark:hover:border-neutral-700 transition-colors flex flex-col items-center justify-center gap-3 group"
             >
               <div className="flex items-center justify-center">

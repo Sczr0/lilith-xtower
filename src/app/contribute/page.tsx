@@ -2,6 +2,7 @@ import { SiteHeader } from '../components/SiteHeader';
 import { PageShell } from '../components/PageShell';
 import { buttonStyles, cardStyles } from '../components/ui/styles';
 import { SURVEY_URL } from '../config/survey.config';
+import { buildGoHref } from '../utils/outbound';
 import { TipForm } from './components/TipForm';
 
 export default function ContributePage() {
@@ -48,7 +49,7 @@ export default function ContributePage() {
         <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
           我们正在进行一次用户调研（约 10–15 分钟），用于优化功能优先级与体验细节。问卷不需要任何登录凭证信息，请勿填写 SessionToken/API Token 等敏感内容。
         </p>
-        <a href={SURVEY_URL} target="_blank" rel="noopener noreferrer" className={buttonStyles({ size: 'sm', variant: 'primary' })}>
+        <a href={buildGoHref(SURVEY_URL) ?? SURVEY_URL} target="_blank" rel="noopener noreferrer" className={buttonStyles({ size: 'sm', variant: 'primary' })}>
           立即填写
         </a>
       </div>

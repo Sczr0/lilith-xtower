@@ -6,6 +6,7 @@ import { QAList } from './components/QAList';
 import { getAllQA } from '../lib/qa';
 import { safeJsonLdStringify } from '../lib/security/safeJsonLdStringify';
 import { SITE_URL } from '../utils/site-url';
+import { buildGoHref } from '../utils/outbound';
 import { DEFAULT_QA_DATA } from './defaultQAData';
 import type { QAItem } from './types';
 
@@ -115,7 +116,7 @@ export default async function QAPage() {
         </p>
         <div className="flex flex-col sm:flex-row gap-3">
           <a
-            href="https://qm.qq.com/q/pbbOzU72aA"
+            href={buildGoHref('https://qm.qq.com/q/pbbOzU72aA') ?? 'https://qm.qq.com/q/pbbOzU72aA'}
             target="_blank"
             rel="noopener noreferrer"
             className={buttonStyles({ variant: 'primary' })}
