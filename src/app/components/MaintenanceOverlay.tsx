@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { Wrench, Clock } from 'lucide-react';
+import { Markdown } from './Markdown';
 
 interface MaintenanceOverlayProps {
   title: string;
@@ -67,10 +68,11 @@ export function MaintenanceOverlay({
         </h1>
 
         {/* 消息内容 */}
-        <div
-          className="text-gray-300 text-center text-lg mb-8 leading-relaxed"
-          dangerouslySetInnerHTML={{ __html: message }}
-        />
+        <div className="text-gray-300 text-center text-lg mb-8 leading-relaxed">
+          <div className="prose prose-lg prose-invert max-w-none text-center">
+            <Markdown>{message}</Markdown>
+          </div>
+        </div>
 
         {/* 时间信息 */}
         <div className="bg-gray-900/50 rounded-2xl p-6 border border-gray-700">

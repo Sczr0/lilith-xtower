@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { AlertTriangle, X } from "lucide-react";
 import { useMaintenanceStatus } from "../hooks/useMaintenanceStatus";
 import { usePathname } from "next/navigation";
+import { Markdown } from "./Markdown";
 
 export function MaintenanceNotice() {
   const { isInMaintenance, shouldShowBanner, config } = useMaintenanceStatus();
@@ -69,10 +70,9 @@ export function MaintenanceNotice() {
           </div>
           <div className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
             <div className="mb-2 opacity-80">{formatMaintenanceTime()}</div>
-            <div
-              className="prose prose-sm dark:prose-invert max-w-none"
-              dangerouslySetInnerHTML={{ __html: config.message }}
-            />
+            <div className="prose prose-sm dark:prose-invert max-w-none">
+              <Markdown>{config.message}</Markdown>
+            </div>
           </div>
         </div>
       )}
@@ -102,10 +102,9 @@ export function MaintenanceNotice() {
               <div className="text-xs text-gray-600 dark:text-gray-400 mb-2">
                 {formatMaintenanceTime()}
               </div>
-              <div
-                className="prose prose-sm dark:prose-invert max-w-none"
-                dangerouslySetInnerHTML={{ __html: config.message }}
-              />
+              <div className="prose prose-sm dark:prose-invert max-w-none">
+                <Markdown>{config.message}</Markdown>
+              </div>
             </div>
           </div>
         </div>

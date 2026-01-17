@@ -2,6 +2,7 @@ import { cookies } from 'next/headers'
 import { getIronSession, type IronSession, type SessionOptions } from 'iron-session'
 
 import type { AuthCredential, TapTapVersion } from '../types/auth'
+import { AUTH_SESSION_COOKIE_NAME } from '../constants/cookies'
 
 export type AuthSessionData = {
   credential?: AuthCredential
@@ -20,8 +21,6 @@ declare module 'iron-session' {
   }
 }
 
-const COOKIE_NAME = 'phigros_auth_session'
-
 // 说明：iron-session 要求 password 至少 32 字符；这里提供开发兜底，生产必须配置环境变量。
 const DEV_FALLBACK_PASSWORD = 'dev_only_password_change_me_32_chars!'
 const DEFAULT_TTL_SECONDS = 60 * 60 * 24 * 7
@@ -37,7 +36,7 @@ function getSessionOptions(): SessionOptions {
 
   return {
     password,
-    cookieName: COOKIE_NAME,
+    cookieName: AUTH_SESSION_COOKIE_NAME,
     ttl: DEFAULT_TTL_SECONDS,
     cookieOptions: {
       httpOnly: true,

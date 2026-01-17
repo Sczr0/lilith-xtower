@@ -13,8 +13,7 @@ const AgreementModal = dynamic(() => import('../components/AgreementModal').then
 import { useServiceReachability } from '../hooks/useServiceReachability';
 import { runPostLoginPreload, clearPrefetchCache } from '../lib/utils/preload';
 import type { AuthCredentialSummary, SessionStatusResponse } from '../lib/auth/credentialSummary';
-
-const AGREEMENT_KEY = 'phigros_agreement_accepted';
+import { AGREEMENT_ACCEPTED_KEY } from '../lib/constants/storageKeys';
 
 type AuthState = {
   isAuthenticated: boolean;
@@ -122,7 +121,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const login = async (credential: AuthCredential) => {
-    const agreementAccepted = localStorage.getItem(AGREEMENT_KEY);
+    const agreementAccepted = localStorage.getItem(AGREEMENT_ACCEPTED_KEY);
     if (agreementAccepted) {
       await proceedLogin(credential);
       return;
@@ -161,7 +160,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setShowAgreement(false);
 
     // 保存协议接受状态并跳转
-    localStorage.setItem(AGREEMENT_KEY, 'true');
+    localStorage.setItem(AGREEMENT_ACCEPTED_KEY, 'true');
     // 同意协议后预加载关键数据（与 proceedLogin 保持一致）
     runPostLoginPreload();
     router.replace('/dashboard');
@@ -177,7 +176,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const logout = () => {
     fetch('/api/session/logout', { method: 'POST' }).catch(() => {});
-    localStorage.removeItem(AGREEMENT_KEY);
+    localStorage.removeItem(AGREEMENT_ACCEPTED_KEY);
     // 清除与用户相关的缓存
     try {
       localStorage.removeItem('cache_rks_records_v1');

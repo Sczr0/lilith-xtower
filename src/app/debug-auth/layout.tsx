@@ -32,7 +32,8 @@ export const metadata: Metadata = {
 export default function DebugAuthLayout({ children }: { children: React.ReactNode }) {
   // 生产环境默认禁用调试入口，避免敏感信息泄露。
   // 如确需线上排障，可在部署环境设置 DEBUG_AUTH_ENABLED=1 临时开启；
-  // 同时请设置 DEBUG_AUTH_ACCESS_KEY，并通过 /debug-auth?key=... 访问（避免误开启后被外部直接探测）。
+  // 同时请设置 DEBUG_AUTH_ACCESS_KEY，并在访问 /debug-auth 后通过页面内的授权表单提交访问码（POST + HttpOnly Cookie），
+  // 避免把访问码暴露在 URL（浏览器历史/日志/分享链接）。
   const isEnabled = process.env.NODE_ENV !== 'production' || process.env.DEBUG_AUTH_ENABLED === '1'
   if (!isEnabled) notFound()
 

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { X, AlertTriangle } from 'lucide-react';
 import { useClientValue } from '../hooks/useClientValue';
+import { Markdown } from './Markdown';
 
 interface MaintenanceBannerProps {
   message: string;
@@ -37,10 +38,9 @@ export function MaintenanceBanner({ message }: MaintenanceBannerProps) {
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 flex-1">
             <AlertTriangle className="h-5 w-5 flex-shrink-0" />
-            <div
-              className="text-sm font-medium"
-              dangerouslySetInnerHTML={{ __html: message }}
-            />
+            <div className="text-sm font-medium [&_p]:m-0 [&_p+p]:mt-1">
+              <Markdown>{message}</Markdown>
+            </div>
           </div>
           <button
             onClick={handleDismiss}

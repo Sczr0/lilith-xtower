@@ -41,55 +41,7 @@ const nextConfig: NextConfig = {
           },
         ],
       },
-      {
-        // 全站响应缓存策略（CSP 已迁移到 middleware.ts 以支持 per-request nonce）
-        source: '/:path*',
-        headers: [
-          {
-            // 允许边缘/代理缓存 SSR 输出，降低 TTFB
-            key: 'Cache-Control',
-            value: 'public, max-age=0, s-maxage=600, stale-while-revalidate=86400',
-          },
-        ],
-      },
-      {
-        // /qa 页面具备更长的 ISR 周期（revalidate=3600），这里同步缓存头，避免被全局 10 分钟策略“截断”
-        source: '/qa',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400',
-          },
-        ],
-      },
-      {
-        // 交互/潜在个性化页面：禁止边缘/代理缓存，避免未来引入 cookies/headers 个性化时发生误缓存
-        source: '/dashboard/:path*',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'private, no-store, max-age=0',
-          },
-        ],
-      },
-      {
-        source: '/login/:path*',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'private, no-store, max-age=0',
-          },
-        ],
-      },
-      {
-        source: '/debug-auth/:path*',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'private, no-store, max-age=0',
-          },
-        ],
-      },
+      // 说明：HTML 页面的 Cache-Control 由 middleware.ts 统一决策（可识别登录态 cookie），这里仅保留 API/静态资源的缓存头策略。
       {
         source: '/api/:path*',
         headers: [

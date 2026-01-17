@@ -35,15 +35,17 @@ export const maintenanceConfig: MaintenanceConfig = {
   // 维护期间显示的标题
   title: '12.15-维护预告-游戏更新',
 
-  // 维护期间显示的消息内容（支持 HTML）
-  message: `
-受Phigros更新影响，本服务于<strong>2025年12月19日 17:00（UTC+8）</strong>开始例行维护。<br>预计恢复时间：<strong>2025年12月19日 17:30（UTC+8）</strong>，<br>若遇Phigros延迟更新情况，维护恢复时间将顺延。
-  `,
+  // 维护期间显示的消息内容（Markdown 文本，不支持 HTML，避免 XSS 风险）
+  message:
+    '受 Phigros 更新影响，本服务于 **2025年12月19日 17:00（UTC+8）** 开始例行维护。  \n' +
+    '预计恢复时间：**2025年12月19日 17:30（UTC+8）**。  \n' +
+    '若遇 Phigros 延迟更新情况，维护恢复时间将顺延。',
 
-  // 维护预告横幅消息（支持 HTML）
-  bannerMessage: `
-受Phigros更新影响，本服务于<strong>2025年12月19日 17:00（UTC+8）</strong>开始例行维护。<br>预计恢复时间：<strong>2025年12月19日 17:30（UTC+8）</strong>，<br>若遇Phigros延迟更新情况，维护恢复时间将顺延。
-  `,
+  // 维护预告横幅消息（Markdown 文本，不支持 HTML，避免 XSS 风险）
+  bannerMessage:
+    '受 Phigros 更新影响，本服务于 **2025年12月19日 17:00（UTC+8）** 开始例行维护。  \n' +
+    '预计恢复时间：**2025年12月19日 17:30（UTC+8）**。  \n' +
+    '若遇 Phigros 延迟更新情况，维护恢复时间将顺延。',
 };
 
 /**

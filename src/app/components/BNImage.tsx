@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { SVGRenderer, RenderOptions, RenderProgress } from '../utils/svgRenderer';
 import { StyledSelect } from './ui/Select';
 
@@ -16,6 +16,12 @@ export function BNImage({ svgContent, n, onClear }: BNImageProps) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [progress, setProgress] = useState<RenderProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // 说明：SVG 预览仅用于展示，禁止将 SVG 字符串注入 DOM（dangerouslySetInnerHTML）以避免 XSS 风险。
+  // 使用 data URL + <img> 渲染可避免 <script>/<foreignObject>/on* 等被浏览器执行。
+  const svgPreviewUrl = useMemo(() => {
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgContent)}`;
+  }, [svgContent]);
 
   const handleDownload = async () => {
     setIsDownloading(true);
@@ -66,9 +72,13 @@ export function BNImage({ svgContent, n, onClear }: BNImageProps) {
   return (
     <div className="space-y-4">
       <div className="relative w-full overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-        <div
+        {/* eslint-disable-next-line @next/next/no-img-element -- 说明：预览来自 data: URL（字符串），不走 next/image 远程优化链路 */}
+        <img
+          src={svgPreviewUrl}
+          alt={`Best ${n} SVG 预览`}
           className="w-full h-auto"
-          dangerouslySetInnerHTML={{ __html: svgContent }}
+          loading="lazy"
+          decoding="async"
         />
       </div>
 

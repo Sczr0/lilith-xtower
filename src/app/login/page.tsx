@@ -14,6 +14,7 @@ import { LoginMethodSelector } from './components/LoginMethodSelector';
 import { useClientValue } from '../hooks/useClientValue';
 import { LOGIN_METHODS } from './loginMethods';
 import { LoginFormPanel } from './components/LoginFormPanel';
+import { AGREEMENT_ACCEPTED_KEY } from '../lib/constants/storageKeys';
 
 export default function LoginPage() {
   const [activeMethod, setActiveMethod] = useState<AuthMethod>('qrcode');
@@ -21,7 +22,7 @@ export default function LoginPage() {
   const { isAuthenticated, isLoading, credential, logout } = useAuth();
   const router = useRouter();
   const agreementAccepted = useClientValue(
-    () => localStorage.getItem('phigros_agreement_accepted') === 'true',
+    () => localStorage.getItem(AGREEMENT_ACCEPTED_KEY) === 'true',
     false
   );
 

@@ -58,7 +58,15 @@ export default function UnifiedApiDashboardPage() {
     );
   }
 
-  if (!isAuthenticated) return null;
+  if (!isAuthenticated) {
+    // 说明：鉴权失败会在 hook 内触发 router.replace('/login')。
+    // 这里返回占位 UI，避免短暂白屏直到跳转完成。
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-950 flex items-center justify-center">
+        <div className="text-sm text-gray-600 dark:text-gray-400">正在跳转到登录页…</div>
+      </div>
+    );
+  }
 
   return (
     <UnifiedApiDashboardShell activeSection={activeSection} onSectionChange={handleSectionChange}>
@@ -156,4 +164,3 @@ export default function UnifiedApiDashboardPage() {
     </UnifiedApiDashboardShell>
   );
 }
-

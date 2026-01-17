@@ -12,7 +12,7 @@ import { DashboardTabContent } from './components/DashboardTabContent';
 import { useDashboardPrefetch } from './hooks/useDashboardPrefetch';
 import { useDashboardContent } from './hooks/useDashboardContent';
 import { useClientValue } from '../hooks/useClientValue';
-const AGREEMENT_KEY = 'phigros_agreement_accepted';
+import { AGREEMENT_ACCEPTED_KEY } from '../lib/constants/storageKeys';
 
 const isTabId = (value: string): value is TabId =>
   value === 'best-n' ||
@@ -36,7 +36,7 @@ export default function Dashboard() {
   const debugExport = parseDebugExport(searchParams.get('debug'));
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [menuGuideDismissed, setMenuGuideDismissed] = useState(false);
-  const agreementAccepted = useClientValue(() => localStorage.getItem(AGREEMENT_KEY) === 'true', false);
+  const agreementAccepted = useClientValue(() => localStorage.getItem(AGREEMENT_ACCEPTED_KEY) === 'true', false);
   const showMenuGuide = agreementAccepted && !menuGuideDismissed;
 
   useDashboardPrefetch({ isAuthenticated });
