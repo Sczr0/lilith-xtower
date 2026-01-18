@@ -155,10 +155,10 @@ export default function Dashboard() {
         <footer className="border-t border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm flex items-center justify-center px-3 text-center py-3">
           {activeTab === 'best-n' || activeTab === 'single-query' ? (
             <p className="text-[13px] text-gray-500 dark:text-gray-400">
-              页面与生成代码 © 2025 Phigros Query；第三方素材（如封面/标识）版权归各自权利人所有，未经许可不得用于商业用途。
+              页面与生成代码 © 2025-2026 Phigros Query；第三方素材（如封面/标识）版权归各自权利人所有，未经许可不得用于商业用途。
             </p>
           ) : (
-            <p className="text-sm text-gray-500 dark:text-gray-400">© 2025 Phigros Query. All Rights Reserved.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">© 2025-2026 Phigros Query. All Rights Reserved.</p>
           )}
         </footer>
       </div>

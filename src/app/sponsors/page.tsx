@@ -60,7 +60,7 @@ export default async function SponsorsPage() {
 
           {/* 简短页脚 */}
           <footer className="pt-4 border-t border-gray-200 dark:border-neutral-800 text-sm text-gray-500 dark:text-gray-400">
-            © 2025 Phigros Query ·
+            © 2025-2026 Phigros Query ·
             <Link
               href="/agreement"
               className="hover:text-blue-600 dark:hover:text-blue-400 ml-1"

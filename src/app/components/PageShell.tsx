@@ -19,7 +19,7 @@ interface PageShellProps {
   className?: string;
 }
 
-const DEFAULT_FOOTER_TEXT = '© 2025 Phigros Query. All Rights Reserved.';
+const DEFAULT_FOOTER_TEXT = '© 2025-2026 Phigros Query. All Rights Reserved.';
 
 /**
  * 站点级页面骨架（背景/文字色/标准容器/统一 Footer）

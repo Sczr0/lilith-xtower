@@ -19,7 +19,7 @@ interface UnifiedApiDashboardShellProps {
   containerClassName?: string;
 }
 
-const DEFAULT_FOOTER_TEXT = '© 2025 Phigros Query. All Rights Reserved.';
+const DEFAULT_FOOTER_TEXT = '© 2025-2026 Phigros Query. All Rights Reserved.';
 
 export function UnifiedApiDashboardShell({
   activeSection,

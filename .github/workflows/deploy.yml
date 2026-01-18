@@ -86,7 +86,7 @@ jobs:
             # 如果是 root 用户安装的 nvm
             [ -s "/root/.nvm/nvm.sh" ] && \. "/root/.nvm/nvm.sh"
             
-            # 检查 rsync 是否安装，没安装就尝试安装 (仅限 root 用户，非 root 用户请联系管理员安装)
+            # 检查 rsync 是否安装，没安装就尝试安装
             if ! command -v rsync &> /dev/null; then
                 echo "rsync not found, trying to install..."
                 if [ "$(id -u)" -eq 0 ]; then

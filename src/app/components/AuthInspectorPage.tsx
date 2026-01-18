@@ -386,7 +386,7 @@ export function AuthInspectorPage({ mode }: AuthInspectorPageProps) {
       </main>
 
       <footer className="flex items-center justify-center h-16 backdrop-blur-sm bg-white/20 dark:bg-gray-900/20">
-        <p className="text-sm text-gray-700/80 dark:text-gray-300/80">© 2025 Phigros Query. All Rights Reserved.</p>
+        <p className="text-sm text-gray-700/80 dark:text-gray-300/80">© 2025-2026 Phigros Query. All Rights Reserved.</p>
       </footer>
     </div>
   );

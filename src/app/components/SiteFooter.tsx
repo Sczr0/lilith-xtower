@@ -27,7 +27,7 @@ export function SiteFooter({ variant = 'links', text, className }: SiteFooterPro
     >
       {variant === 'links' ? (
         <>
-          © 2025 Phigros Query ·{' '}
+          © 2025-2026 Phigros Query ·{' '}
           <Link href="/agreement" className="hover:text-blue-600 dark:hover:text-blue-400">
             用户协议
           </Link>{' '}
@@ -37,7 +37,7 @@ export function SiteFooter({ variant = 'links', text, className }: SiteFooterPro
           </Link>
         </>
       ) : (
-        <p>{text ?? '© 2025 Phigros Query. All Rights Reserved.'}</p>
+        <p>{text ?? '© 2025-2026 Phigros Query. All Rights Reserved.'}</p>
       )}
     </footer>
   );
