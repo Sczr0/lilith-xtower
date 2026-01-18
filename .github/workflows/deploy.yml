@@ -63,10 +63,18 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT }}
           script: |
-            # 加载环境变量 (确保能找到 pm2 和 rsync)
-            export PATH=$PATH:/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin
-            # 如果是 nvm 安装的 node，可能需要手动加载 nvm (根据实际情况调整，这里尝试通用的加载方式)
+            # 4. 加载环境变量以找到 pm2
+            # 尝试加载 bashrc 或 profile，因为非交互式 SSH 默认不加载 PATH
+            [ -f ~/.bashrc ] && source ~/.bashrc
+            [ -f ~/.profile ] && source ~/.profile
+            # 如果是 nvm 安装的 node，可能需要手动加载 nvm
+            export NVM_DIR="$HOME/.nvm"
             [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            
+            # 强制添加常见的 node bin 路径到 PATH
+            export PATH=$PATH:/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin
+            # 如果是 root 用户安装的 nvm
+            [ -s "/root/.nvm/nvm.sh" ] && \. "/root/.nvm/nvm.sh"
             
             # 检查 rsync 是否安装，没安装就尝试安装 (仅限 root 用户，非 root 用户请联系管理员安装)
             if ! command -v rsync &> /dev/null; then
@@ -124,15 +132,26 @@ jobs:
             # 3. 尝试 NVM 路径 (如果能找到 node)
             elif command -v node &> /dev/null && [ -f "$(dirname $(command -v node))/pm2" ]; then
                 PM2_PATH="$(dirname $(command -v node))/pm2"
-            else
-                echo "Error: pm2 not found. Trying to install globally using npm..."
-                if command -v npm &> /dev/null; then
-                    sudo npm install -g pm2
-                    PM2_PATH=$(command -v pm2)
-                else
-                    echo "Error: npm not found. Cannot install pm2."
-                    exit 1
+            # 4. 尝试穷举查找 (针对 nvm 安装在非标准位置的情况)
+            elif [ -d "$HOME/.nvm/versions/node" ]; then
+                # 找到最新的 node 版本
+                LATEST_NODE=$(ls -1 $HOME/.nvm/versions/node | tail -n 1)
+                if [ -f "$HOME/.nvm/versions/node/$LATEST_NODE/bin/pm2" ]; then
+                    PM2_PATH="$HOME/.nvm/versions/node/$LATEST_NODE/bin/pm2"
                 fi
+            elif [ -d "/root/.nvm/versions/node" ]; then
+                 # 针对 root 用户的 nvm
+                LATEST_NODE=$(ls -1 /root/.nvm/versions/node | tail -n 1)
+                if [ -f "/root/.nvm/versions/node/$LATEST_NODE/bin/pm2" ]; then
+                    PM2_PATH="/root/.nvm/versions/node/$LATEST_NODE/bin/pm2"
+                fi
+            fi
+            
+            if [ -z "$PM2_PATH" ]; then
+                echo "Error: pm2 not found. PATH is: $PATH"
+                echo "Listing .nvm directory if exists:"
+                ls -R $HOME/.nvm/versions/node || echo ".nvm not found in home"
+                exit 1
             fi
             
             echo "Using PM2 at: $PM2_PATH"
