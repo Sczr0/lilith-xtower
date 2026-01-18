@@ -322,6 +322,13 @@ function normalizeCssHref(raw: string | undefined): string | undefined {
   return unwrapped || undefined;
 }
 
+function extractFontFamilyFromCss(css: string): string | undefined {
+  // 简单匹配 font-family，优先匹配带引号的，再匹配不带引号的
+  const match = /font-family\s*:\s*(?:(['"])(.*?)\1|([^;}\s]+))/i.exec(css);
+  if (!match) return undefined;
+  return (match[2] || match[3])?.trim();
+}
+
 async function getFontPackCss(
   packId: NonNullable<RenderOptions['fontPackId']>,
   baseUrl: string | undefined,
@@ -347,7 +354,12 @@ async function getFontPackCss(
           return rewriteCssRelativeUrls(text, dirUrl);
         })();
       }
-      return { css: await cachedFontPackCss[cacheKey]!, family: pack.defaultFamily };
+      const css = await cachedFontPackCss[cacheKey]!;
+      const detectedFamily = extractFontFamilyFromCss(css);
+      if (detectedFamily && detectedFamily !== pack.defaultFamily) {
+        dlog(options, 'fontPack family detected from css', { detected: detectedFamily, default: pack.defaultFamily });
+      }
+      return { css, family: detectedFamily || pack.defaultFamily };
     } catch (e) {
       dlog(options, 'fontPack env fetch failed, falling back to local', { message: String(e) });
       // fall through to local logic
@@ -381,7 +393,9 @@ async function getFontPackCss(
     })();
   }
 
-  return { css: await cachedFontPackCss[cacheKey]!, family: pack.defaultFamily };
+  const css = await cachedFontPackCss[cacheKey]!;
+  const detectedFamily = extractFontFamilyFromCss(css);
+  return { css, family: detectedFamily || pack.defaultFamily };
 }
 
 function cssStringLiteral(value: string): string {
