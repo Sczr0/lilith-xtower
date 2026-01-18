@@ -5,10 +5,20 @@ import { useEffect } from 'react';
 const DEFAULT_BRAND_FONT_CSS =
   '/fonts/Source%20Han%20Sans%20%26%20Saira%20Hybrid-Regular%20%235446/result.css';
 
-const BRAND_FONT_CSS = (() => {
-  const raw = process.env.NEXT_PUBLIC_BRAND_FONT_CSS;
+function normalizeCssHref(raw: string | undefined): string | undefined {
   const trimmed = raw?.trim();
-  return trimmed ? trimmed : DEFAULT_BRAND_FONT_CSS;
+  if (!trimmed) return undefined;
+
+  const first = trimmed[0];
+  const last = trimmed[trimmed.length - 1];
+  const wrap = (first === last && (first === '"' || first === "'" || first === '`')) ? first : null;
+  const unwrapped = wrap ? trimmed.slice(1, -1).trim() : trimmed;
+  return unwrapped || undefined;
+}
+
+const BRAND_FONT_CSS = (() => {
+  const envHref = normalizeCssHref(process.env.NEXT_PUBLIC_BRAND_FONT_CSS);
+  return envHref ? envHref : DEFAULT_BRAND_FONT_CSS;
 })();
 
 export function BrandFontLoader() {
