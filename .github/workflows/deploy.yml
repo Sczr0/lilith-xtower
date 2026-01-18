@@ -63,7 +63,19 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT }}
           script: |
-            # 设置部署目录
+            # 1. 检查并安装 rsync (如果不存在)
+            if ! command -v rsync &> /dev/null; then
+              echo "Installing rsync..."
+              if [ -x "$(command -v apt-get)" ]; then
+                sudo apt-get update && sudo apt-get install -y rsync
+              elif [ -x "$(command -v yum)" ]; then
+                sudo yum install -y rsync
+              else
+                echo "Warning: Package manager not found. Please install rsync manually."
+              fi
+            fi
+
+            # 2. 设置部署目录
             DEPLOY_PATH="${{ secrets.SERVER_DEPLOY_PATH }}"
             if [ -z "$DEPLOY_PATH" ]; then
               echo "Error: SERVER_DEPLOY_PATH not set in secrets"
@@ -73,9 +85,10 @@ jobs:
             # 确保目标目录存在
             mkdir -p $DEPLOY_PATH
             
-            # 将文件从临时目录同步到部署目录
-            # 使用 rsync 可以增量更新，减少 IO
-            rsync -avz --delete /tmp/nextjs_build/ $DEPLOY_PATH/
+            # 3. 同步文件 (使用全路径 rsync 以防万一)
+            # 尝试找到 rsync 的路径，如果找不到则假设在 /usr/bin/rsync
+            RSYNC_CMD=$(command -v rsync || echo "/usr/bin/rsync")
+            $RSYNC_CMD -avz --delete /tmp/nextjs_build/ $DEPLOY_PATH/
             
             # 清理临时目录
             rm -rf /tmp/nextjs_build
@@ -83,15 +96,24 @@ jobs:
             # 进入部署目录
             cd $DEPLOY_PATH
             
-            # 重启应用
-            # 如果 PM2 中还没有这个应用，则启动；否则重载
-            if pm2 list | grep -q "lilith-xtower"; then
-              pm2 reload lilith-xtower
+            # 4. 加载环境变量以找到 pm2
+            # 尝试加载 bashrc 或 profile，因为非交互式 SSH 默认不加载 PATH
+            [ -f ~/.bashrc ] && source ~/.bashrc
+            [ -f ~/.profile ] && source ~/.profile
+            # 如果还是找不到 pm2，尝试常见路径
+            export PATH=$PATH:/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin
+            # 如果是 nvm 安装的 node，可能需要手动加载 nvm
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+            # 5. 重启应用
+            if $(command -v pm2) list | grep -q "lilith-xtower"; then
+              $(command -v pm2) reload lilith-xtower
               echo "App reloaded"
             else
-              pm2 start ecosystem.config.js
+              $(command -v pm2) start ecosystem.config.js
               echo "App started"
             fi
             
-            # 保存 PM2 状态，防止服务器重启后丢失
-            pm2 save
+            # 保存 PM2 状态
+            $(command -v pm2) save
