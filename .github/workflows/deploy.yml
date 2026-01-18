@@ -28,7 +28,12 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build
-        run: pnpm build
+        run: |
+          # 如果 Secrets 中有 ENV_FILE，则生成 .env 文件供构建使用
+          if [ -n "${{ secrets.ENV_FILE }}" ]; then
+            echo "${{ secrets.ENV_FILE }}" > .env
+          fi
+          pnpm build
 
       - name: Prepare deployment artifacts
         run: |
@@ -43,6 +48,11 @@ jobs:
           
           # 复制 PM2 配置文件
           cp ecosystem.config.js .next/standalone/
+          
+          # 复制 .env 文件到 standalone 目录 (如果存在)
+          if [ -f .env ]; then
+            cp .env .next/standalone/.env.production
+          fi
 
       - name: Upload to Server
         uses: appleboy/scp-action@master
