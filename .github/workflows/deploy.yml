@@ -91,12 +91,19 @@ jobs:
               exit 1
             fi
             
-            # 确保目标目录存在
-            mkdir -p $DEPLOY_PATH
+            # 确保目标目录存在，并且当前用户有写入权限
+            # 如果目录已存在，尝试更改所有者为当前用户 (需要 sudo 权限，如果失败则忽略，后续 rsync 可能会报错)
+            if [ -d "$DEPLOY_PATH" ]; then
+                sudo chown -R $USER:$USER "$DEPLOY_PATH" || true
+            else
+                sudo mkdir -p "$DEPLOY_PATH"
+                sudo chown -R $USER:$USER "$DEPLOY_PATH"
+            fi
             
             # 将文件从临时目录同步到部署目录
             # 使用 rsync 可以增量更新，减少 IO
-            rsync -avz --delete /tmp/nextjs_build/ $DEPLOY_PATH/
+            # --no-g --no-o: 不尝试同步组和所有者信息，避免 Operation not permitted
+            rsync -avz --no-g --no-o --delete /tmp/nextjs_build/ $DEPLOY_PATH/
             
             # 清理临时目录
             rm -rf /tmp/nextjs_build
@@ -106,18 +113,25 @@ jobs:
             
             # 重启应用
             # 尝试找到 pm2 路径，防止 command not found
-            PM2_PATH=$(which pm2)
-            if [ -z "$PM2_PATH" ]; then
-                # 如果找不到 pm2，尝试常见的全局路径
-                if [ -f "/root/.nvm/versions/node/$(node -v)/bin/pm2" ]; then
-                    PM2_PATH="/root/.nvm/versions/node/$(node -v)/bin/pm2"
-                elif [ -f "/usr/local/bin/pm2" ]; then
-                    PM2_PATH="/usr/local/bin/pm2"
+            # 1. 尝试直接调用 (如果 PATH 正确)
+            if command -v pm2 &> /dev/null; then
+                PM2_PATH=$(command -v pm2)
+            # 2. 尝试常见全局路径
+            elif [ -f "/usr/local/bin/pm2" ]; then
+                PM2_PATH="/usr/local/bin/pm2"
+            elif [ -f "/usr/bin/pm2" ]; then
+                PM2_PATH="/usr/bin/pm2"
+            # 3. 尝试 NVM 路径 (如果能找到 node)
+            elif command -v node &> /dev/null && [ -f "$(dirname $(command -v node))/pm2" ]; then
+                PM2_PATH="$(dirname $(command -v node))/pm2"
+            else
+                echo "Error: pm2 not found. Trying to install globally using npm..."
+                if command -v npm &> /dev/null; then
+                    sudo npm install -g pm2
+                    PM2_PATH=$(command -v pm2)
                 else
-                    echo "Error: pm2 not found in PATH. Please ensure pm2 is installed globally."
-                    # 尝试用 npx 运行 (作为最后的兜底)
-                    echo "Trying to use npx pm2..."
-                    PM2_PATH="npx pm2"
+                    echo "Error: npm not found. Cannot install pm2."
+                    exit 1
                 fi
             fi
             
