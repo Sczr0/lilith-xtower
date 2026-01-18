@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { StyledSelect } from './ui/Select';
+import { MultipleMatchesError, searchSongId, type SongCandidate } from '../lib/api/song';
+import { LoadingSpinner } from './LoadingIndicator';
 
 interface ScoreEntry {
   id: string;
@@ -55,6 +57,10 @@ export function PlayerScoreRenderer() {
   const [songAcc, setSongAcc] = useState('');
   const [songDifficulty, setSongDifficulty] = useState<'EZ' | 'HD' | 'IN' | 'AT'>('IN');
 
+  const [candidates, setCandidates] = useState<SongCandidate[]>([]);
+  const [isValidating, setIsValidating] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
+
   // 从 localStorage 加载数据
   useEffect(() => {
     const savedPlayerName = localStorage.getItem(SCORE_STORAGE_KEY_NAME);
@@ -93,7 +99,7 @@ export function PlayerScoreRenderer() {
   };
 
   // 添加成绩
-  const addScore = () => {
+  const addScore = async () => {
     if (!songName.trim()) {
       alert('请输入歌曲名称');
       return;
@@ -117,25 +123,55 @@ export function PlayerScoreRenderer() {
       return;
     }
 
-    const newScoresList = [
-      ...scoresList,
-      {
-        id: createScoreEntryId(),
-        song_name: songName.trim(),
-        score,
-        acc,
-        difficulty: songDifficulty,
-      },
-    ];
+    setValidationError(null);
+    setCandidates([]);
+    setIsValidating(true);
 
-    setScoresList(newScoresList);
-    saveToLocalStorage(playerName, newScoresList);
+    try {
+      // 校验歌曲是否存在
+      const songId = await searchSongId(songName.trim());
+      if (!songId) {
+        setValidationError('未找到该歌曲，请检查名称');
+        return;
+      }
 
-    // 清空输入框
-    setSongName('');
-    setSongScore('');
-    setSongAcc('');
-    setSongDifficulty('IN');
+      // 校验通过，添加到列表
+      const newScoresList = [
+        ...scoresList,
+        {
+          id: createScoreEntryId(),
+          song_name: songName.trim(),
+          score,
+          acc,
+          difficulty: songDifficulty,
+        },
+      ];
+
+      setScoresList(newScoresList);
+      saveToLocalStorage(playerName, newScoresList);
+
+      // 清空输入框
+      setSongName('');
+      setSongScore('');
+      setSongAcc('');
+      setSongDifficulty('IN');
+    } catch (error) {
+      if (error instanceof MultipleMatchesError) {
+        setCandidates(error.candidates);
+        setValidationError('找到多个匹配歌曲，请选择：');
+      } else {
+        const message = error instanceof Error ? error.message : '查询歌曲失败';
+        setValidationError(message);
+      }
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  const selectCandidate = (candidate: SongCandidate) => {
+    setSongName(candidate.name);
+    setCandidates([]);
+    setValidationError(null);
   };
 
   // 删除成绩
@@ -257,6 +293,26 @@ export function PlayerScoreRenderer() {
                 placeholder="请输入歌曲名称"
                 className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+              {/* 候选项和错误提示区域 */}
+              {(validationError || candidates.length > 0) && (
+                <div className="mt-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
+                  {validationError && <p className="mb-2">{validationError}</p>}
+                  {candidates.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {candidates.map((candidate) => (
+                        <button
+                          key={candidate.id}
+                          onClick={() => selectCandidate(candidate)}
+                          className="rounded-full border border-red-200 bg-white px-3 py-1 text-xs text-red-800 hover:bg-red-50 dark:border-red-700 dark:bg-red-900/40 dark:text-red-200 dark:hover:bg-red-900/60 transition-colors"
+                        >
+                          {candidate.name}
+                          {candidate.artist && <span className="ml-1 opacity-75">({candidate.artist})</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div>
@@ -309,9 +365,11 @@ export function PlayerScoreRenderer() {
 
             <button
               onClick={addScore}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+              disabled={isValidating}
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-wait text-white font-medium py-2 px-4 rounded-lg transition-colors flex justify-center items-center gap-2"
             >
-              添加成绩
+              {isValidating && <LoadingSpinner size="sm" className="border-white dark:border-white border-t-transparent dark:border-t-transparent" />}
+              {isValidating ? '正在校验...' : '添加成绩'}
             </button>
           </div>
         </section>
