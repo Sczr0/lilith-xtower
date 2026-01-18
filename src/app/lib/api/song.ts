@@ -20,6 +20,22 @@ const writeCache = (key: string, value: string | null) => {
   cache.set(key, { value, ts: Date.now() });
 };
 
+export interface SongCandidate {
+  id: string;
+  name: string;
+  artist?: string;
+}
+
+export class MultipleMatchesError extends Error {
+  candidates: SongCandidate[];
+
+  constructor(message: string, candidates: SongCandidate[]) {
+    super(message);
+    this.name = 'MultipleMatchesError';
+    this.candidates = candidates;
+  }
+}
+
 /**
  * 根据关键字查询歌曲，返回唯一谱面 ID（若存在）
  * @throws 当有多个匹配结果时抛错，消息包含候选列表
@@ -44,8 +60,15 @@ export async function searchSongId(query: string): Promise<string | null> {
   }
 
   if (resp.status === 409) {
-    const problem = (await resp.json().catch(() => null)) as unknown;
-    throw new Error(extractProblemMessage(problem, '找到多个匹配的谱面，请使用更精确的关键词'));
+    const problem = (await resp.json().catch(() => null)) as any;
+    const candidates = Array.isArray(problem?.candidates) ? (problem.candidates as SongCandidate[]) : [];
+    const message = extractProblemMessage(problem, '找到多个匹配的谱面，请使用更精确的关键词');
+    
+    if (candidates.length > 0) {
+      throw new MultipleMatchesError(message, candidates);
+    }
+    
+    throw new Error(message);
   }
 
   if (!resp.ok) {

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { ImageAPI } from '../lib/api/image';
 import { useGenerationBusy, useGenerationManager, useGenerationResult } from '../contexts/GenerationContext';
-import { searchSongId } from '../lib/api/song';
+import { MultipleMatchesError, searchSongId, type SongCandidate } from '../lib/api/song';
 import { LoadingPlaceholder, LoadingSpinner } from './LoadingIndicator';
 import { useClientValue } from '../hooks/useClientValue';
 
@@ -29,6 +29,7 @@ export function SongSearchGenerator({ showTitle = true, showDescription = true }
   const resultBlob = useGenerationResult<Blob>('song');
   const imageUrl = useMemo(() => (resultBlob ? URL.createObjectURL(resultBlob) : null), [resultBlob]);
   const [error, setError] = useState<string | null>(null);
+  const [candidates, setCandidates] = useState<SongCandidate[] | null>(null);
 
   useEffect(() => {
     return () => {
@@ -37,6 +38,18 @@ export function SongSearchGenerator({ showTitle = true, showDescription = true }
       }
     };
   }, [imageUrl]);
+
+  const generateImage = async (id: string) => {
+    try {
+      // 使用验证后的歌曲ID调用图片生成接口
+      await startTask('song', () =>
+        ImageAPI.generateSongImage(id)
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '查询失败';
+      setError(message);
+    }
+  };
 
   const handleSearch = async () => {
     if (!isAuthenticated) {
@@ -51,6 +64,7 @@ export function SongSearchGenerator({ showTitle = true, showDescription = true }
     }
 
     setError(null);
+    setCandidates(null);
 
     // 先通过搜索接口验证歌曲是否存在
     let songId: string | null = null;
@@ -61,20 +75,26 @@ export function SongSearchGenerator({ showTitle = true, showDescription = true }
         return;
       }
     } catch (error) {
+      if (error instanceof MultipleMatchesError) {
+        setError(error.message);
+        setCandidates(error.candidates);
+        return;
+      }
       const message = error instanceof Error ? error.message : '搜索歌曲失败';
       setError(message);
       return;
     }
 
-    try {
-      // 使用验证后的歌曲ID调用图片生成接口
-      await startTask('song', () =>
-        ImageAPI.generateSongImage(songId!)
-      );
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '查询失败';
-      setError(message);
-    }
+    await generateImage(songId!);
+  };
+
+  const handleCandidateClick = (candidate: SongCandidate) => {
+    setError(null);
+    setCandidates(null);
+    // 更新输入框内容为选中的歌曲名（提升体验）
+    setSongQueryOverride(candidate.name);
+    // 直接使用 ID 生成图片
+    generateImage(candidate.id);
   };
 
   const handleKeyPress = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -124,7 +144,24 @@ export function SongSearchGenerator({ showTitle = true, showDescription = true }
 
       {error && (
         <div className="mb-4 rounded-lg border border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">
-          {error}
+          <p>{error}</p>
+          {candidates && candidates.length > 0 && (
+            <div className="mt-3">
+              <p className="mb-2 font-medium">请选择您想要查询的歌曲：</p>
+              <div className="flex flex-wrap gap-2">
+                {candidates.map((candidate) => (
+                  <button
+                    key={candidate.id}
+                    onClick={() => handleCandidateClick(candidate)}
+                    className="inline-flex items-center rounded-full border border-red-200 bg-white px-3 py-1 text-xs text-red-800 hover:bg-red-50 dark:border-red-700 dark:bg-red-900/40 dark:text-red-200 dark:hover:bg-red-900/60 transition-colors"
+                  >
+                    {candidate.name}
+                    {candidate.artist && <span className="ml-1 opacity-75">({candidate.artist})</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
