@@ -105,10 +105,24 @@ export function PlayerScoreRenderer() {
       return;
     }
 
-    const score = parseInt(songScore);
+    // 分数计算逻辑：如果有输入则解析，否则根据 ACC 计算 (acc * 10000)
+    // 注意：ACC 是百分比（如 99.5），分数最大 1000000。
+    // 计算公式：ACC(99.5) / 100 * 1000000 = 99.5 * 10000 = 995000
     const acc = parseFloat(songAcc);
+    let score: number;
 
-    if (isNaN(score) || score < 0 || score > 1000000) {
+    if (songScore.trim() === '') {
+      if (isNaN(acc)) {
+        // 如果连 ACC 也没填（虽然下面会校验），先给个默认值防止报错，但逻辑上应该在下面 ACC 校验拦截
+        score = 0;
+      } else {
+        score = Math.round(acc * 10000);
+      }
+    } else {
+      score = parseInt(songScore);
+    }
+
+    if (songScore.trim() !== '' && (isNaN(score) || score < 0 || score > 1000000)) {
       alert('请输入有效的分数 (0-1000000)');
       return;
     }
@@ -117,6 +131,10 @@ export function PlayerScoreRenderer() {
       alert('请输入有效的ACC (0-100)');
       return;
     }
+
+    // 再次确认自动计算的分数范围（理论上 ACC 0-100 不会超标，但防御性编程）
+    if (score < 0) score = 0;
+    if (score > 1000000) score = 1000000;
 
     if (scoresList.length >= MAX_SCORES) {
       alert(`最多只能添加${MAX_SCORES}个成绩`);
@@ -317,7 +335,7 @@ export function PlayerScoreRenderer() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                分数
+                分数 <span className="text-gray-400 text-xs font-normal">（可选，留空则根据ACC自动计算）</span>
               </label>
               <input
                 type="number"
