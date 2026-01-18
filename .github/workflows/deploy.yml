@@ -148,11 +148,28 @@ jobs:
             fi
             
             if [ -z "$PM2_PATH" ]; then
-                echo "Error: pm2 not found. PATH is: $PATH"
-                echo "Listing .nvm directory if exists:"
-                ls -R $HOME/.nvm/versions/node || echo ".nvm not found in home"
-                exit 1
-            fi
+                 echo "Warning: pm2 not found in standard paths. Trying to install globally using npm..."
+                 # 尝试使用刚才找到的 npm 来安装 pm2
+                 if command -v npm &> /dev/null; then
+                     npm install -g pm2
+                     PM2_PATH=$(command -v pm2)
+                 elif [ -x "$HOME/.nvm/versions/node/$(ls -1 $HOME/.nvm/versions/node | tail -n 1)/bin/npm" ]; then
+                     # 如果 command -v npm 找不到，但我们知道 npm 在哪里
+                     NPM_PATH="$HOME/.nvm/versions/node/$(ls -1 $HOME/.nvm/versions/node | tail -n 1)/bin/npm"
+                     echo "Installing PM2 using $NPM_PATH..."
+                     $NPM_PATH install -g pm2
+                     # 安装完后再次尝试查找
+                     PM2_PATH="$HOME/.nvm/versions/node/$(ls -1 $HOME/.nvm/versions/node | tail -n 1)/bin/pm2"
+                 else
+                     echo "Error: npm not found. Cannot install pm2."
+                     exit 1
+                 fi
+             fi
+             
+             if [ ! -x "$PM2_PATH" ]; then
+                 echo "Error: PM2 is still not executable or not found at $PM2_PATH"
+                 exit 1
+             fi
             
             echo "Using PM2 at: $PM2_PATH"
 
