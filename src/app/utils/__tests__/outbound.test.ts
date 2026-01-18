@@ -27,12 +27,34 @@ describe('utils/outbound', () => {
     expect(parseGoUrlParam(undefined)).toEqual({ ok: false, reason: 'missing' })
     expect(parseGoUrlParam('not a url')).toEqual({ ok: false, reason: 'invalid' })
     expect(parseGoUrlParam('javascript:alert(1)')).toEqual({ ok: false, reason: 'unsupported-protocol' })
+    expect(parseGoUrlParam(encodeURIComponent('javascript:alert(1)'))).toEqual({
+      ok: false,
+      reason: 'unsupported-protocol',
+    })
 
     const ok = parseGoUrlParam('https://example.com')
     expect(ok.ok).toBe(true)
     if (ok.ok) {
       expect(ok.url.origin).toBe('https://example.com')
       expect(ok.normalized).toBe('https://example.com/')
+    }
+
+    const okEncoded = parseGoUrlParam(encodeURIComponent('https://example.com/a?x=1&y=2'))
+    expect(okEncoded.ok).toBe(true)
+    if (okEncoded.ok) {
+      expect(okEncoded.normalized).toBe('https://example.com/a?x=1&y=2')
+    }
+
+    const okDoubleEncoded = parseGoUrlParam(encodeURIComponent(encodeURIComponent('https://example.com/a')))
+    expect(okDoubleEncoded.ok).toBe(true)
+    if (okDoubleEncoded.ok) {
+      expect(okDoubleEncoded.normalized).toBe('https://example.com/a')
+    }
+
+    const okProtocolRelativeEncoded = parseGoUrlParam(encodeURIComponent('//example.com/a'))
+    expect(okProtocolRelativeEncoded.ok).toBe(true)
+    if (okProtocolRelativeEncoded.ok) {
+      expect(okProtocolRelativeEncoded.normalized).toBe('https://example.com/a')
     }
 
     const okArr = parseGoUrlParam(['https://example.com/a'])

@@ -20,7 +20,9 @@ type GoPageProps = {
 }
 
 export default function GoPage({ searchParams }: GoPageProps) {
-  const parsed = parseGoUrlParam(searchParams?.url)
+  const rawUrlParam =
+    searchParams?.url ?? searchParams?.u ?? searchParams?.to ?? searchParams?.target ?? searchParams?.redirect
+  const parsed = parseGoUrlParam(rawUrlParam)
 
   let siteOrigin = SITE_URL
   try {
@@ -93,4 +95,3 @@ export default function GoPage({ searchParams }: GoPageProps) {
     </PageShell>
   )
 }
-

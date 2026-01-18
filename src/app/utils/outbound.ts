@@ -48,19 +48,48 @@ export function parseGoUrlParam(value: string | string[] | undefined): GoUrlPars
   const raw = Array.isArray(value) ? value[0] : value;
   if (!raw) return { ok: false, reason: 'missing' };
 
-  const normalized = normalizeExternalWebUrl(raw) ?? raw.trim();
-  if (!normalized) return { ok: false, reason: 'missing' };
+  const trimmed = raw.trim();
+  if (!trimmed) return { ok: false, reason: 'missing' };
 
-  let url: URL;
-  try {
-    url = new URL(normalized);
-  } catch {
-    return { ok: false, reason: 'invalid' };
+  const parseWithCandidate = (candidate: string): GoUrlParseResult => {
+    const normalized = normalizeExternalWebUrl(candidate) ?? candidate.trim();
+    if (!normalized) return { ok: false, reason: 'missing' };
+
+    let url: URL;
+    try {
+      url = new URL(normalized);
+    } catch {
+      return { ok: false, reason: 'invalid' };
+    }
+
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      return { ok: false, reason: 'unsupported-protocol' };
+    }
+
+    return { ok: true, normalized: url.href, url };
+  };
+
+  const safeDecodeOnce = (input: string): string => {
+    try {
+      return decodeURIComponent(input);
+    } catch {
+      return input;
+    }
+  };
+
+  const first = parseWithCandidate(trimmed);
+  if (first.ok || first.reason === 'unsupported-protocol') return first;
+
+  const decodedOnce = safeDecodeOnce(trimmed);
+  if (decodedOnce !== trimmed) {
+    const second = parseWithCandidate(decodedOnce);
+    if (second.ok || second.reason === 'unsupported-protocol') return second;
+
+    const decodedTwice = safeDecodeOnce(decodedOnce);
+    if (decodedTwice !== decodedOnce) {
+      return parseWithCandidate(decodedTwice);
+    }
   }
 
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    return { ok: false, reason: 'unsupported-protocol' };
-  }
-
-  return { ok: true, normalized: url.href, url };
+  return first;
 }
