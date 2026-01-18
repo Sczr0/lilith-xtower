@@ -63,19 +63,28 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT }}
           script: |
-            # 1. 检查并安装 rsync (如果不存在)
+            # 加载环境变量 (确保能找到 pm2 和 rsync)
+            export PATH=$PATH:/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin
+            # 如果是 nvm 安装的 node，可能需要手动加载 nvm (根据实际情况调整，这里尝试通用的加载方式)
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            
+            # 检查 rsync 是否安装，没安装就尝试安装 (仅限 root 用户，非 root 用户请联系管理员安装)
             if ! command -v rsync &> /dev/null; then
-              echo "Installing rsync..."
-              if [ -x "$(command -v apt-get)" ]; then
-                sudo apt-get update && sudo apt-get install -y rsync
-              elif [ -x "$(command -v yum)" ]; then
-                sudo yum install -y rsync
-              else
-                echo "Warning: Package manager not found. Please install rsync manually."
-              fi
+                echo "rsync not found, trying to install..."
+                if [ "$(id -u)" -eq 0 ]; then
+                    if command -v apt-get &> /dev/null; then
+                        apt-get update && apt-get install -y rsync
+                    elif command -v yum &> /dev/null; then
+                        yum install -y rsync
+                    fi
+                else
+                    echo "Error: rsync is missing and I'm not root. Please install rsync on the server."
+                    exit 1
+                fi
             fi
 
-            # 2. 设置部署目录
+            # 设置部署目录 (请根据实际情况修改，这里假设是 /www/wwwroot/lilith-xtower)
+            # 你可以在 Secrets 中设置 SERVER_DEPLOY_PATH，或者直接在这里硬编码
             DEPLOY_PATH="${{ secrets.SERVER_DEPLOY_PATH }}"
             if [ -z "$DEPLOY_PATH" ]; then
               echo "Error: SERVER_DEPLOY_PATH not set in secrets"
@@ -85,10 +94,9 @@ jobs:
             # 确保目标目录存在
             mkdir -p $DEPLOY_PATH
             
-            # 3. 同步文件 (使用全路径 rsync 以防万一)
-            # 尝试找到 rsync 的路径，如果找不到则假设在 /usr/bin/rsync
-            RSYNC_CMD=$(command -v rsync || echo "/usr/bin/rsync")
-            $RSYNC_CMD -avz --delete /tmp/nextjs_build/ $DEPLOY_PATH/
+            # 将文件从临时目录同步到部署目录
+            # 使用 rsync 可以增量更新，减少 IO
+            rsync -avz --delete /tmp/nextjs_build/ $DEPLOY_PATH/
             
             # 清理临时目录
             rm -rf /tmp/nextjs_build
@@ -96,24 +104,32 @@ jobs:
             # 进入部署目录
             cd $DEPLOY_PATH
             
-            # 4. 加载环境变量以找到 pm2
-            # 尝试加载 bashrc 或 profile，因为非交互式 SSH 默认不加载 PATH
-            [ -f ~/.bashrc ] && source ~/.bashrc
-            [ -f ~/.profile ] && source ~/.profile
-            # 如果还是找不到 pm2，尝试常见路径
-            export PATH=$PATH:/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin
-            # 如果是 nvm 安装的 node，可能需要手动加载 nvm
-            export NVM_DIR="$HOME/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            # 重启应用
+            # 尝试找到 pm2 路径，防止 command not found
+            PM2_PATH=$(which pm2)
+            if [ -z "$PM2_PATH" ]; then
+                # 如果找不到 pm2，尝试常见的全局路径
+                if [ -f "/root/.nvm/versions/node/$(node -v)/bin/pm2" ]; then
+                    PM2_PATH="/root/.nvm/versions/node/$(node -v)/bin/pm2"
+                elif [ -f "/usr/local/bin/pm2" ]; then
+                    PM2_PATH="/usr/local/bin/pm2"
+                else
+                    echo "Error: pm2 not found in PATH. Please ensure pm2 is installed globally."
+                    # 尝试用 npx 运行 (作为最后的兜底)
+                    echo "Trying to use npx pm2..."
+                    PM2_PATH="npx pm2"
+                fi
+            fi
+            
+            echo "Using PM2 at: $PM2_PATH"
 
-            # 5. 重启应用
-            if $(command -v pm2) list | grep -q "lilith-xtower"; then
-              $(command -v pm2) reload lilith-xtower
+            if $PM2_PATH list | grep -q "lilith-xtower"; then
+              $PM2_PATH reload lilith-xtower
               echo "App reloaded"
             else
-              $(command -v pm2) start ecosystem.config.js
+              $PM2_PATH start ecosystem.config.js
               echo "App started"
             fi
             
-            # 保存 PM2 状态
-            $(command -v pm2) save
+            # 保存 PM2 状态，防止服务器重启后丢失
+            $PM2_PATH save
