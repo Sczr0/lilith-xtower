@@ -69,7 +69,7 @@ function DebugAuthGate(props: { failed: boolean }) {
   )
 }
 
-export default async function DebugAuthPage({ searchParams }: { searchParams: SearchParams }) {
+export default async function DebugAuthPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   // 生产环境开启 debug-auth 时，必须额外提供访问门槛，避免误开启后被外部直接访问。
   // - DEBUG_AUTH_ENABLED=1：允许路由存在（layout 级别控制）
   // - DEBUG_AUTH_ACCESS_KEY：授权密钥（authorize API 校验）
@@ -81,7 +81,8 @@ export default async function DebugAuthPage({ searchParams }: { searchParams: Se
     const cookieStore = await cookies()
     const authed = cookieStore.get(DEBUG_AUTH_COOKIE)?.value === '1'
     if (!authed) {
-      return <DebugAuthGate failed={readAuthResult(searchParams) === 'failed'} />
+      const resolvedSearchParams = await searchParams
+      return <DebugAuthGate failed={readAuthResult(resolvedSearchParams) === 'failed'} />
     }
   }
 

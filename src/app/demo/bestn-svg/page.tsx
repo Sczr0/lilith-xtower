@@ -2,12 +2,13 @@ import React from 'react';
 import { SiteHeader } from '../../components/SiteHeader';
 import { BestnSvgDemoClient } from './components/BestnSvgDemoClient';
 
-export default function Page({
+export default async function Page({
   searchParams,
 }: {
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const raw = searchParams?.debug;
+  const resolvedSearchParams = await searchParams;
+  const raw = resolvedSearchParams?.debug;
   const debug =
     raw === '1' ||
     raw === 'true' ||

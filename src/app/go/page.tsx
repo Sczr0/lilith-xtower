@@ -16,12 +16,17 @@ export const metadata: Metadata = {
 }
 
 type GoPageProps = {
-  searchParams?: Record<string, string | string[] | undefined>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }
 
-export default function GoPage({ searchParams }: GoPageProps) {
+export default async function GoPage({ searchParams }: GoPageProps) {
+  const resolvedSearchParams = await searchParams
   const rawUrlParam =
-    searchParams?.url ?? searchParams?.u ?? searchParams?.to ?? searchParams?.target ?? searchParams?.redirect
+    resolvedSearchParams?.url ??
+    resolvedSearchParams?.u ??
+    resolvedSearchParams?.to ??
+    resolvedSearchParams?.target ??
+    resolvedSearchParams?.redirect
   const parsed = parseGoUrlParam(rawUrlParam)
 
   let siteOrigin = SITE_URL
