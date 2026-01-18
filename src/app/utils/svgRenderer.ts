@@ -904,7 +904,7 @@ export async function embedSvgExternalImagesAsObjectUrls(
     throw new Error(`SVG 外链图片过多（${refs.length}），请降低 N 或改用分页导出。`);
   }
 
-  const concurrency = Math.max(1, Math.min(16, Math.floor(options.concurrency)));
+  const concurrency = Math.max(1, Math.min(64, Math.floor(options.concurrency)));
 
   const objectUrls: string[] = [];
   const blobByFetchUrl = new Map<string, string>(); // fetchUrl -> blobUrl

@@ -1,0 +1,97 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Prepare deployment artifacts
+        run: |
+          # 确保 standalone 目录存在
+          mkdir -p .next/standalone/.next/static
+          mkdir -p .next/standalone/public
+          
+          # 复制静态资源到 standalone 目录
+          # 注意：Standalone 模式默认不包含 public 和 .next/static
+          cp -r .next/static/* .next/standalone/.next/static/
+          cp -r public/* .next/standalone/public/
+          
+          # 复制 PM2 配置文件
+          cp ecosystem.config.js .next/standalone/
+
+      - name: Upload to Server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT }}
+          source: ".next/standalone/*"
+          target: "/tmp/nextjs_build" # 先上传到临时目录
+          strip_components: 2 # 去掉 .next/standalone 前缀
+
+      - name: Deploy on Server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT }}
+          script: |
+            # 设置部署目录
+            DEPLOY_PATH="${{ secrets.SERVER_DEPLOY_PATH }}"
+            if [ -z "$DEPLOY_PATH" ]; then
+              echo "Error: SERVER_DEPLOY_PATH not set in secrets"
+              exit 1
+            fi
+            
+            # 确保目标目录存在
+            mkdir -p $DEPLOY_PATH
+            
+            # 将文件从临时目录同步到部署目录
+            # 使用 rsync 可以增量更新，减少 IO
+            rsync -avz --delete /tmp/nextjs_build/ $DEPLOY_PATH/
+            
+            # 清理临时目录
+            rm -rf /tmp/nextjs_build
+            
+            # 进入部署目录
+            cd $DEPLOY_PATH
+            
+            # 重启应用
+            # 如果 PM2 中还没有这个应用，则启动；否则重载
+            if pm2 list | grep -q "lilith-xtower"; then
+              pm2 reload lilith-xtower
+              echo "App reloaded"
+            else
+              pm2 start ecosystem.config.js
+              echo "App started"
+            fi
+            
+            # 保存 PM2 状态，防止服务器重启后丢失
+            pm2 save

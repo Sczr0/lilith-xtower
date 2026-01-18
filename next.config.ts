@@ -4,6 +4,8 @@ import type { NextConfig } from "next";
 import bundleAnalyzer from '@next/bundle-analyzer';
 
 const nextConfig: NextConfig = {
+  // 开启 Standalone 模式，大幅减少部署体积，只需 Node.js 即可运行
+  output: 'standalone',
   // 减少对包内子模块的零碎解析，合并请求、缩短编译与运行时的模块解析链路
   // 仅列出在客户端广泛使用、且内部模块较为分散的依赖
   experimental: {
