@@ -13,6 +13,7 @@ describe('lib/auth/credentialSummary', () => {
 
     const summary = toCredentialSummary(credential)
     expect(summary.type).toBe('session')
+    if (summary.type !== 'session') throw new Error('expected session summary')
     expect('token' in (summary as unknown as Record<string, unknown>)).toBe(false)
     expect(summary.tokenMasked).not.toContain(credential.token)
     expect(summary.tokenMasked).not.toBe(credential.token)
@@ -28,6 +29,7 @@ describe('lib/auth/credentialSummary', () => {
 
     const summary = toCredentialSummary(credential)
     expect(summary.type).toBe('api')
+    if (summary.type !== 'api') throw new Error('expected api summary')
     expect(summary.api_user_id).toBe('internal_id_123')
     expect((summary as { api_token_masked?: string }).api_token_masked).toBeDefined()
     expect((summary as { api_token_masked?: string }).api_token_masked).not.toContain(credential.api_token!)
@@ -44,6 +46,7 @@ describe('lib/auth/credentialSummary', () => {
 
     const summary = toCredentialSummary(credential)
     expect(summary.type).toBe('api')
+    if (summary.type !== 'api') throw new Error('expected api summary')
     expect(summary.api_user_id).toBe('internal_id_123')
     expect((summary as { api_token_masked?: string }).api_token_masked).toBeUndefined()
     expect(JSON.stringify(summary)).not.toContain('api_token_masked')

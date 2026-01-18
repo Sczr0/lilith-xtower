@@ -9,7 +9,7 @@ const createFetchMock = (payload: unknown, ok = true) =>
       async json() {
         return payload;
       },
-    }) as Response,
+    }) as unknown as Response,
   );
 
 const createFetchMockJsonError = (ok = true) =>
@@ -19,7 +19,7 @@ const createFetchMockJsonError = (ok = true) =>
       async json() {
         throw new Error('invalid json');
       },
-    }) as Response,
+    }) as unknown as Response,
   );
 
 afterEach(() => {
@@ -314,8 +314,6 @@ describe('ScoreAPI.getRksList', () => {
     const mockFetch = createFetchMock(apiResponse);
     globalThis.fetch = mockFetch as unknown as typeof fetch;
 
-    const credential = { type: 'session', token: 'dummy', timestamp: 1 } as const;
-
     const originalLocalStorage = (globalThis as unknown as { localStorage?: unknown }).localStorage;
     (globalThis as unknown as { localStorage?: unknown }).localStorage = {
       getItem() {
@@ -334,7 +332,7 @@ describe('ScoreAPI.getRksList', () => {
 
     let result: Awaited<ReturnType<typeof ScoreAPI.getRksList>>;
     try {
-      result = await ScoreAPI.getRksList(credential);
+      result = await ScoreAPI.getRksList();
     } finally {
       if (originalLocalStorage === undefined) {
         delete (globalThis as unknown as { localStorage?: unknown }).localStorage;

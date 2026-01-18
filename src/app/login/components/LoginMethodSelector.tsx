@@ -14,7 +14,7 @@ export type LoginMethodOption<T extends string = string> = {
 
 interface LoginMethodSelectorProps<T extends string = string> {
   titleId: string
-  methods: LoginMethodOption<T>[]
+  methods: ReadonlyArray<LoginMethodOption<T>>
   value: T
   onValueChange: (next: T) => void
 }

@@ -2,8 +2,14 @@
 
 import { useEffect } from 'react';
 
-const BRAND_FONT_CSS =
+const DEFAULT_BRAND_FONT_CSS =
   '/fonts/Source%20Han%20Sans%20%26%20Saira%20Hybrid-Regular%20%235446/result.css';
+
+const BRAND_FONT_CSS = (() => {
+  const raw = process.env.NEXT_PUBLIC_BRAND_FONT_CSS;
+  const trimmed = raw?.trim();
+  return trimmed ? trimmed : DEFAULT_BRAND_FONT_CSS;
+})();
 
 export function BrandFontLoader() {
   useEffect(() => {
@@ -58,4 +64,3 @@ export function BrandFontLoader() {
 }
 
 export default BrandFontLoader;
-
