@@ -311,12 +311,49 @@ function extractCssUrls(block: string): string[] {
   return urls;
 }
 
+function normalizeCssHref(raw: string | undefined): string | undefined {
+  const trimmed = raw?.trim();
+  if (!trimmed) return undefined;
+
+  const first = trimmed[0];
+  const last = trimmed[trimmed.length - 1];
+  const wrap = (first === last && (first === '"' || first === "'" || first === '`')) ? first : null;
+  const unwrapped = wrap ? trimmed.slice(1, -1).trim() : trimmed;
+  return unwrapped || undefined;
+}
+
 async function getFontPackCss(
   packId: NonNullable<RenderOptions['fontPackId']>,
   baseUrl: string | undefined,
   options: { debug?: boolean; debugTag?: string } | undefined,
 ): Promise<{ css: string; family: string }> {
   const pack = FONT_PACKS[packId];
+
+  // 优先使用环境变量配置的外部 CSS（如 CDN）
+  const envCss = normalizeCssHref(process.env.NEXT_PUBLIC_BRAND_FONT_CSS);
+  if (packId === 'source-han-sans-saira-hybrid-5446' && envCss) {
+    try {
+      const cssUrl = envCss;
+      // 假设 CSS 里的资源路径是相对路径，则 Base URL 为 CSS 文件所在目录
+      const dirUrl = cssUrl.substring(0, cssUrl.lastIndexOf('/') + 1);
+      const cacheKey = `${packId}|${cssUrl}`;
+
+      if (!cachedFontPackCss[cacheKey]) {
+        cachedFontPackCss[cacheKey] = (async () => {
+          dlog(options, 'fontPack css fetch (env)', { cssUrl });
+          const res = await fetch(cssUrl, { method: 'GET' });
+          if (!res.ok) throw new Error(`Failed to load font pack css from env: ${res.status} ${cssUrl}`);
+          const text = await res.text();
+          return rewriteCssRelativeUrls(text, dirUrl);
+        })();
+      }
+      return { css: await cachedFontPackCss[cacheKey]!, family: pack.defaultFamily };
+    } catch (e) {
+      dlog(options, 'fontPack env fetch failed, falling back to local', { message: String(e) });
+      // fall through to local logic
+    }
+  }
+
   const origin =
     (() => {
       if (typeof window !== 'undefined' && window.location?.origin) return window.location.origin;
