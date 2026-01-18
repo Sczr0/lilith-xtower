@@ -1025,34 +1025,34 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
             <table className="w-full border-collapse">
               <thead>
                 <tr className="border-b border-gray-200 dark:border-gray-700">
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
                     排名
                   </th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
                     歌曲名称
                   </th>
-                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
                     难度
                   </th>
-                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
                     定数
                   </th>
-                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
                     分数
                   </th>
-                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
                     准确率
                   </th>
                   <th
-                    className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300"
+                    className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap"
                     title={pushAccHeaderTitle}
                   >
                     推分ACC
                   </th>
-                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
                     单曲RKS
                   </th>
-                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
                     操作
                   </th>
                 </tr>
@@ -1063,29 +1063,29 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
                     key={`${record.song_name}|${record.difficulty}|${record.difficulty_value}|${record.score}`}
                     className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors"
                   >
-                    <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">
+                    <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
                       #{index + 1}
                     </td>
-                    <td className="py-3 px-4 text-sm font-medium text-gray-900 dark:text-gray-100">
+                    <td className="py-3 px-4 text-sm font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">
                       {record.song_name}
                     </td>
-                    <td className="py-3 px-4 text-center">
+                    <td className="py-3 px-4 text-center whitespace-nowrap">
                       <span
                         className={`inline-block px-2 py-1 rounded text-xs font-semibold ${DIFFICULTY_BG[record.difficulty]} ${DIFFICULTY_TEXT[record.difficulty]}`}
                       >
                         {record.difficulty}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-center text-sm text-gray-700 dark:text-gray-300">
+                    <td className="py-3 px-4 text-center text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
                       {formatFixedNumber(record.difficulty_value, 1)}
                     </td>
-                    <td className="py-3 px-4 text-center text-sm text-gray-700 dark:text-gray-300">
+                    <td className="py-3 px-4 text-center text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
                       {formatLocaleNumber(record.score, 'zh-CN')}
                     </td>
-                    <td className="py-3 px-4 text-center text-sm text-gray-700 dark:text-gray-300">
+                    <td className="py-3 px-4 text-center text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
                       {formatFixedNumber(record.acc, 2)}%
                     </td>
-                    <td className="py-3 px-4 text-center text-sm">
+                    <td className="py-3 px-4 text-center text-sm whitespace-nowrap">
                       {(() => {
                         const { text, className, title } = formatPushAcc(record);
                         return (
@@ -1095,10 +1095,10 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
                         );
                       })()}
                     </td>
-                    <td className="py-3 px-4 text-center text-sm font-semibold text-blue-600 dark:text-blue-400">
+                    <td className="py-3 px-4 text-center text-sm font-semibold text-blue-600 dark:text-blue-400 whitespace-nowrap">
                       {formatFixedNumber(record.rks, 4)}
                     </td>
-                    <td className="py-3 px-4 text-center text-sm">
+                    <td className="py-3 px-4 text-center text-sm whitespace-nowrap">
                       <div className="inline-flex flex-wrap items-center justify-center gap-2">
                         <button
                           type="button"
