@@ -1022,13 +1022,13 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
 
           {/* Desktop: Table */}
           <div className="hidden md:block overflow-x-auto">
-            <table className="w-full border-collapse">
+            <table className="min-w-[980px] w-full border-collapse">
               <thead>
                 <tr className="border-b border-gray-200 dark:border-gray-700">
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
                     排名
                   </th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">
                     歌曲名称
                   </th>
                   <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
@@ -1066,7 +1066,7 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
                     <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
                       #{index + 1}
                     </td>
-                    <td className="py-3 px-4 text-sm font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                    <td className="py-3 px-4 text-sm font-medium text-gray-900 dark:text-gray-100 whitespace-normal break-words">
                       {record.song_name}
                     </td>
                     <td className="py-3 px-4 text-center whitespace-nowrap">
