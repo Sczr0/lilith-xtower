@@ -12,6 +12,7 @@ import {
   shouldPreload,
 } from '../../lib/utils/preload';
 import { LEADERBOARD_TOP_LIMIT_DEFAULT } from '../../lib/constants/leaderboard';
+import type { TabId } from '../components/Sidebar';
 
 /**
  * /dashboard 预取与预热策略（集中管理，便于后续观测与分端降级）
@@ -20,7 +21,7 @@ import { LEADERBOARD_TOP_LIMIT_DEFAULT } from '../../lib/constants/leaderboard';
  * - 这里只做“调度与缓存命中判断”，不做业务渲染；
  * - 具体“是否该预取”由 shouldPreload 统一控制（省流/弱网偏好）。
  */
-export function useDashboardPrefetch({ isAuthenticated }: { isAuthenticated: boolean }) {
+export function useDashboardPrefetch({ isAuthenticated, activeTab }: { isAuthenticated: boolean; activeTab: TabId }) {
   const router = useRouter();
 
   // 分阶段预加载策略：
@@ -31,9 +32,33 @@ export function useDashboardPrefetch({ isAuthenticated }: { isAuthenticated: boo
   useEffect(() => {
     if (typeof window === 'undefined' || !shouldPreload()) return;
 
-    // 阶段1：立即预热当前 Tab（best-n）相关组件
+    // 阶段1：立即预热当前 Tab 相关组件
     runWhenIdle(() => {
-      import('../../components/BnImageGenerator');
+      switch (activeTab) {
+        case 'best-n':
+          import('../../components/BnImageGenerator');
+          break;
+        case 'single-query':
+          import('../../components/SongSearchGenerator');
+          break;
+        case 'rks-list':
+          import('../../components/RksRecordsList');
+          break;
+        case 'leaderboard':
+          import('../../components/LeaderboardPanel');
+          break;
+        case 'song-updates':
+          import('../../components/SongUpdateCard');
+          break;
+        case 'player-score-render':
+          import('../../components/PlayerScoreRenderer');
+          break;
+        case 'stats':
+          import('../../components/ServiceStats');
+          break;
+        default:
+          break;
+      }
     }, 100);
 
     // 阶段2：500ms 后预热其他 Tab 组件
@@ -45,6 +70,7 @@ export function useDashboardPrefetch({ isAuthenticated }: { isAuthenticated: boo
         import('../../components/LeaderboardPanel'); // 排行榜 - 常用
         import('../../components/SongUpdateCard'); // 新曲速递 - 较少用
         import('../../components/PlayerScoreRenderer'); // 玩家成绩渲染 - 较少用
+        import('../../components/ServiceStats'); // 服务统计 - 较少用
       });
     }, 500);
 
@@ -90,6 +116,5 @@ export function useDashboardPrefetch({ isAuthenticated }: { isAuthenticated: boo
       window.clearTimeout(stage3Timer);
       window.clearTimeout(stage4Timer);
     };
-  }, [isAuthenticated, router]);
+  }, [activeTab, isAuthenticated, router]);
 }
-

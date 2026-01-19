@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface MenuGuideProps {
   onDismiss: () => void;
@@ -8,18 +8,25 @@ interface MenuGuideProps {
 
 export function MenuGuide({ onDismiss }: MenuGuideProps) {
   const [show, setShow] = useState(false);
+  const showTimerRef = useRef<number | null>(null);
+  const dismissTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     const hasSeenGuide = localStorage.getItem('dashboard_menu_guide_seen');
     if (!hasSeenGuide) {
-      setTimeout(() => setShow(true), 500);
+      showTimerRef.current = window.setTimeout(() => setShow(true), 500);
     }
+
+    return () => {
+      if (showTimerRef.current !== null) window.clearTimeout(showTimerRef.current);
+      if (dismissTimerRef.current !== null) window.clearTimeout(dismissTimerRef.current);
+    };
   }, []);
 
   const handleDismiss = () => {
     setShow(false);
     localStorage.setItem('dashboard_menu_guide_seen', 'true');
-    setTimeout(() => onDismiss(), 300);
+    dismissTimerRef.current = window.setTimeout(() => onDismiss(), 300);
   };
 
   if (!show) return null;

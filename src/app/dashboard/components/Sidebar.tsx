@@ -8,7 +8,21 @@ import Link from 'next/link';
 import { THEME_NAME_MOBILE, THEME_NAME_DESKTOP } from '../../lib/constants/themeNames';
 import { DASHBOARD_NAV_ITEMS } from '../../components/topbar/nav';
 
-export type TabId = 'best-n' | 'single-query' | 'rks-list' | 'leaderboard' | 'song-updates' | 'player-score-render' | 'stats';
+export const DASHBOARD_TAB_IDS = [
+  'best-n',
+  'single-query',
+  'rks-list',
+  'leaderboard',
+  'song-updates',
+  'player-score-render',
+  'stats',
+] as const;
+
+export type TabId = (typeof DASHBOARD_TAB_IDS)[number];
+
+export function isDashboardTabId(value: string): value is TabId {
+  return (DASHBOARD_TAB_IDS as readonly string[]).includes(value);
+}
 
 interface Tab {
   id: TabId;
@@ -43,6 +57,103 @@ function ActionLinkIcon({ href, className }: { href: string; className: string }
   );
 }
 
+type TabMeta = {
+  name: string;
+  icon: React.ReactNode;
+  description: string;
+};
+
+const TAB_META: Record<TabId, TabMeta> = {
+  'best-n': {
+    name: 'Best N 图片',
+    description: '生成成绩图片',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+        />
+      </svg>
+    ),
+  },
+  'single-query': {
+    name: '单曲查询',
+    description: '查询歌曲详情',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+        />
+      </svg>
+    ),
+  },
+  'rks-list': {
+    name: 'RKS 列表',
+    description: 'RKS 计算详情',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
+        />
+      </svg>
+    ),
+  },
+  leaderboard: {
+    name: '排行榜',
+    description: '全站排名与档案',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-6m6 6V5M5 21h14M13 13l2-2m0 0l2 2m-2-2v8" />
+      </svg>
+    ),
+  },
+  'song-updates': {
+    name: '新曲速递',
+    description: '最新曲目更新',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
+        />
+      </svg>
+    ),
+  },
+  'player-score-render': {
+    name: '玩家成绩渲染',
+    description: '自定义成绩展示',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+      </svg>
+    ),
+  },
+  stats: {
+    name: '服务统计',
+    description: '使用情况统计',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+        />
+      </svg>
+    ),
+  },
+};
+
 export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobileClose, onOpenAnnouncements }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { logout, credential } = useAuth();
@@ -64,78 +175,7 @@ export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobile
     }
   };
 
-  const tabs: Tab[] = [
-    {
-      id: 'best-n',
-      name: 'Best N 图片',
-      description: '生成成绩图片',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-        </svg>
-      ),
-    },
-    {
-      id: 'single-query',
-      name: '单曲查询',
-      description: '查询歌曲详情',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
-      ),
-    },
-    {
-      id: 'rks-list',
-      name: 'RKS 列表',
-      description: 'RKS 计算详情',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-        </svg>
-      ),
-    },
-    {
-      id: 'leaderboard',
-      name: '排行榜',
-      description: '全站排名与档案',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-6m6 6V5M5 21h14M13 13l2-2m0 0l2 2m-2-2v8" />
-        </svg>
-      ),
-    },
-    {
-      id: 'song-updates',
-      name: '新曲速递',
-      description: '最新曲目更新',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-        </svg>
-      ),
-    },
-    {
-      id: 'player-score-render',
-      name: '玩家成绩渲染',
-      description: '自定义成绩展示',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-        </svg>
-      ),
-    },
-    {
-      id: 'stats',
-      name: '服务统计',
-      description: '使用情况统计',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-        </svg>
-      ),
-    },
-  ];
+  const tabs: Tab[] = DASHBOARD_TAB_IDS.map((id) => ({ id, ...TAB_META[id] }));
 
   const handleTabChange = (tabId: TabId) => {
     onTabChange?.(tabId);
@@ -293,33 +333,16 @@ export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobile
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5l8-2v18l-8-2M3 10h5v4H3z" />
               </svg>
             </button>
-            <Link
-              href="/about"
-              className="w-full flex items-center justify-center px-3 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              title="关于"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </Link>
-
-            <Link
-              href="/contribute"
-              className="w-full flex items-center justify-center px-3 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              title="投稿"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-            </Link>
-
-            <Link
-              href="/auth"
-              className="w-full flex items-center justify-center px-3 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              title="认证"
-            >
-              <ActionLinkIcon href="/auth" className="w-5 h-5" />
-            </Link>
+            {DASHBOARD_NAV_ITEMS.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="w-full flex items-center justify-center px-3 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                title={item.label}
+              >
+                <ActionLinkIcon href={item.href} className="w-5 h-5" />
+              </Link>
+            ))}
             
             <button
               onClick={logout}

@@ -2,8 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Sidebar, TabId } from './components/Sidebar';
-import { DashboardHeader } from './components/DashboardHeader';
+import { type TabId, isDashboardTabId } from './components/Sidebar';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AnnouncementModal } from '../components/AnnouncementModal';
 import { MenuGuide } from './components/MenuGuide';
@@ -13,15 +12,7 @@ import { useDashboardPrefetch } from './hooks/useDashboardPrefetch';
 import { useDashboardContent } from './hooks/useDashboardContent';
 import { useClientValue } from '../hooks/useClientValue';
 import { AGREEMENT_ACCEPTED_KEY } from '../lib/constants/storageKeys';
-
-const isTabId = (value: string): value is TabId =>
-  value === 'best-n' ||
-  value === 'single-query' ||
-  value === 'rks-list' ||
-  value === 'leaderboard' ||
-  value === 'song-updates' ||
-  value === 'player-score-render' ||
-  value === 'stats';
+import { DashboardShell } from './components/DashboardShell';
 
 const parseDebugExport = (value: string | null): boolean => value === '1' || value === 'true';
 
@@ -32,14 +23,13 @@ export default function Dashboard() {
 
   // 说明：tab 与 debug 以 URL 查询参数为单一来源，避免组件内再做“硬刷新”同步。
   const tabParam = searchParams.get('tab');
-  const activeTab: TabId = tabParam && isTabId(tabParam) ? tabParam : 'best-n';
+  const activeTab: TabId = tabParam && isDashboardTabId(tabParam) ? tabParam : 'best-n';
   const debugExport = parseDebugExport(searchParams.get('debug'));
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [menuGuideDismissed, setMenuGuideDismissed] = useState(false);
   const agreementAccepted = useClientValue(() => localStorage.getItem(AGREEMENT_ACCEPTED_KEY) === 'true', false);
   const showMenuGuide = agreementAccepted && !menuGuideDismissed;
 
-  useDashboardPrefetch({ isAuthenticated });
+  useDashboardPrefetch({ isAuthenticated, activeTab });
   const {
     announcements,
     showAnnouncements,
@@ -97,6 +87,13 @@ export default function Dashboard() {
     />
   );
 
+  const footer =
+    activeTab === 'best-n' || activeTab === 'single-query' ? (
+      <p className="text-[13px] text-gray-500 dark:text-gray-400">
+        页面与生成代码 © 2025-2026 Phigros Query；第三方素材（如封面/标识）版权归各自权利人所有，未经许可不得用于商业用途。
+      </p>
+    ) : undefined;
+
   return (
     <>
       {/* 公告弹窗 */}
@@ -108,61 +105,39 @@ export default function Dashboard() {
         />
       )}
 
-      <div
-        className="flex h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-950"
-        style={{ height: '100dvh' }}
+      <DashboardShell
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        onOpenAnnouncements={() => openAnnouncements({ showAll: true })}
+        beforeMain={
+          <>
+            {!showAnnouncements && showMenuGuide && <MenuGuide onDismiss={() => setMenuGuideDismissed(true)} />}
+            {error && (
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border-b border-yellow-200 dark:border-yellow-800 px-6 py-3">
+                <div className="max-w-6xl mx-auto flex items-center gap-3">
+                  <svg
+                    className="w-5 h-5 text-yellow-600 dark:text-yellow-500 flex-shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
+                  </svg>
+                  <p className="text-sm text-yellow-800 dark:text-yellow-300">{error}</p>
+                </div>
+              </div>
+            )}
+          </>
+        }
+        footer={footer}
       >
-        {/* Sidebar */}
-        <Sidebar
-          activeTab={activeTab}
-          onTabChange={handleTabChange}
-          isMobileOpen={isMobileMenuOpen}
-          onMobileClose={() => setIsMobileMenuOpen(false)}
-          onOpenAnnouncements={() => openAnnouncements({ showAll: true })}
-        />
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* First-time Menu Guide - Only show when announcements are not visible */}
-        {!showAnnouncements && showMenuGuide && <MenuGuide onDismiss={() => setMenuGuideDismissed(true)} />}
-
-        {/* Header with integrated menu button */}
-        <DashboardHeader
-          onOpenAnnouncements={() => openAnnouncements({ showAll: true })}
-          onOpenMenu={() => setIsMobileMenuOpen(true)}
-        />
-
-        {/* Error Banner */}
-        {error && (
-          <div className="bg-yellow-50 dark:bg-yellow-900/20 border-b border-yellow-200 dark:border-yellow-800 px-6 py-3">
-            <div className="max-w-6xl mx-auto flex items-center gap-3">
-              <svg className="w-5 h-5 text-yellow-600 dark:text-yellow-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              <p className="text-sm text-yellow-800 dark:text-yellow-300">{error}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Content */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
-          <div className="max-w-6xl mx-auto">
-            {renderContent()}
-          </div>
-        </main>
-
-        {/* Footer */}
-        <footer className="border-t border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm flex items-center justify-center px-3 text-center py-3">
-          {activeTab === 'best-n' || activeTab === 'single-query' ? (
-            <p className="text-[13px] text-gray-500 dark:text-gray-400">
-              页面与生成代码 © 2025-2026 Phigros Query；第三方素材（如封面/标识）版权归各自权利人所有，未经许可不得用于商业用途。
-            </p>
-          ) : (
-            <p className="text-sm text-gray-500 dark:text-gray-400">© 2025-2026 Phigros Query. All Rights Reserved.</p>
-          )}
-        </footer>
-      </div>
-    </div>
+        {renderContent()}
+      </DashboardShell>
     </>
   );
 }
