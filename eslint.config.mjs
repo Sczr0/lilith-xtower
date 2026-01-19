@@ -24,6 +24,12 @@ const eslintConfig = [
       "react-hooks/set-state-in-effect": "warn",
     },
   },
+  {
+    files: ["src/app/components/SponsorsList.tsx"],
+    rules: {
+      "@next/next/no-img-element": "off",
+    },
+  },
 ];
 
 export default eslintConfig;
