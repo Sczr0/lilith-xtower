@@ -28,7 +28,7 @@ export const SUPPORT_LINK_SECTIONS: SupportLinkSection[] = [
     title: '服务监控',
     links: [
       { name: '数据访问统计', url: 'https://cloud.umami.is/share/NsykwU9OjIWMYsb8', external: true },
-      { name: '服务可用性监控', url: 'https://stats.uptimerobot.com/cTTBFmsBaZ', external: true },
+      { name: '服务可用性监控', url: 'https://status.xtower.site/status/xtower', external: true },
     ],
     icon: Activity,
   },
