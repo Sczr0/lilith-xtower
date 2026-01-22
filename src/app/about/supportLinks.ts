@@ -25,19 +25,19 @@ export const SUPPORT_LINK_SECTIONS: SupportLinkSection[] = [
     icon: LifeBuoy,
   },
   {
-    title: '服务监控',
+    title: '关于服务',
     links: [
       { name: '数据访问统计', url: 'https://cloud.umami.is/share/NsykwU9OjIWMYsb8', external: true },
       { name: '服务可用性监控', url: 'https://status.xtower.site/status/xtower', external: true },
+      { name: '爱发电', url: 'https://afdian.com/a/xtower', external: true },
     ],
     icon: Activity,
   },
   {
-    title: '友链/赞助',
+    title: '友链',
     links: [
       { name: 'Phi-plugin 使用指引', url: 'https://www.kdocs.cn/l/catqcMM9UR5Y', external: true },
       { name: 'RankHub —— 跨平台音游数据管理应用', url: 'https://github.com/Project-Fukakai/RankHub', external: true },
-      { name: '爱发电', url: 'https://afdian.com/a/xtower', external: true },
     ],
     icon: Users,
   },
