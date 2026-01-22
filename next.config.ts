@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 // 启用 Bundle Analyzer：生成静态可视化报告，用于定位过度切分与大体积依赖
 // 使用 ESM 默认导入（项目已启用 esModuleInterop）
 import bundleAnalyzer from '@next/bundle-analyzer';
+import { withAxiom } from 'next-axiom';
 
 const nextConfig: NextConfig = {
   // 开启 Standalone 模式，大幅减少部署体积，只需 Node.js 即可运行
@@ -180,4 +181,4 @@ const withBundleAnalyzer = bundleAnalyzer({
   analyzerMode: 'static',
 });
 
-export default withBundleAnalyzer(nextConfig);
+export default withAxiom(withBundleAnalyzer(nextConfig));

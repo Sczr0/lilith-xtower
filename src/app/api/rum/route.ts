@@ -1,10 +1,13 @@
 import { NextRequest } from "next/server";
+import { Logger } from 'next-axiom';
 
 export const runtime = "edge";
 
 const ALLOWED_NAMES = new Set(["LCP", "CLS", "INP", "TTFB", "FCP", "FID"]);
 
 export async function POST(req: NextRequest) {
+  const log = new Logger();
+
   try {
     const contentType = req.headers.get("content-type") || "";
     if (!contentType.includes("application/json")) {
@@ -56,15 +59,24 @@ export async function POST(req: NextRequest) {
     if (typeof cleaned.value !== "number" || Number.isNaN(cleaned.value)) return new Response(null, { status: 204 });
     if (cleaned.path && cleaned.path.length > 1024) cleaned.path = cleaned.path.slice(0, 1024);
 
-    // 轻量日志（可改为投递 Axiom/DB）
+    // 上报到 Axiom
     try {
       const ua = req.headers.get("user-agent") || "";
       const country = req.headers.get("x-vercel-ip-country") || undefined;
-      // 控制台打印简要信息
-      console.log(
-        `[web-vitals] ${cleaned.name}=${cleaned.value} (${cleaned.rating ?? ""}) ${cleaned.path ?? ""} ua=${ua.slice(0,80)} country=${country ?? ""}`
-      );
-    } catch {}
+      const region = req.headers.get("x-vercel-ip-region") || undefined;
+      const city = req.headers.get("x-vercel-ip-city") || undefined;
+      
+      log.info("web-vitals", {
+        ...cleaned,
+        ua,
+        geo: { country, region, city }
+      });
+      
+      // 必须 flush 才能确保数据发出
+      await log.flush();
+    } catch (e) {
+      console.error("Axiom logging error:", e);
+    }
   } catch {}
   // 无正文 204，便于 sendBeacon 快速返回
   return new Response(null, { status: 204 });

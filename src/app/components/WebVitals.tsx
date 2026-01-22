@@ -178,9 +178,10 @@ function reportMetric(metric: WebVitalsMetric) {
 
     sentRef.current.add(key);
 
-    if (!maybeTrackWithUmami("web-vitals", payload)) {
+    // 暂时取消 Umami 上报，强制走 /api/rum (Axiom)
+    // if (!maybeTrackWithUmami("web-vitals", payload)) {
       sendToEndpoint(payload);
-    }
+    // }
   } catch {
     /* swallow */
   }
