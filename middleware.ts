@@ -55,6 +55,7 @@ export function middleware(request: NextRequest) {
   // 注意：如果页面被静态化（SSG），HTML 不会随请求重渲染，nonce 也无法动态注入，会被 CSP 阻止导致白屏。
   // 本项目在 `src/app/layout.tsx` 通过 `dynamic = 'force-dynamic'` 强制按请求渲染以保证 nonce 可用。
   requestHeaders.set('content-security-policy', csp);
+  requestHeaders.set('x-nonce', nonce);
 
   const response = NextResponse.next({
     request: {

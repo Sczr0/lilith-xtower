@@ -47,18 +47,20 @@ export function AnnouncementModal({ announcements, onClose, showAll = false }: A
   // 可见公告索引（基于过滤后列表）
   const [visibleIndex, setVisibleIndex] = useState(0);
   // 已关闭公告ID集合（本地持久化）
-  const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => {
-    if (showAll) return new Set();
-    if (typeof window === 'undefined') return new Set();
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+
+  // 仅在客户端加载已关闭状态，避免 hydration mismatch
+  useEffect(() => {
+    if (showAll) return;
     try {
       const raw = localStorage.getItem('dismissed_announcements');
-      if (!raw) return new Set();
-      return new Set(JSON.parse(raw));
+      if (raw) {
+        setDismissedIds(new Set(JSON.parse(raw)));
+      }
     } catch (e) {
       console.error('解析已关闭公告列表失败', e);
-      return new Set();
     }
-  });
+  }, [showAll]);
   // “不再提示”勾选状态（当前条目）
   const [dontShowAgain, setDontShowAgain] = useState(false);
 

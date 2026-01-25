@@ -13,6 +13,7 @@ import WebVitals from "./components/WebVitals";
 import { TipsProvider } from "./components/TipsProvider";
 import { PromoBannerSlot } from "./components/PromoBannerSlot";
 import { BrandFontLoader } from "./components/BrandFontLoader";
+import { headers } from "next/headers";
 import { SITE_URL } from "./utils/site-url";
 
 const geistSans = Geist({
@@ -63,11 +64,14 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // 获取 CSP nonce（由 middleware 生成并透传），用于 Script 与 ThemeProvider
+  const nonce = (await headers()).get('x-nonce') || undefined;
+
   // 预连接站点与统计域名，减少 DNS/TLS/TCP 开销
   let originHref = SITE_URL;
   try {
@@ -97,6 +101,7 @@ export default function RootLayout({
           data-host-url="https://cloud.umami.is"
           data-domains="lilith.xtower.site"
           strategy="lazyOnload"
+          nonce={nonce}
         />
       </head>
       <body
@@ -108,6 +113,7 @@ export default function RootLayout({
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
+          nonce={nonce}
         >
           <PromoBannerSlot />
           <TipsProvider>
