@@ -64,6 +64,9 @@ export function middleware(request: NextRequest) {
   });
 
   response.headers.set('Content-Security-Policy', csp);
+  response.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
 
   // 说明：HTML 缓存策略放在 middleware 内统一决策，避免 next.config.ts 只能“按路径静态匹配”而无法识别登录态。
   if (isHtmlDocumentRequest(request)) {
