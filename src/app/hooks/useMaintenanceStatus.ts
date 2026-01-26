@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 import { maintenanceConfig } from '../config/maintenance.config';
 
 export interface MaintenanceStatus {
@@ -13,22 +13,13 @@ export interface MaintenanceStatus {
  * 维护状态 Hook
  * - 自动检测是否处于维护期/预告期
  * - 仅创建一个全局轮询定时器，避免多个组件重复 setInterval 造成后台成本
- * - 状态未变化时不触发更新，减少无意义渲染
+ * - 使用 useSyncExternalStore 确保并发渲染与 Hydration 安全
  */
 export function useMaintenanceStatus(): MaintenanceStatus {
-  const [status, setStatus] = useState<MaintenanceStatus>(() => readCurrentStatus());
-
-  useEffect(() => {
-    const unsubscribe = subscribe(setStatus);
-    // 首次对齐一次，避免等待下一个分钟 tick
-    tick();
-    return unsubscribe;
-  }, []);
-
-  return status;
+  return useSyncExternalStore(subscribe, readCurrentStatus, readCurrentStatus);
 }
 
-type Listener = (status: MaintenanceStatus) => void;
+type Listener = () => void;
 
 let listeners: Set<Listener> | null = null;
 let intervalId: ReturnType<typeof setInterval> | null = null;
@@ -76,11 +67,11 @@ function maybeStopScheduler() {
   intervalId = null;
 }
 
-function emit(status: MaintenanceStatus) {
+function emit() {
   if (!listeners || listeners.size === 0) return;
   for (const l of listeners) {
     try {
-      l(status);
+      l();
     } catch {
       // 忽略订阅方异常，避免影响全局轮询
     }
@@ -96,12 +87,8 @@ function subscribe(listener: Listener): () => void {
   listeners.add(listener);
   ensureScheduler();
 
-  // 订阅时先同步一次最新值，避免首帧闪烁
-  try {
-    listener(currentStatus);
-  } catch {
-    // ignore
-  }
+  // 订阅时检查一次最新状态
+  tick();
 
   return () => {
     listeners?.delete(listener);
@@ -113,6 +100,6 @@ function tick() {
   const next = compute();
   if (isSame(currentStatus, next)) return;
   currentStatus = next;
-  emit(next);
+  emit();
 }
 
