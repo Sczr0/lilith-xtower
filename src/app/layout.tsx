@@ -72,27 +72,15 @@ export default async function RootLayout({
   // 获取 CSP nonce（由 middleware 生成并透传），用于 Script 与 ThemeProvider
   const nonce = (await headers()).get('x-nonce') || undefined;
 
-  // 预连接站点与统计域名，减少 DNS/TLS/TCP 开销
-  let originHref = SITE_URL;
-  try {
-    originHref = new URL(SITE_URL).origin;
-  } catch {}
-
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <head>
         {/* 设置主题色，匹配亮/暗模式 */}
         <meta name="theme-color" content="#2563eb" media="(prefers-color-scheme: light)" />
         <meta name="theme-color" content="#1e40af" media="(prefers-color-scheme: dark)" />
-        {/* 关键域名预连接/预获取 */}
-        <link rel="preconnect" href={originHref} crossOrigin="anonymous" />
-        <link rel="preconnect" href="https://cloud.umami.is" crossOrigin="anonymous" />
+        {/* 关键域名 DNS 预解析（降级 preconnect 以避免过多 TCP 连接占用带宽） */}
         <link rel="dns-prefetch" href="//cloud.umami.is" />
-        {/* Umami Cloud API Gateway */}
-        <link rel="preconnect" href="https://api-gateway.umami.dev" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="//api-gateway.umami.dev" />
-        {/* 资源站预连接 */}
-        <link rel="preconnect" href="https://somnia.xtower.site" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="//somnia.xtower.site" />
         {/* font preload removed to reduce blocking download */}
         <Script
