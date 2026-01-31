@@ -1,93 +1,21 @@
 'use client';
 
 import React, { useEffect, useState, useMemo } from 'react';
+import dynamic from 'next/dynamic';
+import { useTheme } from 'next-themes';
 import { useAuth } from '../contexts/AuthContext';
 import { ScoreAPI } from '../lib/api/score';
 import { formatFixedNumber, parseFiniteNumber } from '../lib/utils/number';
 import { RksHistoryItem, RksHistoryResponse } from '../lib/types/score';
+
+// 动态导入 ECharts 组件，禁用 SSR
+const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
 
 interface RksHistoryPanelProps {
   showTitle?: boolean;
 }
 
 const EMPTY_HISTORY_ITEMS: RksHistoryItem[] = [];
-
-// 简单的 SVG 折线图组件
-function RksLineChart({ items }: { items: RksHistoryItem[] }) {
-  // 反转数组使其按时间正序排列（用于绘图）
-  const sortedItems = useMemo(() => [...items].reverse(), [items]);
-  
-  if (sortedItems.length < 2) {
-    return (
-      <div className="h-32 flex items-center justify-center text-gray-500 dark:text-gray-400 text-sm">
-        数据点不足，无法绘制趋势图
-      </div>
-    );
-  }
-
-  const rksValues = sortedItems.map(item => item.rks);
-  const minRks = Math.min(...rksValues);
-  const maxRks = Math.max(...rksValues);
-  const range = maxRks - minRks || 1; // 避免除以零
-
-  const width = 100;
-  const height = 100;
-  const padding = 10;
-  const chartWidth = width - padding * 2;
-  const chartHeight = height - padding * 2;
-
-  // 生成路径点
-  const points = sortedItems.map((item, index) => {
-    const x = padding + (index / (sortedItems.length - 1)) * chartWidth;
-    const y = padding + chartHeight - ((item.rks - minRks) / range) * chartHeight;
-    return `${x},${y}`;
-  });
-
-  const pathD = `M ${points.join(' L ')}`;
-
-  // 生成填充区域
-  const areaD = `M ${padding},${padding + chartHeight} L ${points.join(' L ')} L ${padding + chartWidth},${padding + chartHeight} Z`;
-
-  return (
-    <div className="relative h-32">
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        className="w-full h-full"
-        preserveAspectRatio="none"
-      >
-        {/* 填充区域 */}
-        <path
-          d={areaD}
-          fill="url(#gradient)"
-          opacity="0.3"
-        />
-        {/* 折线 */}
-        <path
-          d={pathD}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          className="text-blue-500 dark:text-blue-400"
-          vectorEffect="non-scaling-stroke"
-        />
-        {/* 渐变定义 */}
-        <defs>
-          <linearGradient id="gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" className="text-blue-500 dark:text-blue-400" stopColor="currentColor" stopOpacity="0.4" />
-            <stop offset="100%" className="text-blue-500 dark:text-blue-400" stopColor="currentColor" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-      </svg>
-      {/* Y 轴标签 */}
-      <div className="absolute left-0 top-0 text-xs text-gray-500 dark:text-gray-400">
-        {formatFixedNumber(maxRks, 2)}
-      </div>
-      <div className="absolute left-0 bottom-0 text-xs text-gray-500 dark:text-gray-400">
-        {formatFixedNumber(minRks, 2)}
-      </div>
-    </div>
-  );
-}
 
 // 格式化时间显示
 function formatTime(isoString: string): string {
@@ -105,6 +33,155 @@ function formatTime(isoString: string): string {
   } else {
     return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
   }
+}
+
+// RKS 趋势图组件 (ECharts)
+function RksTrendChart({ items }: { items: RksHistoryItem[] }) {
+  const { theme, resolvedTheme } = useTheme();
+  const effectiveTheme = (theme === 'system' ? resolvedTheme : theme) as 'light' | 'dark' | undefined;
+  const isDark = effectiveTheme === 'dark';
+
+  // 反转数组使其按时间正序排列（用于绘图）
+  const sortedItems = useMemo(() => [...items].reverse(), [items]);
+
+  const option = useMemo(() => {
+    if (sortedItems.length < 2) return null;
+
+    const dates = sortedItems.map(item => formatTime(item.createdAt));
+    const values = sortedItems.map(item => item.rks);
+    const jumps = sortedItems.map(item => item.rksJump);
+
+    // 颜色定义
+    const lineColor = isDark ? '#60a5fa' : '#3b82f6'; // blue-400 : blue-500
+    const areaColorStart = isDark ? 'rgba(96, 165, 250, 0.3)' : 'rgba(59, 130, 246, 0.3)';
+    const areaColorEnd = isDark ? 'rgba(96, 165, 250, 0)' : 'rgba(59, 130, 246, 0)';
+    const textColor = isDark ? '#a3a3a3' : '#6b7280'; // neutral-400 : gray-500
+    const splitLineColor = isDark ? '#262626' : '#e5e7eb'; // neutral-800 : gray-200
+    const tooltipBg = isDark ? 'rgba(23, 23, 23, 0.95)' : 'rgba(255, 255, 255, 0.95)';
+    const tooltipBorder = isDark ? '#404040' : '#e5e7eb';
+    const tooltipText = isDark ? '#e5e7eb' : '#1f2937';
+
+    return {
+      backgroundColor: 'transparent',
+      grid: {
+        top: 20,
+        right: 20,
+        bottom: 10,
+        left: 10,
+        containLabel: true,
+      },
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: tooltipBg,
+        borderColor: tooltipBorder,
+        textStyle: {
+          color: tooltipText,
+          fontSize: 12,
+        },
+        padding: 12,
+        formatter: (params: any[]) => {
+          if (!params || params.length === 0) return '';
+          const index = params[0].dataIndex;
+          const rks = params[0].value;
+          const jump = jumps[index];
+          const date = dates[index];
+          
+          let jumpStr = '';
+          if (jump > 0) jumpStr = `<span style="color: #22c55e; font-weight: bold;">+${formatFixedNumber(jump, 4)}</span>`;
+          else if (jump < 0) jumpStr = `<span style="color: #ef4444; font-weight: bold;">${formatFixedNumber(jump, 4)}</span>`;
+          else jumpStr = '<span style="color: #9ca3af;">-</span>';
+
+          return `
+            <div style="font-weight: 500; margin-bottom: 8px; color: ${textColor};">${date}</div>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 4px;">
+              <span style="display: flex; align-items: center; gap: 4px;">
+                <span style="width: 8px; height: 8px; border-radius: 50%; background-color: ${lineColor};"></span>
+                <span>RKS</span>
+              </span>
+              <span style="font-weight: bold; font-family: monospace; font-size: 14px;">${formatFixedNumber(rks, 4)}</span>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+              <span style="color: ${textColor}; padding-left: 12px;">变化</span>
+              <span style="font-family: monospace;">${jumpStr}</span>
+            </div>
+          `;
+        },
+      },
+      xAxis: {
+        type: 'category',
+        data: dates,
+        boundaryGap: false,
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: { show: false }, // 隐藏 X 轴标签，保持简洁，依赖 Tooltip
+      },
+      yAxis: {
+        type: 'value',
+        scale: true, // 关键：自动缩放，不强制从 0 开始
+        splitLine: {
+          lineStyle: {
+            color: splitLineColor,
+            type: 'dashed',
+          },
+        },
+        axisLabel: {
+          color: textColor,
+          fontSize: 10,
+          formatter: (value: number) => value.toFixed(2),
+        },
+      },
+      series: [
+        {
+          name: 'RKS',
+          type: 'line',
+          data: values,
+          smooth: true,
+          showSymbol: false, // 默认不显示点，hover 时显示
+          symbolSize: 6,
+          itemStyle: {
+            color: lineColor,
+            borderWidth: 2,
+            borderColor: isDark ? '#171717' : '#ffffff',
+          },
+          lineStyle: {
+            width: 2.5,
+            color: lineColor,
+          },
+          areaStyle: {
+            color: {
+              type: 'linear',
+              x: 0,
+              y: 0,
+              x2: 0,
+              y2: 1,
+              colorStops: [
+                { offset: 0, color: areaColorStart },
+                { offset: 1, color: areaColorEnd },
+              ],
+            },
+          },
+        },
+      ],
+    };
+  }, [sortedItems, isDark]);
+
+  if (!option) {
+    return (
+      <div className="h-48 flex items-center justify-center text-gray-500 dark:text-gray-400 text-sm">
+        数据点不足，无法绘制趋势图
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full h-48">
+      <ReactECharts
+        option={option}
+        style={{ height: '100%', width: '100%' }}
+        opts={{ renderer: 'svg' }}
+      />
+    </div>
+  );
 }
 
 export function RksHistoryPanel({ showTitle = true }: RksHistoryPanelProps) {
@@ -263,7 +340,7 @@ export function RksHistoryPanel({ showTitle = true }: RksHistoryPanelProps) {
       <div className="mb-6">
         <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">RKS 趋势</div>
         <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-4">
-          <RksLineChart items={changedItems.slice(0, 30)} />
+          <RksTrendChart items={changedItems.slice(0, 30)} />
         </div>
       </div>
 
