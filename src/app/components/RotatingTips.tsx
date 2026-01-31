@@ -25,6 +25,16 @@ export function RotatingTips({ intervalMs = 3000, randomize = true, className = 
 
   const order = useMemo(() => buildOrder(tips.length, randomize, seed), [tips.length, randomize, seed]);
 
+  // 初始化随机 seed：避免在首次 render 阶段使用真实随机（会造成 SSR/CSR hydration mismatch）。
+  // - mount 后生成一次随机 seed：同一次会话内顺序稳定，但不同刷新/会话的顺序不同。
+  // - tips 从 DEFAULT_TIPS 切换到 EMBEDDED_TIPS（长度变化）或 randomize 打开时，也应重新随机并从头开始。
+  useEffect(() => {
+    if (!randomize) return;
+    if (tips.length <= 1) return;
+    setIdx(0);
+    setSeed(getRandomSeed32());
+  }, [randomize, tips.length]);
+
   // 轮播计时器
   useEffect(() => {
     if (timerRef.current) {
@@ -41,7 +51,7 @@ export function RotatingTips({ intervalMs = 3000, randomize = true, className = 
 
         // 到达一轮末尾时在随机模式下重洗（通过 seed 变更生成新的确定性顺序）
         if (randomize && next === 0 && len > 1) {
-          setSeed((s) => s + 1);
+          setSeed((s) => (s + 1) >>> 0);
         }
 
         return next;
@@ -86,4 +96,20 @@ function buildOrder(length: number, randomize: boolean, seed: number): number[] 
     [base[i], base[j]] = [base[j], base[i]];
   }
   return base;
+}
+
+function getRandomSeed32(): number {
+  try {
+    const getRandomValues = globalThis.crypto?.getRandomValues?.bind(globalThis.crypto);
+    if (typeof getRandomValues === "function") {
+      const out = new Uint32Array(1);
+      getRandomValues(out);
+      const seed = out[0] >>> 0;
+      return seed === 0 ? 1 : seed;
+    }
+  } catch {}
+
+  // fallback：不要求加密强度，仅用于“会话级随机”打散展示顺序
+  const seed = ((Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0) || 1;
+  return seed;
 }
