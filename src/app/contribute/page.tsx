@@ -1,9 +1,9 @@
 import { SiteHeader } from '../components/SiteHeader';
-import { PageShell } from '../components/PageShell';
+import { FeedbackForm } from './components/FeedbackForm';
 import { buttonStyles, cardStyles } from '../components/ui/styles';
+import { PageShell } from '../components/PageShell';
 import { SURVEY_URL } from '../config/survey.config';
 import { buildGoHref } from '../utils/outbound';
-import { TipForm } from './components/TipForm';
 
 export default function ContributePage() {
   return (
@@ -20,8 +20,8 @@ export default function ContributePage() {
         <p className="text-base text-gray-600 dark:text-gray-400">分享你的创意，或帮助我们改进</p>
       </div>
 
-      {/* Tip Submission Card（交互由客户端组件处理） */}
-      <TipForm />
+      {/* Feedback Submission Card（交互由客户端组件处理） */}
+      <FeedbackForm />
 
       {/* Survey Card */}
       <div
@@ -47,7 +47,7 @@ export default function ContributePage() {
           <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">问卷调查</h2>
         </div>
         <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
-          我们正在进行一次用户调研（约 10–15 分钟），用于优化功能优先级与体验细节。问卷不需要任何登录凭证信息，请勿填写 SessionToken/API Token 等敏感内容。
+          我们正在进行一次用户调研（约 5–10 分钟），用于优化功能优先级与体验细节。问卷不需要任何登录凭证信息，请勿填写 SessionToken/API Token 等敏感内容。
         </p>
         <a href={buildGoHref(SURVEY_URL) ?? SURVEY_URL} target="_blank" rel="noopener noreferrer" className={buttonStyles({ size: 'sm', variant: 'primary' })}>
           立即填写

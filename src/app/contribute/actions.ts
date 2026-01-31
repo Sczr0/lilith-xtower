@@ -5,9 +5,9 @@ import { headers } from 'next/headers'
 import { getAuthSession } from '@/app/lib/auth/session'
 
 /**
- * 处理 Tips 投稿表单提交，并转发到飞书 Webhook。
+ * 处理通用反馈表单提交，并转发到飞书 Webhook。
  */
-export async function submitTip(formData: FormData) {
+export async function submitFeedback(formData: FormData) {
   // 反机器人：蜜罐字段（正常用户看不到；命中时静默丢弃，避免给刷子反馈信号）
   const honeypot = formData.get('website')?.toString() ?? ''
   if (honeypot.trim()) {
@@ -17,7 +17,7 @@ export async function submitTip(formData: FormData) {
   // 鉴权：必须已登录（P0-3：避免匿名刷爆 webhook）
   const session = await getAuthSession()
   if (!session.credential) {
-    return { success: false, message: '请先登录后再投稿' }
+    return { success: false, message: '请先登录后再提交' }
   }
 
   // 频控：基于 IP 的滑动窗口限流（单实例有效；多实例部署需替换为 Redis/KV）
@@ -26,16 +26,24 @@ export async function submitTip(formData: FormData) {
     return { success: false, message: '请求过于频繁，请稍后再试' }
   }
 
-  const tip = formData.get('tip')?.toString();
+  // 获取字段
+  const category = formData.get('category')?.toString() || 'tip';
+  // 兼容旧的 'tip' 字段，如果 'content' 不存在则尝试取 'tip'
+  const content = (formData.get('content')?.toString() || formData.get('tip')?.toString() || '').trim();
   const authorRaw = formData.get('author')?.toString() ?? '';
-  const author = authorRaw.trim() ? authorRaw.trim().slice(0, 30) : '匿名投稿';
+  const author = authorRaw.trim() ? authorRaw.trim().slice(0, 30) : '匿名用户';
+  const contactRaw = formData.get('contact')?.toString() ?? '';
+  const contact = contactRaw.trim() ? contactRaw.trim().slice(0, 50) : '无';
 
   // 基础校验：不能为空且长度限制
-  if (!tip || tip.trim().length === 0) {
-    return { success: false, message: '不能发空鸽子呀！' };
+  if (content.length === 0) {
+    return { success: false, message: '内容不能为空' };
   }
-  if (tip.length > 100) {
-    return { success: false, message: '太长啦，鸽子啃不动（限100字）' };
+  
+  // 长度限制：Tips 限制 100，其他反馈放宽到 500
+  const limit = category === 'tip' ? 100 : 500;
+  if (content.length > limit) {
+    return { success: false, message: `内容过长（限${limit}字）` };
   }
 
   const webhookUrl = process.env.FEISHU_WEBHOOK_URL;
@@ -44,11 +52,20 @@ export async function submitTip(formData: FormData) {
     return { success: false, message: '服务器配置错误，请联系站长' };
   }
 
-  // 组装飞书消息体（保持含“投稿”关键词）
+  // 标题映射
+  const titles: Record<string, string> = {
+    tip: '新 Tip 投稿',
+    bug: 'Bug 反馈',
+    feature: '功能建议',
+    other: '其他反馈'
+  };
+  const title = titles[category] || '新反馈';
+
+  // 组装飞书消息体
   const feishuBody = {
     msg_type: 'text',
     content: {
-      text: `🕘【新 Tip 投稿】\n\n内容：${tip}\n投稿人：${author}\n来源：你的 Phigros 站点`,
+      text: `🕘【${title}】\n\n内容：${content}\n提交人：${author}\n联系方式：${contact}\n来源：你的 Phigros 站点`,
     },
   };
 
@@ -69,7 +86,7 @@ export async function submitTip(formData: FormData) {
       return { success: false, message: `发送失败：${data.msg}` };
     }
 
-    return { success: true, message: '投喂成功！鸽子已收到啾~' };
+    return { success: true, message: '提交成功！感谢你的反馈~' };
   } catch (e) {
     console.error('Submission error:', e);
     return { success: false, message: '网络炸了，稍后再试？' };
