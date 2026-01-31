@@ -8,4 +8,4 @@
 
 前端：[https://github.com/Sczr0/lilith-xtower](https://github.com/Sczr0/lilith-xtower)
 
-后端：[https://github.com/Sczr0/Phi-Backend](https://github.com/Sczr0/Phi-Backend)
+后端：[https://github.com/Sczr0/Next-Phi-Backend](https://github.com/Sczr0/Next-Phi-Backend)
