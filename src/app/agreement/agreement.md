@@ -1,7 +1,7 @@
 -----BEGIN PGP SIGNED MESSAGE-----
 Hash: SHA256
 
-**最后更新日期：2026年1月12日** | **生效日期：2026年1月12日**
+**最后更新日期：2026年2月8日** | **生效日期：2026年2月8日**
 
 #### 1. 引言
 
@@ -18,7 +18,7 @@ Hash: SHA256
 **如您不同意、不理解或无法理解本协议及具体协议中的任何条款，请立即停止访问或使用本服务。**
 
 本服务的核心运营主体位于中华人民共和国境内。
-为实现加速访问、抗 DDoS 等功能，本服务可能通过 Vercel、Cloudflare 等第三方基础设施在境内外节点对您的请求进行即时处理，
+为实现加速访问、抗 DDoS 等功能，本服务可能通过 Cloudflare 等第三方基础设施在境内外节点对您的请求进行即时处理，
 具体数据处理与跨境传输情况，以《隐私协议》为准。
   
 #### 2. 名词解释
@@ -31,7 +31,7 @@ Hash: SHA256
 
 **2.2 「用户」**  
 
-指访问或使用本服务的任何自然人，包括但不限于通过浏览器访问网页、登录账户、发起数据查询、生成内容或以其他方式使用本服务功能的个人。
+指访问或使用本服务的任何自然人，法人或组织，包括但不限于通过浏览器访问网页、登录账户、发起数据查询、生成内容或以其他方式使用本服务功能的个人与组织。
 
 **2.3 「具体协议」**  
 
@@ -40,11 +40,11 @@ Hash: SHA256
 **2.4 「登录凭证」**  
 
 指用于访问或获取 Phigros 云存档的个人身份凭证，包括但不限于 SessionToken、联合查分 API 提供的 APIID，或由平台名称与平台 ID 组合形成的验证方式。
-鉴于本服务支持多种数据获取方式，前述凭证在本协议中统称为 **“登录凭证”**。
+鉴于本服务支持多种数据获取方式，前述凭证在本协议下文中统称为 **“登录凭证”**。
 
 **2.5 「Phigros 云存档」**  
 
-指由游戏 《Phigros》 官方所使用的平台（TapTap 服务器）生成并存储的、包含玩家游戏进度与成绩数据的云端文件。该文件由 TapTap 官方控制与管理。  
+指由游戏 《Phigros》 官方所使用的平台（TapTap 服务器）生成并存储的、包含玩家游戏进度与成绩数据的云端存档。Phigros 云存档由 TapTap 官方控制与管理。  
 您理解并同意，Phigros 云存档的管理由 TapTap 官方负责；本服务仅在您授权后，通过 TapTap 官方接口 或 联合查分API 临时访问其中的数据内容。
 
 **2.6 「Phigros 成绩数据」**  
@@ -63,22 +63,22 @@ Hash: SHA256
 #### 3. 服务描述
 
 **3.1 服务性质**  
-本服务由开发者独立开发并运营，是一款**免费的网页工具**，主要功能为基于用户的Phigros游戏数据进行成绩分析与可视化展示。
+本服务由开发者独立开发并运营，是一款**免费的网页工具**，主要功能为基于用户的 Phigros 游戏数据进行成绩分析与可视化展示。
 
-本服务可能提供自愿赞助入口，用于支持维护与基础设施成本。**赞助/捐赠属于自愿支持，不构成向开发者购买服务或获得任何额外权利的对价。**
+本服务可能提供自愿赞助入口，用于支持维护与基础设施成本。**赞助/捐赠属于自愿支持，不构成向开发者购买服务或获得任何额外权利的对价。
 
 **3.2 服务功能**  
 本服务向用户提供包括但不限于以下功能：
 
-- - - 基于用户游戏成绩生成可视化图片或文本结果；
-- - - 查询并展示特定歌曲的成绩及相关信息；
-- - - 展示游戏更新内容、曲目信息及相关数据。
+- - - - 基于用户游戏成绩生成可视化图片或文本结果；
+- - - - 查询并展示特定歌曲的成绩及相关信息；
+- - - - 展示游戏更新内容、曲目信息及相关数据。
 
 **3.3 数据访问与来源**  
 为实现本服务功能，用户可通过以下任一授权方式提供其游戏数据：
 
-- - - **TapTap 授权登录**：用户通过 TapTap 平台授权本服务访问其《Phigros》云存档数据；
-- - - **联合查分 API 登录**：用户授权本服务通过第三方接口（联合查分API）临时访问其云存档数据。
+- - - - **TapTap 授权登录**：用户通过 TapTap 平台授权本服务访问其《Phigros》云存档数据；
+- - - - **联合查分 API 登录**：用户授权本服务通过第三方接口（联合查分API）临时访问其云存档数据。
 
 本服务仅在用户授权的前提下获取实现功能所必需的数据，并在处理完成后立即清除，不会保存、修改或以任何形式持久化存储原始云存档。  
 具体信息处理规则，请参见本服务的《隐私协议》。
@@ -98,7 +98,7 @@ Hash: SHA256
 
 **4.2 非商业使用**  
 **未经开发者事先书面同意，您不得将本服务或其生成内容用于任何直接的商业目的**（包括但不限于：嵌入商业产品、作为付费服务的一部分、或通过自动化手段批量生成内容以获取经济利益等）。
-**例外情形：** 用户将生成内容发布于 Bilibili、YouTube、抖音等视频或社交平台，通过平台的创作者激励计划、广告分成或直播打赏获取收益的行为，**不在本条款禁止的商业目的范围内**，开发者对此予以许可。
+**例外情形：** 用户将生成内容发布于 Bilibili、YouTube、抖音等视频或社交平台，通过平台的创作者激励计划、广告分成或直播打赏获取收益的行为，**不在本条款禁止的商业目的范围内**。
 但该等许可不可也不应当免除用户在使用生成内容时应遵守的相关平台规则及《Phigros》官方的版权政策。
 
 **4.3 信息内容规范**  
@@ -201,12 +201,11 @@ Hash: SHA256
 **6.4 与第三方无关声明**  
 **本服务与《Phigros》游戏开发商 Pigeon Games（鸽游）、TapTap 平台运营商及“联合查分 API”运营方不存在任何官方关联、认可、授权或合作关系。**
 
-您理解并同意，本服务仅为玩家查询个人成绩提供便利。联合查分 API 并非最终数据来源，所有 Phigros 成绩数据均来源于 Phigros 云存档。
+您理解并同意，本服务所有的 Phigros 成绩数据最终均来源于 Phigros 云存档。本服务的可用性、数据准确性及功能完整性**完全依赖于 Phigros 云存档或联合查分 API （若您使用联合查分提供的方法登录）的开放状态、稳定性、数据格式及访问策略。** 
 
-本服务的可用性、数据准确性及功能完整性**完全依赖于 Phigros 云存档或联合查分 API 的开放状态、稳定性、数据格式及访问策略。**  
 TapTap 或 Pigeon Games 有权**随时变更或关闭 Phigros 云存档**，开发者对此**无法控制，亦不承担任何责任。**
-**开发者不对 Phigros 云存档数据的绝对准确性、完整性、实时性或可用性作出任何形式的保证。所有相关数据以《Phigros》游戏客户端内的实际显示为准。**  
-因 Phigros 云存档或联合查分 API 的延迟、错误、数据缺失、更新不同步或接口变更等原因造成的任何后果，**开发者在法律允许的最大范围内均不承担任何责任。**
+
+**开发者不对也不应对 Phigros 云存档数据的绝对准确性、完整性、实时性或可用性作出任何形式的保证。所有相关数据以《Phigros》游戏客户端内的实际显示为准。**  因 Phigros 云存档或联合查分 API 的延迟、错误、数据缺失、更新不同步或接口变更等原因造成的任何后果，**开发者在法律允许的最大范围内均不承担任何责任。**
 
 **6.5 用户行为与第三方权利主张**  
 开发者仅提供服务技术支持，无法也无义务审查或控制用户对“生成内容”的后续使用行为。  
@@ -225,7 +224,7 @@ TapTap 或 Pigeon Games 有权**随时变更或关闭 Phigros 云存档**，开�
 **开发者不对该 API 的可用性、响应速度、数据准确性、安全性或合规性作出任何保证。**
 
 如因该 API 发生数据泄露、服务中断、接口变更、法律风险或运营终止导致您无法使用本服务或遭受损失，开发者**不承担任何直接、间接或连带责任。**  
-您使用依托于该API的登录方式，即视为您**已充分知悉并自愿承担由此产生的全部风险。**
+您使用依托于该 API 的登录方式，即视为您**已充分知悉并自愿承担由此产生的全部风险。**
 
 #### 7. 协议的变更与终止
 
@@ -260,6 +259,9 @@ TapTap 或 Pigeon Games 有权**随时变更或关闭 Phigros 云存档**，开�
 **9.3 适用范围与版本声明**  
 本页面所载协议为本服务 **前瞻正式站(Preview)** 所适用的最终版本，不同站点适用的协议版本如有差异，以各自站点公示的协议为准。
 除非开发者另行发布更新，本协议自生效日起适用于前瞻正式站的全部用户，并对双方具有同等法律效力。
+
+**9.4 标题效力**
+本协议与具体协议的标题仅为您方便理解使用，不应当作为解释本协议条款的依据。
 #### 10. 联系我们
 
 **10.1 联系方式**  
@@ -271,15 +273,15 @@ TapTap 或 Pigeon Games 有权**随时变更或关闭 Phigros 云存档**，开�
 开发者将在收到您的来信后，在合理时间内进行处理或回复。
 -----BEGIN PGP SIGNATURE-----
 
-iQGzBAEBCAAdFiEELLqNPkwXwRaxvR3OAM+CMkOXAy8FAmlkbJsACgkQAM+CMkOX
-Ay8ThgwAm8kyS2U1ame3XkJRGfCk9azTcXOulg05H6tt3e0DuAr72Pv6lDXIVt3N
-BCBeZ33H7fJNweP9mpiACHujagR1AGtiXX23BxP0Rufx1LmgxhG6Z6G5zsY5Uk7V
-3p7+jIOv8Xlibt3JsDywE41DdL/9MluQrD5yhoyLcWvGE+KKhdlII4Zg42YZ+Zsd
-095r7Vg/GVmQ6GfsTPE4AGJs7lNuonDAf8IYhzjOJGIcgJ+ya05W57VI0D4nMTBY
-H+ekZeWwTYkjPxwdM3EDvLDL1VxZc29Z1pp4pLxgIcjxtI12OWXnpp/8Q6jmsnUF
-rRPJCp+dl8BK+jfrqvxfkLIJ04VcSQ9mWsuUxYUfZtrmflJKJvN24kEGSd4bk/cL
-efo3QJfcjNSiu7ZXCP52WtZN/1ZyZRjUEQQFlDEFzRtr2ZHlXZDUlQq9oIkTpOe9
-OTbgGdCofZ4y8stmv0RcL/90L32p4z82Vyx9H2nSQ2aSwhXQtWM1hlNj6wDNRTEq
-KlQv4aBm
-=1GFu
+iQGzBAEBCAAdFiEELLqNPkwXwRaxvR3OAM+CMkOXAy8FAmmHfZoACgkQAM+CMkOX
+Ay+wdAv/Xc534mlxJaz6u+GcFjPOqIj4ov2GbmoQMBqvh58D4AdZ6i3qQP27+56w
+Rm2D046FzRchDuAiIeFOXoYV0dYRZfLiEQv66VIqJ+X6btA0RVV6tgy8EmQoKKLn
+2OWD9Z/ReFzkMmk94dN3MZmIWXzQQ8+zpCddScFnEp6Et220r1Xk6Mdy5AdmX+vR
+7DBg2re7XQsyfE51awZBgQtBZpl94dn4fa7VdAMERRWUUkiJksYMunrd8HnMgA87
+SvYf10BcpeQuKFUbEodx2ydygxvkMVcehceJzQOatRoEsvvMP9QNV0o0GjWfrv3I
+EK6LfHLnJK+LHxB0F7EMuYV99U059n0oUxpVWJpvbbBjrFmcqw6hv+pzlIlvFP66
+fEcDC5V4WLAHbs6weh+cZvx43b2W9aif692THiZSeMVjlIyzibOhEYFf2rYmIpwo
+XJcx7BV6K5ltZs47mhJJgLfAVhBoD8t8GqZe3DGPBpYD80wC6IcP80zvU7ENrqDl
+qdxd9ORE
+=F8e3
 -----END PGP SIGNATURE-----

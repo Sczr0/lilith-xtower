@@ -1,14 +1,14 @@
 {
   "pages": {
     "agreement": {
-      "html": "agreement.2c1ddda0.html",
-      "toc": "agreement.2c1ddda0.toc.json",
-      "sig": "agreement.0e4b19a2.sig.json"
+      "html": "agreement.54153722.html",
+      "toc": "agreement.54153722.toc.json",
+      "sig": "agreement.373fe289.sig.json"
     },
     "privacy": {
-      "html": "privacy.b58f3489.html",
-      "toc": "privacy.b58f3489.toc.json",
-      "sig": "privacy.0ebf6a20.sig.json"
+      "html": "privacy.49cbdfdd.html",
+      "toc": "privacy.49cbdfdd.toc.json",
+      "sig": "privacy.4728ce51.sig.json"
     },
     "about": {
       "html": "about.68adda92.html",
@@ -16,8 +16,8 @@
     }
   },
   "agreement": {
-    "html": "agreement.2c1ddda0.html",
-    "toc": "agreement.2c1ddda0.toc.json",
-    "sig": "agreement.0e4b19a2.sig.json"
+    "html": "agreement.54153722.html",
+    "toc": "agreement.54153722.toc.json",
+    "sig": "agreement.373fe289.sig.json"
   }
 }
