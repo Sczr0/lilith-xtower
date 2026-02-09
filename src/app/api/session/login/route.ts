@@ -5,6 +5,7 @@ import { buildAuthRequestBody } from '@/app/lib/auth/authRequest'
 import { toCredentialSummary } from '@/app/lib/auth/credentialSummary'
 import { getAuthSession } from '@/app/lib/auth/session'
 import { getSeekendApiBaseUrl } from '@/app/lib/auth/upstream'
+import { exchangeBackendToken } from '@/app/lib/auth/phi-session'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -82,10 +83,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // 尝试换取后端 Access Token（用于后续业务调用及注销）
+    let backendTokenData: { accessToken: string; expiresIn: number } | null = null
+    try {
+      // @ts-expect-error 类型兼容性：authBody 包含 null，exchangeBackendToken 定义为 optional
+      backendTokenData = await exchangeBackendToken(authBody)
+    } catch (e) {
+      console.warn('Token exchange failed (non-blocking):', e)
+    }
+
     const session = await getAuthSession()
     session.credential = credential
     session.taptapVersion = taptapVersion
     session.createdAt = Date.now()
+    
+    if (backendTokenData) {
+      session.backendAccessToken = backendTokenData.accessToken
+      session.backendExpAt = Date.now() + backendTokenData.expiresIn * 1000
+    }
+
     await session.save()
 
     return NextResponse.json(
