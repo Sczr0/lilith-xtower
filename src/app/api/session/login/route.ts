@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import type { AuthCredential, TapTapVersion } from '@/app/lib/types/auth'
 import { buildAuthRequestBody } from '@/app/lib/auth/authRequest'
 import { toCredentialSummary } from '@/app/lib/auth/credentialSummary'
-import { getAuthSession } from '@/app/lib/auth/session'
+import { ensureAuthSessionKey, getAuthSession } from '@/app/lib/auth/session'
 import { getSeekendApiBaseUrl } from '@/app/lib/auth/upstream'
 import { exchangeBackendToken } from '@/app/lib/auth/phi-session'
 
@@ -93,6 +93,7 @@ export async function POST(request: NextRequest) {
     }
 
     const session = await getAuthSession()
+    ensureAuthSessionKey(session)
     session.credential = credential
     session.taptapVersion = taptapVersion
     session.createdAt = Date.now()
@@ -117,4 +118,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-
