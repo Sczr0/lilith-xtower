@@ -4,6 +4,47 @@ import { getSeekendApiBaseUrl } from './upstream'
 const BASE_URL = getSeekendApiBaseUrl()
 const EXCHANGE_SECRET = process.env.PHI_EXCHANGE_SECRET!
 
+type BackendTokenResponse = {
+  accessToken: string
+  expiresIn: number
+  tokenType: 'Bearer'
+}
+
+export class BackendSessionError extends Error {
+  operation: 'exchange' | 'refresh' | 'logout'
+  status: number
+  responseText: string
+
+  constructor(operation: 'exchange' | 'refresh' | 'logout', status: number, responseText: string) {
+    super(`${operation} failed: ${status} ${responseText}`)
+    this.name = 'BackendSessionError'
+    this.operation = operation
+    this.status = status
+    this.responseText = responseText
+  }
+}
+
+export function isBackendSessionError(value: unknown): value is BackendSessionError {
+  return value instanceof BackendSessionError
+}
+
+function ensureExchangeSecret(operation: 'refresh'): string {
+  if (EXCHANGE_SECRET) return EXCHANGE_SECRET
+  throw new BackendSessionError(operation, 500, 'PHI_EXCHANGE_SECRET 未配置，无法校验后端会话')
+}
+
+async function parseBackendResponse<T>(
+  operation: 'exchange' | 'refresh' | 'logout',
+  response: Response,
+): Promise<T> {
+  if (!response.ok) {
+    const text = await response.text()
+    throw new BackendSessionError(operation, response.status, text)
+  }
+
+  return response.json() as Promise<T>
+}
+
 type ExchangeBody = {
   sessionToken?: string
   externalCredentials?: {
@@ -32,16 +73,22 @@ export async function exchangeBackendToken(body: ExchangeBody) {
     cache: 'no-store',
   })
 
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`exchange failed: ${res.status} ${text}`)
-  }
+  return parseBackendResponse<BackendTokenResponse>('exchange', res)
+}
 
-  return res.json() as Promise<{
-    accessToken: string
-    expiresIn: number
-    tokenType: 'Bearer'
-  }>
+export async function refreshBackendToken(oldAccessToken: string) {
+  const sharedSecret = ensureExchangeSecret('refresh')
+
+  const res = await fetch(`${BASE_URL}/auth/session/refresh`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${oldAccessToken}`,
+      'X-Exchange-Secret': sharedSecret,
+    },
+    cache: 'no-store',
+  })
+
+  return parseBackendResponse<BackendTokenResponse>('refresh', res)
 }
 
 export async function logoutBackendToken(accessToken: string, scope: 'current' | 'all') {
@@ -55,14 +102,9 @@ export async function logoutBackendToken(accessToken: string, scope: 'current' |
     cache: 'no-store',
   })
 
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`logout failed: ${res.status} ${text}`)
-  }
-
-  return res.json() as Promise<{
+  return parseBackendResponse<{
     scope: 'current' | 'all'
     revokedJti: string
     logoutBefore?: string
-  }>
+  }>('logout', res)
 }

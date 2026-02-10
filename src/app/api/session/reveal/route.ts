@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import type { AuthCredential, TapTapVersion } from '@/app/lib/types/auth'
+import { guardBackendSession } from '@/app/lib/auth/backendSessionGuard'
 import { getAuthSession } from '@/app/lib/auth/session'
 
 export const runtime = 'nodejs'
@@ -23,6 +24,18 @@ type RevealCredentialResponse =
 export async function POST() {
   try {
     const session = await getAuthSession()
+    const guard = await guardBackendSession(session)
+
+    if (guard.status === 'upstream_error') {
+      const payload: RevealCredentialResponse = { success: false, error: '会话校验失败，请稍后重试' }
+      return NextResponse.json(payload, { status: 502, headers: { 'Cache-Control': 'no-store' } })
+    }
+
+    if (guard.status !== 'valid') {
+      const payload: RevealCredentialResponse = { success: false, error: '未登录' }
+      return NextResponse.json(payload, { status: 401, headers: { 'Cache-Control': 'no-store' } })
+    }
+
     const credential = session.credential
 
     if (!credential) {
@@ -48,4 +61,3 @@ export async function POST() {
     )
   }
 }
-
