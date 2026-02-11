@@ -62,6 +62,7 @@ function getPrefetchEnvSnapshot() {
     const hardwareConcurrency =
       typeof nav?.hardwareConcurrency === 'number' ? nav.hardwareConcurrency : undefined;
     return {
+      profile: getPreloadProfile(),
       deviceMemory,
       hardwareConcurrency,
       connection: conn
@@ -169,44 +170,174 @@ interface NavigatorWithConnection extends Navigator {
   deviceMemory?: number;
 }
 
-export function shouldPreload(): boolean {
-  if (typeof window === 'undefined') return false;
-  
+export type PreloadProfile = 'off' | 'conservative' | 'balanced' | 'aggressive';
+
+export type PreloadProfileInput = {
+  saveData?: boolean;
+  prefersReducedData?: boolean;
+  effectiveType?: string;
+  downlink?: number;
+  rtt?: number;
+  deviceMemory?: number;
+  hardwareConcurrency?: number;
+};
+
+export type PreloadPolicy = {
+  profile: PreloadProfile;
+  homeIdleTimeout: number;
+  loginIdleTimeout: number;
+  postLoginIdleTimeout: number;
+  dashboardStage2Delay: number;
+  dashboardStage3Delay: number;
+  dashboardStage4Delay: number;
+  homePublicRoutes: string[];
+  homeAuthenticatedRoutes: string[];
+  dashboardRoutes: string[];
+  imageDefaultConcurrent: number;
+  sponsorsImmediateCount: number;
+  sponsorsImmediateConcurrent: number;
+  sponsorsDeferredConcurrent: number;
+  sponsorsDeferredDelay: number;
+};
+
+const PRELOAD_POLICY_MAP: Record<PreloadProfile, Omit<PreloadPolicy, 'profile'>> = {
+  off: {
+    homeIdleTimeout: 4_000,
+    loginIdleTimeout: 3_000,
+    postLoginIdleTimeout: 3_000,
+    dashboardStage2Delay: 1_200,
+    dashboardStage3Delay: 3_000,
+    dashboardStage4Delay: 4_500,
+    homePublicRoutes: [],
+    homeAuthenticatedRoutes: [],
+    dashboardRoutes: [],
+    imageDefaultConcurrent: 1,
+    sponsorsImmediateCount: 0,
+    sponsorsImmediateConcurrent: 1,
+    sponsorsDeferredConcurrent: 1,
+    sponsorsDeferredDelay: 1_500,
+  },
+  conservative: {
+    homeIdleTimeout: 3_600,
+    loginIdleTimeout: 2_800,
+    postLoginIdleTimeout: 2_600,
+    dashboardStage2Delay: 900,
+    dashboardStage3Delay: 2_400,
+    dashboardStage4Delay: 4_200,
+    homePublicRoutes: ['/qa'],
+    homeAuthenticatedRoutes: ['/dashboard'],
+    dashboardRoutes: ['/about', '/qa', '/sponsors'],
+    imageDefaultConcurrent: 2,
+    sponsorsImmediateCount: 4,
+    sponsorsImmediateConcurrent: 2,
+    sponsorsDeferredConcurrent: 1,
+    sponsorsDeferredDelay: 1_500,
+  },
+  balanced: {
+    homeIdleTimeout: 3_000,
+    loginIdleTimeout: 2_000,
+    postLoginIdleTimeout: 1_800,
+    dashboardStage2Delay: 500,
+    dashboardStage3Delay: 1_500,
+    dashboardStage4Delay: 3_000,
+    homePublicRoutes: ['/qa', '/about'],
+    homeAuthenticatedRoutes: ['/dashboard'],
+    dashboardRoutes: ['/about', '/qa', '/sponsors', '/privacy', '/agreement'],
+    imageDefaultConcurrent: 3,
+    sponsorsImmediateCount: 6,
+    sponsorsImmediateConcurrent: 3,
+    sponsorsDeferredConcurrent: 2,
+    sponsorsDeferredDelay: 1_000,
+  },
+  aggressive: {
+    homeIdleTimeout: 900,
+    loginIdleTimeout: 700,
+    postLoginIdleTimeout: 700,
+    dashboardStage2Delay: 250,
+    dashboardStage3Delay: 900,
+    dashboardStage4Delay: 1_800,
+    homePublicRoutes: ['/qa', '/about', '/sponsors'],
+    homeAuthenticatedRoutes: ['/dashboard', '/sponsors'],
+    dashboardRoutes: ['/about', '/qa', '/sponsors', '/privacy', '/agreement'],
+    imageDefaultConcurrent: 5,
+    sponsorsImmediateCount: 8,
+    sponsorsImmediateConcurrent: 4,
+    sponsorsDeferredConcurrent: 3,
+    sponsorsDeferredDelay: 600,
+  },
+};
+
+function sanitizePositiveNumber(value: number | undefined): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return undefined;
+  return value;
+}
+
+export function resolvePreloadProfile(input: PreloadProfileInput): PreloadProfile {
+  const saveData = !!input.saveData;
+  const prefersReducedData = !!input.prefersReducedData;
+  const effectiveType = typeof input.effectiveType === 'string' ? input.effectiveType.toLowerCase() : undefined;
+  const downlink = sanitizePositiveNumber(input.downlink);
+  const rtt = sanitizePositiveNumber(input.rtt);
+  const deviceMemory = sanitizePositiveNumber(input.deviceMemory);
+  const hardwareConcurrency = sanitizePositiveNumber(input.hardwareConcurrency);
+
+  if (saveData || prefersReducedData) return 'off';
+  if (effectiveType === 'slow-2g' || effectiveType === '2g') return 'off';
+  if (typeof downlink === 'number' && downlink < 1.5) return 'off';
+  if (typeof rtt === 'number' && rtt > 600) return 'off';
+  if (typeof deviceMemory === 'number' && deviceMemory < 4) return 'off';
+  if (typeof hardwareConcurrency === 'number' && hardwareConcurrency < 4) return 'off';
+
+  const isAggressiveNetwork =
+    effectiveType === '4g' &&
+    (typeof downlink === 'number' ? downlink >= 8 : true) &&
+    (typeof rtt === 'number' ? rtt <= 120 : true);
+  const isAggressiveDevice =
+    (typeof deviceMemory === 'number' ? deviceMemory >= 8 : true) &&
+    (typeof hardwareConcurrency === 'number' ? hardwareConcurrency >= 8 : true);
+  if (isAggressiveNetwork && isAggressiveDevice) return 'aggressive';
+
+  const isConservativeNetwork =
+    effectiveType === '3g' ||
+    (typeof downlink === 'number' && downlink < 3) ||
+    (typeof rtt === 'number' && rtt > 300);
+  const isConservativeDevice =
+    (typeof deviceMemory === 'number' && deviceMemory < 6) ||
+    (typeof hardwareConcurrency === 'number' && hardwareConcurrency < 6);
+  if (isConservativeNetwork || isConservativeDevice) return 'conservative';
+
+  return 'balanced';
+}
+
+export function getPreloadProfile(): PreloadProfile {
+  if (typeof window === 'undefined') return 'off';
+
   try {
-    // 检查省流模式
     const nav = navigator as NavigatorWithConnection;
-    if (nav?.connection?.saveData) return false;
-    
-    // 检查用户偏好
-    if (window.matchMedia?.('(prefers-reduced-data: reduce)').matches) return false;
-    
-    // 检查网络类型（慢速网络不预加载）
-    const effectiveType = nav?.connection?.effectiveType;
-    if (effectiveType === 'slow-2g' || effectiveType === '2g') return false;
-
-    // 检查弱网指标（数值越低越差）
-    const downlink = nav?.connection?.downlink;
-    if (typeof downlink === 'number' && Number.isFinite(downlink) && downlink > 0 && downlink < 1.5) return false;
-    const rtt = nav?.connection?.rtt;
-    if (typeof rtt === 'number' && Number.isFinite(rtt) && rtt > 0 && rtt > 600) return false;
-
-    // 检查设备性能（低端设备更激进地禁用预热/预取，避免抢占主线程/带宽）
-    const deviceMemory = nav?.deviceMemory;
-    if (typeof deviceMemory === 'number' && Number.isFinite(deviceMemory) && deviceMemory > 0 && deviceMemory < 4) return false;
-    const hardwareConcurrency = nav?.hardwareConcurrency;
-    if (
-      typeof hardwareConcurrency === 'number' &&
-      Number.isFinite(hardwareConcurrency) &&
-      hardwareConcurrency > 0 &&
-      hardwareConcurrency < 4
-    ) {
-      return false;
-    }
-    
-    return true;
+    return resolvePreloadProfile({
+      saveData: !!nav?.connection?.saveData,
+      prefersReducedData: !!window.matchMedia?.('(prefers-reduced-data: reduce)').matches,
+      effectiveType: nav?.connection?.effectiveType,
+      downlink: nav?.connection?.downlink,
+      rtt: nav?.connection?.rtt,
+      deviceMemory: nav?.deviceMemory,
+      hardwareConcurrency: nav?.hardwareConcurrency,
+    });
   } catch {
-    return true;
+    return 'balanced';
   }
+}
+
+export function getPreloadPolicy(profile = getPreloadProfile()): PreloadPolicy {
+  const strategy = PRELOAD_POLICY_MAP[profile] ?? PRELOAD_POLICY_MAP.balanced;
+  return {
+    profile,
+    ...strategy,
+  };
+}
+
+export function shouldPreload(): boolean {
+  return getPreloadProfile() !== 'off';
 }
 
 /**
@@ -345,12 +476,23 @@ export function preloadImage(src: string): Promise<void> {
 /**
  * 批量预加载图片
  */
-export async function preloadImages(srcs: string[], concurrent = 3): Promise<void> {
+export async function preloadImages(srcs: string[], concurrent?: number): Promise<void> {
   if (!shouldPreload()) return;
+  if (!srcs.length) return;
+
+  const policy = getPreloadPolicy();
+  const normalizedConcurrent = Number.isFinite(concurrent) ? Math.floor(concurrent as number) : policy.imageDefaultConcurrent;
+  const concurrency = Math.max(
+    1,
+    Math.min(
+      8,
+      normalizedConcurrent > 0 ? normalizedConcurrent : policy.imageDefaultConcurrent
+    )
+  );
   
   const chunks: string[][] = [];
-  for (let i = 0; i < srcs.length; i += concurrent) {
-    chunks.push(srcs.slice(i, i + concurrent));
+  for (let i = 0; i < srcs.length; i += concurrency) {
+    chunks.push(srcs.slice(i, i + concurrency));
   }
   
   for (const chunk of chunks) {
@@ -416,6 +558,7 @@ export function preloadResource(href: string, as: string, type?: string): void {
  */
 export function runPostLoginPreload(): void {
   if (!shouldPreload()) return;
+  const policy = getPreloadPolicy();
   
   runWhenIdle(() => {
     // 预取 RKS 数据
@@ -426,7 +569,7 @@ export function runPostLoginPreload(): void {
     
     // 预取服务统计
     prefetchServiceStats();
-  });
+  }, policy.postLoginIdleTimeout);
 }
 
 /**

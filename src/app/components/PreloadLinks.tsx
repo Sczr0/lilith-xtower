@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   runWhenIdle,
   shouldPreload,
+  getPreloadPolicy,
   preconnect,
   dnsPrefetch,
   prefetchLeaderboard,
@@ -24,6 +25,14 @@ export function PreloadLinks() {
   useEffect(() => {
     if (!shouldPreload()) return;
 
+    const policy = getPreloadPolicy();
+    const prefetchedRoutes = new Set<string>();
+    const prefetchRoute = (path: string) => {
+      if (prefetchedRoutes.has(path)) return;
+      prefetchedRoutes.add(path);
+      void router.prefetch(path);
+    };
+
     runWhenIdle(() => {
       // 预连接到 TapTap API 域名
       preconnect('https://accounts.tapapis.cn');
@@ -33,22 +42,21 @@ export function PreloadLinks() {
 
       // 预取登录页面（未登录用户最可能访问）
       if (!isAuthenticated) {
-        void router.prefetch('/login');
+        prefetchRoute('/login');
       }
 
       // 预取常用页面
-      void router.prefetch('/qa');
-      void router.prefetch('/about');
+      policy.homePublicRoutes.forEach(prefetchRoute);
 
       // 如果已登录，预取 dashboard 和相关数据
       if (isAuthenticated) {
-        void router.prefetch('/dashboard');
+        policy.homeAuthenticatedRoutes.forEach(prefetchRoute);
         // 预取排行榜数据
         prefetchLeaderboard(LEADERBOARD_TOP_LIMIT_DEFAULT);
         // 预取服务统计
         prefetchServiceStats();
       }
-    }, 3000); // 延迟 3 秒，确保首屏渲染完成
+    }, policy.homeIdleTimeout);
   }, [isAuthenticated, router]);
 
   // 此组件不渲染任何内容

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { preloadImages, shouldPreload } from '../lib/utils/preload';
+import { getPreloadPolicy, preloadImages, shouldPreload } from '../lib/utils/preload';
 import type { SponsorItem, SponsorsApiResponse } from '../lib/types/sponsors';
 
 type SponsorsListInitialData = {
@@ -40,24 +40,28 @@ export default function SponsorsList({ initialPerPage = 12, initialData, initial
       
       // 预加载头像图片（首批立即加载，后续批次延迟加载）
       if (shouldPreload() && newItems.length > 0) {
+        const policy = getPreloadPolicy();
         const avatarUrls = newItems
           .map((it) => it.user.avatar)
           .filter((url) => url && !preloadedRef.current.has(url));
         
         if (avatarUrls.length > 0) {
-          // 首批（前6个）立即预加载，其余延迟
-          const immediate = avatarUrls.slice(0, 6);
-          const deferred = avatarUrls.slice(6);
+          // 首批（分档动态数量）立即预加载，其余延迟
+          const immediateCount = Math.max(policy.sponsorsImmediateCount, 0);
+          const immediate = avatarUrls.slice(0, immediateCount);
+          const deferred = avatarUrls.slice(immediateCount);
           
           // 标记为已预加载
           avatarUrls.forEach((url) => preloadedRef.current.add(url));
           
           // 立即预加载首批
-          preloadImages(immediate, 3);
+          if (immediate.length > 0) {
+            preloadImages(immediate, policy.sponsorsImmediateConcurrent);
+          }
           
           // 延迟预加载其余
           if (deferred.length > 0) {
-            setTimeout(() => preloadImages(deferred, 2), 1000);
+            setTimeout(() => preloadImages(deferred, policy.sponsorsDeferredConcurrent), policy.sponsorsDeferredDelay);
           }
         }
       }

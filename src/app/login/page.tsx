@@ -7,7 +7,7 @@ import { AuthDetailsModal } from '../components/AuthDetailsModal';
 import { useAuth } from '../contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { AuthStorage } from '../lib/storage/auth';
-import { preloadTapTapQr, runWhenIdle, shouldPreload } from '../lib/utils/preload';
+import { getPreloadPolicy, preloadTapTapQr, runWhenIdle, shouldPreload } from '../lib/utils/preload';
 import { SiteHeader } from '../components/SiteHeader';
 import { RadioGroup } from '../components/ui/RadioGroup';
 import { LoginMethodSelector } from './components/LoginMethodSelector';
@@ -33,10 +33,11 @@ export default function LoginPage() {
   // 预加载二维码数据（在空闲时执行），并预取 dashboard 页面（使用 Next Router 预取机制）
   useEffect(() => {
     if (shouldPreload()) {
+      const policy = getPreloadPolicy();
       runWhenIdle(() => {
         preloadTapTapQr(taptapVersion);
         void router.prefetch('/dashboard');
-      });
+      }, policy.loginIdleTimeout);
     }
   }, [router, taptapVersion]);
 

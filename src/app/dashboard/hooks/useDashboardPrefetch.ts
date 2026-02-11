@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 import {
+  getPreloadPolicy,
   getPrefetchedData,
   prefetchLeaderboard,
   prefetchRksData,
@@ -31,6 +32,14 @@ export function useDashboardPrefetch({ isAuthenticated, activeTab }: { isAuthent
   // 阶段4（3000ms后）：预取其他页面
   useEffect(() => {
     if (typeof window === 'undefined' || !shouldPreload()) return;
+
+    const policy = getPreloadPolicy();
+    const prefetchedRoutes = new Set<string>();
+    const prefetchRoute = (path: string) => {
+      if (prefetchedRoutes.has(path)) return;
+      prefetchedRoutes.add(path);
+      void router.prefetch(path);
+    };
 
     // 阶段1：立即预热当前 Tab 相关组件
     runWhenIdle(() => {
@@ -72,7 +81,7 @@ export function useDashboardPrefetch({ isAuthenticated, activeTab }: { isAuthent
         import('../../components/PlayerScoreRenderer'); // 玩家成绩渲染 - 较少用
         import('../../components/ServiceStats'); // 服务统计 - 较少用
       });
-    }, 500);
+    }, policy.dashboardStage2Delay);
 
     // 阶段3：1500ms 后预取 API 数据
     const stage3Timer = window.setTimeout(() => {
@@ -97,19 +106,15 @@ export function useDashboardPrefetch({ isAuthenticated, activeTab }: { isAuthent
           prefetchServiceStats();
         }
       });
-    }, 1500);
+    }, policy.dashboardStage3Delay);
 
     // 阶段4：3000ms 后预取其他页面
     const stage4Timer = window.setTimeout(() => {
       runWhenIdle(() => {
         // 预取用户可能访问的其他页面
-        void router.prefetch('/about');
-        void router.prefetch('/qa');
-        void router.prefetch('/sponsors');
-        void router.prefetch('/privacy');
-        void router.prefetch('/agreement');
+        policy.dashboardRoutes.forEach(prefetchRoute);
       });
-    }, 3000);
+    }, policy.dashboardStage4Delay);
 
     return () => {
       window.clearTimeout(stage2Timer);
