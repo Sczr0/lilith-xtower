@@ -1,7 +1,5 @@
 import { NextRequest } from 'next/server';
 
-export const runtime = 'edge';
-
 type RumPrefetchPayload = {
   t?: number;
   path?: string;

@@ -1,8 +1,6 @@
 import { ImageResponse } from 'next/og'
 import React from 'react'
 
-export const runtime = 'edge'
-
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const title = searchParams.get('title') ?? 'Phigros Query'

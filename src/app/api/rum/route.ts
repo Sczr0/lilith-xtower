@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { Logger } from 'next-axiom';
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 
 const ALLOWED_NAMES = new Set(["LCP", "CLS", "INP", "TTFB", "FCP", "FID"]);
 

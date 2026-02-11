@@ -16,6 +16,10 @@ interface RksHistoryPanelProps {
 }
 
 const EMPTY_HISTORY_ITEMS: RksHistoryItem[] = [];
+type TooltipParam = {
+  dataIndex: number;
+  value: number;
+};
 
 // 格式化时间显示
 function formatTime(isoString: string): string {
@@ -79,7 +83,7 @@ function RksTrendChart({ items }: { items: RksHistoryItem[] }) {
           fontSize: 12,
         },
         padding: 12,
-        formatter: (params: any[]) => {
+        formatter: (params: TooltipParam[]) => {
           if (!params || params.length === 0) return '';
           const index = params[0].dataIndex;
           const rks = params[0].value;

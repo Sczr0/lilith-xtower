@@ -31,8 +31,12 @@ export function RotatingTips({ intervalMs = 3000, randomize = true, className = 
   useEffect(() => {
     if (!randomize) return;
     if (tips.length <= 1) return;
-    setIdx(0);
-    setSeed(getRandomSeed32());
+    const nextSeed = getRandomSeed32();
+    const resetTimer = window.setTimeout(() => {
+      setIdx(0);
+      setSeed(nextSeed);
+    }, 0);
+    return () => window.clearTimeout(resetTimer);
   }, [randomize, tips.length]);
 
   // 轮播计时器
