@@ -121,7 +121,7 @@ export function ManualLogin() {
         </h3>
         <ul className="text-sm text-blue-700 dark:text-blue-400 space-y-1">
           <li>• SessionToken 是您的个人凭证，请勿泄露给他人</li>
-          <li>• 凭证将安全存储在您的浏览器本地</li>
+          <li>• 登录态通过服务端加密的 HttpOnly 会话 Cookie 维护</li>
           <li>• 您可以随时在设置中清除登录状态</li>
         </ul>
       </div>
