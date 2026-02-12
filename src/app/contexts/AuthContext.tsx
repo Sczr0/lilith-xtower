@@ -11,7 +11,6 @@ import { useRouter } from 'next/navigation';
 const AgreementModal = dynamic(() => import('../components/AgreementModal').then(m => m.AgreementModal), { ssr: false, loading: () => null });
 
 import { useServiceReachability } from '../hooks/useServiceReachability';
-import { runPostLoginPreload, clearPrefetchCache } from '../lib/utils/preload';
 import type { AuthCredentialSummary, SessionStatusResponse } from '../lib/auth/credentialSummary';
 import { AGREEMENT_ACCEPTED_KEY } from '../lib/constants/storageKeys';
 
@@ -32,6 +31,28 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 interface AuthProviderProps {
   children: ReactNode;
+}
+
+function triggerPostLoginPreload(): void {
+  // 说明：预加载工具体积较大，改为登录后按需加载，避免进入全站首屏共享包。
+  void import('../lib/utils/preload')
+    .then(({ runPostLoginPreload }) => {
+      runPostLoginPreload();
+    })
+    .catch(() => {
+      // 忽略预加载模块失败，不影响登录主流程
+    });
+}
+
+function triggerClearPrefetchCache(): void {
+  // 说明：仅在登出时才需要清理预取缓存，按需加载以降低首屏成本。
+  void import('../lib/utils/preload')
+    .then(({ clearPrefetchCache }) => {
+      clearPrefetchCache();
+    })
+    .catch(() => {
+      // 忽略清理失败，不阻断登出
+    });
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
@@ -110,7 +131,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setAuthState({ isAuthenticated: true, credential: data.credential, isLoading: false, error: null });
 
       // 登录成功后预加载关键数据
-      runPostLoginPreload();
+      triggerPostLoginPreload();
 
       router.replace('/dashboard');
     } catch (error) {
@@ -162,7 +183,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // 保存协议接受状态并跳转
     localStorage.setItem(AGREEMENT_ACCEPTED_KEY, 'true');
     // 同意协议后预加载关键数据（与 proceedLogin 保持一致）
-    runPostLoginPreload();
+    triggerPostLoginPreload();
     router.replace('/dashboard');
   };
 
@@ -185,7 +206,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       localStorage.removeItem('cache_song_image_meta_v1');
     } catch {}
     // 清除预取缓存
-    clearPrefetchCache();
+    triggerClearPrefetchCache();
     setAuthState({ isAuthenticated: false, credential: null, isLoading: false, error: null });
 
     router.replace('/login');
