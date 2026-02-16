@@ -91,7 +91,7 @@ export default function Home() {
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
             <HomeStartButton className={buttonStyles({ size: 'lg', variant: 'primary' })} />
-            <a href="#features" className={buttonStyles({ size: 'lg', variant: 'outline' })}>
+            <a href="/about" className={buttonStyles({ size: 'lg', variant: 'outline' })}>
               了解更多
             </a>
           </div>

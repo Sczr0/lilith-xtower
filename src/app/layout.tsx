@@ -11,7 +11,6 @@ import { Suspense } from "react";
 import Script from "next/script";
 import WebVitals from "./components/WebVitals";
 import { TipsProvider } from "./components/TipsProvider";
-import { PromoBannerSlot } from "./components/PromoBannerSlot";
 import { BrandFontLoader } from "./components/BrandFontLoader";
 import { headers } from "next/headers";
 import { SITE_URL } from "./utils/site-url";
@@ -103,7 +102,6 @@ export default async function RootLayout({
           disableTransitionOnChange
           nonce={nonce}
         >
-          <PromoBannerSlot />
           <TipsProvider>
             <MaintenanceNotice />
             <Suspense fallback={null}>

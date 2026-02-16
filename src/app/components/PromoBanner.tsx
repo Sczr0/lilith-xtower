@@ -1,80 +1,160 @@
 ﻿"use client";
 
-import type { KeyboardEvent } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, Pause, Play, X } from "lucide-react";
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ExternalLink, PlayCircle, X } from "lucide-react";
 import { promoBannerConfig } from "../config/promo-banner.config";
 import {
   buildDismissKey,
-  resolveAutoHideMs,
+  filterSlidesByDismissState,
+  resolvePromoBannerAppearance,
+  resolvePromoBannerSlideAppearance,
+  type PromoBannerSlide,
   selectActiveSlides,
 } from "../utils/promoBanner";
-import { isExternalHref } from "./topbar/nav";
 import { useClientValue } from "../hooks/useClientValue";
 import { buildGoHref } from "../utils/outbound";
 
+const AUTO_SCROLL_SPEED_PX_PER_SEC = 580;
+
 /**
- * 顶部轮播活动横幅
- * - 支持多 slide 自动播放/手动切换
- * - 按配置决定哪些页面显示/隐藏
- * - 无操作时自动收起，手动关闭写入 localStorage，防止再次出现
+ * 顶部细条活动横幅
+ * - 使用“轻量文本公告”样式，减少视觉负担
+ * - 按配置筛选当前路径可见的活动
+ * - 手动关闭会写入 localStorage，防止同活动重复打扰
  */
 export function PromoBanner({ pathname }: { pathname: string }) {
-  const router = useRouter();
   const dismissKey = buildDismissKey(promoBannerConfig);
-
+  const defaultAppearance = resolvePromoBannerAppearance(promoBannerConfig.appearance);
   const slides = useMemo(() => selectActiveSlides(promoBannerConfig, pathname), [pathname]);
 
   // 说明：首帧先按“已关闭”处理，避免被 localStorage 中的关闭状态反向闪烁。
-  const dismissedByStorage = useClientValue(() => window.localStorage.getItem(dismissKey) === "1", true);
+  const dismissedByStorage = useClientValue(
+    () => window.localStorage.getItem(dismissKey) === "1",
+    true,
+  );
   const [dismissedByUser, setDismissedByUser] = useState(false);
-  const dismissed = dismissedByUser || dismissedByStorage;
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const marqueeGroupRef = useRef<HTMLDivElement | null>(null);
+  const loopWidthRef = useRef(0);
+  const isPointerDownRef = useRef(false);
+  const pauseUntilRef = useRef(0);
+  const isProgrammaticScrollRef = useRef(false);
+  const rafRef = useRef<number | null>(null);
+  const lastFrameTsRef = useRef<number | null>(null);
+  const [canLoop, setCanLoop] = useState(false);
 
-  const [collapsed, setCollapsed] = useState(false);
-  const [hovering, setHovering] = useState(false);
-  const [current, setCurrent] = useState(0);
-  const [paused, setPaused] = useState(false);
-  const autoHideTimer = useRef<NodeJS.Timeout | null>(null);
-  const autoPlayTimer = useRef<NodeJS.Timeout | null>(null);
+  const visibleSlides = useMemo(
+    () => filterSlidesByDismissState(slides, dismissedByStorage),
+    [slides, dismissedByStorage],
+  );
 
-  // 自动播放
+  const bannerAppearance = useMemo(() => {
+    if (visibleSlides.length !== 1) return defaultAppearance;
+    return resolvePromoBannerSlideAppearance(
+      promoBannerConfig.appearance,
+      visibleSlides[0]?.appearance,
+    );
+  }, [defaultAppearance, visibleSlides]);
+
+  const dismissed = dismissedByUser;
+
+  const pauseAutoScroll = useCallback((durationMs = 2000) => {
+    pauseUntilRef.current = Math.max(pauseUntilRef.current, Date.now() + durationMs);
+  }, []);
+
   useEffect(() => {
-    if (dismissed || collapsed) return;
-    if (slides.length <= 1) return;
-    if (hovering || paused) return;
+    const scrollContainer = scrollContainerRef.current;
+    const marqueeGroup = marqueeGroupRef.current;
+    if (!scrollContainer || !marqueeGroup) return;
 
-    const ms = promoBannerConfig.autoAdvanceMs ?? 5200;
-    if (autoPlayTimer.current) clearInterval(autoPlayTimer.current);
-    autoPlayTimer.current = setInterval(() => {
-      setCurrent((idx) => (idx + 1) % slides.length);
-    }, ms);
+    const updateLoopMetrics = () => {
+      const baseWidth = marqueeGroup.scrollWidth;
+      const shouldLoop = baseWidth > scrollContainer.clientWidth + 2;
+      setCanLoop((prev) => (prev === shouldLoop ? prev : shouldLoop));
+      loopWidthRef.current = shouldLoop ? baseWidth : 0;
+
+      if (!shouldLoop) {
+        isProgrammaticScrollRef.current = true;
+        try {
+          scrollContainer.scrollLeft = 0;
+        } finally {
+          isProgrammaticScrollRef.current = false;
+        }
+        return;
+      }
+
+      if (scrollContainer.scrollLeft >= baseWidth) {
+        isProgrammaticScrollRef.current = true;
+        try {
+          scrollContainer.scrollLeft = scrollContainer.scrollLeft % baseWidth;
+        } finally {
+          isProgrammaticScrollRef.current = false;
+        }
+      }
+    };
+
+    updateLoopMetrics();
+
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateLoopMetrics) : null;
+    resizeObserver?.observe(scrollContainer);
+    resizeObserver?.observe(marqueeGroup);
+    window.addEventListener("resize", updateLoopMetrics);
 
     return () => {
-      if (autoPlayTimer.current) clearInterval(autoPlayTimer.current);
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", updateLoopMetrics);
     };
-  }, [dismissed, collapsed, hovering, paused, slides.length]);
+  }, [visibleSlides.length]);
 
-  // 自动收起
   useEffect(() => {
-    if (dismissed || collapsed) return;
-    if (hovering) return;
-    if (!slides[current]) return;
+    const scrollContainer = scrollContainerRef.current;
+    if (!scrollContainer || !canLoop) return;
 
-    const ms = resolveAutoHideMs(slides[current], promoBannerConfig);
-    if (autoHideTimer.current) clearTimeout(autoHideTimer.current);
-    autoHideTimer.current = setTimeout(() => setCollapsed(true), ms);
+    lastFrameTsRef.current = null;
+    const step = (timestamp: number) => {
+      if (lastFrameTsRef.current == null) {
+        lastFrameTsRef.current = timestamp;
+        rafRef.current = window.requestAnimationFrame(step);
+        return;
+      }
+
+      const dt = Math.min((timestamp - lastFrameTsRef.current) / 1000, 0.05);
+      lastFrameTsRef.current = timestamp;
+
+      if (!isPointerDownRef.current && Date.now() >= pauseUntilRef.current) {
+        const loopWidth = loopWidthRef.current;
+        if (loopWidth > 1) {
+          let next = scrollContainer.scrollLeft + AUTO_SCROLL_SPEED_PX_PER_SEC * dt;
+          if (next >= loopWidth) {
+            next -= loopWidth;
+          }
+
+          isProgrammaticScrollRef.current = true;
+          try {
+            scrollContainer.scrollLeft = next;
+          } finally {
+            isProgrammaticScrollRef.current = false;
+          }
+        }
+      }
+
+      rafRef.current = window.requestAnimationFrame(step);
+    };
+
+    rafRef.current = window.requestAnimationFrame(step);
 
     return () => {
-      if (autoHideTimer.current) clearTimeout(autoHideTimer.current);
+      if (rafRef.current != null) {
+        window.cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+      lastFrameTsRef.current = null;
     };
-  }, [dismissed, collapsed, hovering, current, slides]);
+  }, [canLoop]);
 
   if (dismissed) return null;
-  if (slides.length === 0) return null;
-
-  const slide = slides[current] ?? slides[0];
-  const gradient = slide.gradient ?? "from-slate-900 via-slate-800 to-slate-700";
+  if (visibleSlides.length === 0) return null;
 
   const handleDismiss = () => {
     setDismissedByUser(true);
@@ -83,163 +163,159 @@ export function PromoBanner({ pathname }: { pathname: string }) {
     } catch {}
   };
 
-  const handleExpand = () => setCollapsed(false);
-
-  const handleClickSlide = () => {
-    if (!slide.href) return;
+  const resolveSlideAction = (
+    slide: PromoBannerSlide,
+  ): { href: string; openInNewTab: boolean } | null => {
+    if (!slide.href) return null;
     const goHref = buildGoHref(slide.href);
     if (goHref) {
-      window.open(goHref, "_blank", "noopener,noreferrer");
-      return;
+      return { href: goHref, openInNewTab: true };
     }
-    if (slide.newTab) {
-      window.open(slide.href, "_blank", "noopener,noreferrer");
-      return;
-    }
-
-    // 导航一致性：站内路径使用 Next Router 软导航，避免整页刷新。
-    if (!isExternalHref(slide.href) && slide.href.startsWith("/")) {
-      router.push(slide.href);
-      return;
-    } else {
-      window.location.assign(slide.href);
-    }
+    return { href: slide.href, openInNewTab: !!slide.newTab };
   };
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (!slide.href) return;
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      handleClickSlide();
-    }
-  };
-
-  const hasControls = slides.length > 1;
-  const isClickable = !!slide.href;
+  const bannerStyle = {
+    "--promo-banner-bg": bannerAppearance.backgroundColor,
+    "--promo-banner-border": bannerAppearance.borderColor,
+    "--promo-banner-text": bannerAppearance.textColor,
+    "--promo-banner-muted": bannerAppearance.mutedTextColor,
+    "--promo-banner-icon-bg": bannerAppearance.iconBackgroundColor,
+    "--promo-banner-icon": bannerAppearance.iconColor,
+    "--promo-banner-link-hover": bannerAppearance.linkHoverColor,
+  } as CSSProperties;
 
   return (
-    <div className="sticky top-0 z-[70] mx-auto w-full">
-      {/* 自动收起后的还原按钮 */}
-      {collapsed && (
-        <div className="flex justify-center px-3 pt-3">
-          <button
-            onClick={handleExpand}
-            className="flex items-center gap-2 rounded-full bg-white/80 dark:bg-neutral-900/70 text-gray-900 dark:text-gray-100 px-4 py-2 shadow-lg border border-gray-200/60 dark:border-neutral-800/60 backdrop-blur-md hover:bg-white dark:hover:bg-neutral-900 transition-colors"
-            aria-label="重新显示活动横幅"
-          >
-            <Play className="h-4 w-4" />
-            <span className="text-sm">恢复活动信息</span>
-          </button>
-        </div>
-      )}
+    <div
+      style={bannerStyle}
+      className="w-full border-b border-[color:var(--promo-banner-border)] bg-[color:var(--promo-banner-bg)] text-[color:var(--promo-banner-text)] backdrop-blur-md"
+    >
+      <div className="flex h-10 items-center gap-3 px-4 lg:px-6">
+        <span className="inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-[color:var(--promo-banner-icon-bg)] text-[color:var(--promo-banner-icon)]">
+          <PlayCircle className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
+        </span>
 
-      <div
-        className={`transition-[max-height,opacity] duration-500 ease-in-out ${collapsed ? "max-h-0 opacity-0 pointer-events-none" : "max-h-40 opacity-100"}`}
-        aria-hidden={collapsed}
-      >
-        <div className="max-w-6xl mx-auto px-3 sm:px-4">
-          <div
-            className={`relative overflow-hidden rounded-2xl border border-gray-200/60 dark:border-gray-700/60 shadow-lg bg-white/75 dark:bg-gray-800/70 backdrop-blur-md text-gray-900 dark:text-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-neutral-950 ${isClickable ? "cursor-pointer hover:border-blue-300/80 dark:hover:border-blue-700/60" : ""}`}
-            onMouseEnter={() => setHovering(true)}
-            onMouseLeave={() => setHovering(false)}
-            onFocus={() => setHovering(true)}
-            onBlur={() => setHovering(false)}
-            role={isClickable ? "button" : "region"}
-            tabIndex={isClickable ? 0 : -1}
-            aria-label={`${slide.title}${slide.description ? "：" + slide.description : ""}`}
-            onClick={handleClickSlide}
-            onKeyDown={handleKeyDown}
-          >
-            {/* 左侧强调色：沿用 slide.gradient（默认会配置为蓝紫渐变） */}
-            <div className={`absolute left-0 top-0 h-full w-1.5 bg-gradient-to-b ${gradient} opacity-90 pointer-events-none`} />
-            <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 px-4 sm:px-6 py-3 sm:py-4">
-              <div className="flex items-center gap-2 text-xs sm:text-sm uppercase tracking-wide bg-gray-100/80 dark:bg-neutral-900/50 px-3 py-1 rounded-full border border-gray-200/60 dark:border-neutral-700/60 text-gray-700 dark:text-gray-200">
-                <span>站内活动</span>
-              </div>
-
-              <div className="flex-1 min-w-0 space-y-1">
-                <div className="flex items-center gap-2">
-                  {hasControls && (
-                    <span className="inline-flex items-center justify-center text-[10px] sm:text-xs px-2 py-1 rounded-full bg-gray-100/80 dark:bg-neutral-900/50 border border-gray-200/60 dark:border-neutral-700/60 text-gray-600 dark:text-gray-300">
-                      {current + 1}/{slides.length}
-                    </span>
-                  )}
-                  <p className="text-sm sm:text-base font-semibold leading-tight line-clamp-1">
-                    {slide.title}
-                  </p>
-                </div>
-                {slide.description && (
-                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 leading-snug line-clamp-2">
-                    {slide.description}
-                  </p>
-                )}
-              </div>
-
-              {slide.cta && (
-                <button
-                  type="button"
-                  className="inline-flex items-center justify-center px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-colors"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleClickSlide();
-                  }}
-                >
-                  {slide.cta}
-                </button>
-              )}
-
-              <div className="flex items-center gap-2 sm:gap-3 ml-auto">
-                {hasControls && (
-                  <div className="flex items-center gap-1">
-                    <button
-                      className="p-1 rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-700 transition-colors dark:bg-neutral-900/50 dark:hover:bg-neutral-900/70 dark:text-gray-200"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setCurrent((idx) => (idx - 1 + slides.length) % slides.length);
-                        setCollapsed(false);
-                      }}
-                      aria-label="上一条活动"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </button>
-                    <button
-                      className="p-1 rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-700 transition-colors dark:bg-neutral-900/50 dark:hover:bg-neutral-900/70 dark:text-gray-200"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setPaused((p) => !p);
-                      }}
-                      aria-pressed={paused}
-                      aria-label={paused ? "继续轮播" : "暂停轮播"}
-                    >
-                      {paused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
-                    </button>
-                    <button
-                      className="p-1 rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-700 transition-colors dark:bg-neutral-900/50 dark:hover:bg-neutral-900/70 dark:text-gray-200"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setCurrent((idx) => (idx + 1) % slides.length);
-                        setCollapsed(false);
-                      }}
-                      aria-label="下一条活动"
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </button>
+        <div
+          ref={scrollContainerRef}
+          className="hide-scrollbar min-w-0 flex-1 overflow-x-auto"
+          onPointerDown={() => {
+            isPointerDownRef.current = true;
+            pauseAutoScroll(2500);
+          }}
+          onPointerUp={() => {
+            isPointerDownRef.current = false;
+            pauseAutoScroll(1600);
+          }}
+          onPointerCancel={() => {
+            isPointerDownRef.current = false;
+            pauseAutoScroll(1600);
+          }}
+          onWheel={() => pauseAutoScroll(2000)}
+          onTouchStart={() => pauseAutoScroll(2200)}
+          onScroll={() => {
+            if (isProgrammaticScrollRef.current) return;
+            const scrollContainer = scrollContainerRef.current;
+            const loopWidth = loopWidthRef.current;
+            if (scrollContainer && loopWidth > 1 && scrollContainer.scrollLeft >= loopWidth) {
+              isProgrammaticScrollRef.current = true;
+              try {
+                scrollContainer.scrollLeft = scrollContainer.scrollLeft % loopWidth;
+              } finally {
+                isProgrammaticScrollRef.current = false;
+              }
+            }
+            pauseAutoScroll(1600);
+          }}
+        >
+          <div className="flex w-max items-center gap-0 whitespace-nowrap text-xs sm:text-sm">
+            <div ref={marqueeGroupRef} className="flex items-center gap-2 pr-8">
+              {visibleSlides.map((slide, index) => {
+                const action = resolveSlideAction(slide);
+                const slideAppearance = resolvePromoBannerSlideAppearance(
+                  promoBannerConfig.appearance,
+                  slide.appearance,
+                );
+                const slideStyle = {
+                  "--promo-slide-text": slideAppearance.textColor,
+                  "--promo-slide-link-hover": slideAppearance.linkHoverColor,
+                } as CSSProperties;
+                return (
+                  <div key={`primary-${slide.id}`} className="inline-flex items-center gap-2">
+                    {index > 0 ? <span className="text-[color:var(--promo-banner-muted)]">|</span> : null}
+                    {action ? (
+                      <a
+                        style={slideStyle}
+                        href={action.href}
+                        target={action.openInNewTab ? "_blank" : undefined}
+                        rel={action.openInNewTab ? "noopener noreferrer" : undefined}
+                        referrerPolicy={action.openInNewTab ? "no-referrer" : undefined}
+                        className="inline-flex items-center gap-1.5 text-[color:var(--promo-slide-text)] transition-colors hover:text-[color:var(--promo-slide-link-hover)]"
+                        aria-label={slide.description ? `${slide.title}：${slide.description}` : slide.title}
+                      >
+                        <span>{slide.title}</span>
+                        {action.openInNewTab ? (
+                          <ExternalLink className="h-3 w-3 opacity-60" aria-hidden="true" />
+                        ) : null}
+                      </a>
+                    ) : (
+                      <span style={slideStyle} className="text-[color:var(--promo-slide-text)]">
+                        {slide.title}
+                      </span>
+                    )}
                   </div>
-                )}
-                <button
-                  className="p-1 rounded-full bg-gray-100/80 hover:bg-gray-200/80 text-gray-700 transition-colors dark:bg-neutral-900/50 dark:hover:bg-neutral-900/70 dark:text-gray-200"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDismiss();
-                  }}
-                  aria-label="关闭活动横幅"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
+                );
+              })}
             </div>
+
+            {canLoop ? (
+              <div aria-hidden="true" className="flex items-center gap-2 pr-8">
+                {visibleSlides.map((slide, index) => {
+                  const action = resolveSlideAction(slide);
+                  const slideAppearance = resolvePromoBannerSlideAppearance(
+                    promoBannerConfig.appearance,
+                    slide.appearance,
+                  );
+                  const slideStyle = {
+                    "--promo-slide-text": slideAppearance.textColor,
+                    "--promo-slide-link-hover": slideAppearance.linkHoverColor,
+                  } as CSSProperties;
+                  return (
+                    <div key={`clone-${slide.id}`} className="inline-flex items-center gap-2">
+                      {index > 0 ? <span className="text-[color:var(--promo-banner-muted)]">|</span> : null}
+                      {action ? (
+                        <a
+                          style={slideStyle}
+                          href={action.href}
+                          target={action.openInNewTab ? "_blank" : undefined}
+                          rel={action.openInNewTab ? "noopener noreferrer" : undefined}
+                          referrerPolicy={action.openInNewTab ? "no-referrer" : undefined}
+                          className="inline-flex items-center gap-1.5 text-[color:var(--promo-slide-text)] transition-colors hover:text-[color:var(--promo-slide-link-hover)]"
+                        >
+                          <span>{slide.title}</span>
+                          {action.openInNewTab ? (
+                            <ExternalLink className="h-3 w-3 opacity-60" aria-hidden="true" />
+                          ) : null}
+                        </a>
+                      ) : (
+                        <span style={slideStyle} className="text-[color:var(--promo-slide-text)]">
+                          {slide.title}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
           </div>
         </div>
+
+        <button
+          type="button"
+          className="flex-shrink-0 rounded-md p-1 text-[color:var(--promo-banner-muted)] transition-colors hover:bg-black/5 hover:text-[color:var(--promo-banner-text)]"
+          onClick={handleDismiss}
+          aria-label="关闭活动横幅"
+        >
+          <X className="h-4 w-4" />
+        </button>
       </div>
     </div>
   );

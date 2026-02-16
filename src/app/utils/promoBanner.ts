@@ -12,6 +12,49 @@ export interface PromoBannerSlide {
   hideOn?: string[];
   autoHideAfterMs?: number;
   newTab?: boolean;
+  /**
+   * 关闭横幅后，下一次访问依旧展示该条公告。
+   * - true: 忽略 localStorage 的关闭记忆，始终可见（仍受时间/路径规则约束）
+   * - false/undefined: 遵循默认关闭记忆逻辑
+   */
+  ignoreDismiss?: boolean;
+  /**
+   * 单条公告外观配置。
+   * - 用于覆盖全局 appearance 的默认颜色。
+   */
+  appearance?: PromoBannerAppearance;
+}
+
+export interface PromoBannerAppearance {
+  /**
+   * 横幅背景色
+   * 示例：#f6f1ea / rgba(246, 241, 234, 0.95)
+   */
+  backgroundColor?: string;
+  /**
+   * 横幅边框色
+   */
+  borderColor?: string;
+  /**
+   * 主文本色（标题、链接默认色）
+   */
+  textColor?: string;
+  /**
+   * 次文本色（分隔符、关闭按钮默认色）
+   */
+  mutedTextColor?: string;
+  /**
+   * 左侧图标底色
+   */
+  iconBackgroundColor?: string;
+  /**
+   * 左侧图标前景色
+   */
+  iconColor?: string;
+  /**
+   * 链接 hover 文本色
+   */
+  linkHoverColor?: string;
 }
 
 export interface PromoBannerConfig {
@@ -21,7 +64,45 @@ export interface PromoBannerConfig {
   exclude?: string[];
   autoAdvanceMs?: number;
   autoCollapseMs?: number;
+  appearance?: PromoBannerAppearance;
   slides: PromoBannerSlide[];
+}
+
+export const DEFAULT_PROMO_BANNER_APPEARANCE: Required<PromoBannerAppearance> = {
+  backgroundColor: "rgba(246, 241, 234, 0.95)",
+  borderColor: "rgba(253, 230, 138, 0.8)",
+  textColor: "rgb(55, 65, 81)",
+  mutedTextColor: "rgb(107, 114, 128)",
+  iconBackgroundColor: "rgba(249, 115, 22, 0.15)",
+  iconColor: "rgb(234, 88, 12)",
+  linkHoverColor: "rgb(17, 24, 39)",
+};
+
+/**
+ * 解析横幅外观配置（与默认值合并）。
+ */
+export function resolvePromoBannerAppearance(
+  appearance?: PromoBannerAppearance
+): Required<PromoBannerAppearance> {
+  return {
+    ...DEFAULT_PROMO_BANNER_APPEARANCE,
+    ...(appearance ?? {}),
+  };
+}
+
+/**
+ * 解析“单条公告”的最终外观：
+ * - 先使用全局 appearance（含默认值）
+ * - 再用 slide.appearance 覆盖，实现“单条公告覆盖默认配置”
+ */
+export function resolvePromoBannerSlideAppearance(
+  configAppearance?: PromoBannerAppearance,
+  slideAppearance?: PromoBannerAppearance
+): Required<PromoBannerAppearance> {
+  return {
+    ...resolvePromoBannerAppearance(configAppearance),
+    ...(slideAppearance ?? {}),
+  };
 }
 
 /**
@@ -108,6 +189,19 @@ export function selectActiveSlides(
  */
 export function buildDismissKey(config: PromoBannerConfig): string {
   return `promo-banner:dismiss:${config.campaignId}`;
+}
+
+/**
+ * 根据“本地关闭记忆”过滤可见 slide。
+ * - 未关闭：返回全部活跃 slide。
+ * - 已关闭：仅保留 ignoreDismiss=true 的 slide，支持“被叉掉后下次访问依旧显示”。
+ */
+export function filterSlidesByDismissState(
+  slides: PromoBannerSlide[],
+  dismissedByStorage: boolean
+): PromoBannerSlide[] {
+  if (!dismissedByStorage) return slides;
+  return slides.filter((slide) => slide.ignoreDismiss === true);
 }
 
 /**

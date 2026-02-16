@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 
+import { PromoBannerSlot } from '../PromoBannerSlot';
 import { cx } from '../ui/styles';
 
 export const TOP_BAR_BASE_CLASSNAME =
@@ -21,15 +22,18 @@ interface TopBarProps {
  */
 export function TopBar({ sticky = true, className, left, right, rightClassName }: TopBarProps) {
   return (
-    <header data-topbar className={cx(sticky && 'sticky top-0 z-40', TOP_BAR_BASE_CLASSNAME, className)}>
-      <div className="flex items-center gap-3 min-w-0">
-        {left}
-      </div>
-      {right && (
-        <div className={cx('ml-auto flex items-center', rightClassName)}>
-          {right}
+    <>
+      <header data-topbar className={cx(sticky && 'sticky top-0 z-40', TOP_BAR_BASE_CLASSNAME, className)}>
+        <div className="flex items-center gap-3 min-w-0">
+          {left}
         </div>
-      )}
-    </header>
+        {right && (
+          <div className={cx('ml-auto flex items-center', rightClassName)}>
+            {right}
+          </div>
+        )}
+      </header>
+      <PromoBannerSlot />
+    </>
   );
 }

@@ -10,6 +10,9 @@ import { buildGoHref } from '../../utils/outbound';
  * 包含：平台检测、服务统计、赞助者列表
  */
 export function AboutClientSections() {
+  // 临时开关：隐藏“感谢服务提供商”区块。
+  const showServiceProviderSection = false;
+
   // 检测部署平台：
   // - 首屏使用 serverValue（空字符串）保证与静态 HTML 一致，避免 hydration mismatch。
   // - hydration 后再读取浏览器 hostname，对齐真实部署环境。
@@ -70,28 +73,30 @@ export function AboutClientSections() {
 
   return (
     <>
-      {/* 感谢服务提供商 */}
-      <section className="space-y-3">
-        <h2 className="text-xl font-semibold">感谢</h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400">感谢以下服务提供商为本站提供的服务：</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          {serviceProviders.map((provider) => (
-            <a
-              key={provider.name}
-              href={buildGoHref(provider.url) ?? provider.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              referrerPolicy="no-referrer"
-              className="border border-gray-200 dark:border-neutral-800 rounded-xl p-5 hover:border-gray-300 dark:hover:border-neutral-700 transition-colors flex flex-col items-center justify-center gap-3 group"
-            >
-              <div className="flex items-center justify-center">
-                {provider.logo}
-              </div>
-              <p className="text-xs text-center text-gray-500 dark:text-gray-400">{provider.description}</p>
-            </a>
-          ))}
-        </div>
-      </section>
+      {showServiceProviderSection ? (
+        /* 感谢服务提供商 */
+        <section className="space-y-3">
+          <h2 className="text-xl font-semibold">感谢</h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400">感谢以下服务提供商为本站提供的服务：</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {serviceProviders.map((provider) => (
+              <a
+                key={provider.name}
+                href={buildGoHref(provider.url) ?? provider.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                referrerPolicy="no-referrer"
+                className="border border-gray-200 dark:border-neutral-800 rounded-xl p-5 hover:border-gray-300 dark:hover:border-neutral-700 transition-colors flex flex-col items-center justify-center gap-3 group"
+              >
+                <div className="flex items-center justify-center">
+                  {provider.logo}
+                </div>
+                <p className="text-xs text-center text-gray-500 dark:text-gray-400">{provider.description}</p>
+              </a>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {/* 服务统计（极简配色） */}
       <section className="space-y-3">

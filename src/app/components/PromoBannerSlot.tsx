@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
+import { useClientValue } from "../hooks/useClientValue";
 import { shouldPreloadLite } from "../lib/utils/preload-gate";
 
 // 说明：PromoBanner 是“可选交互组件”，放在 app/layout 会让其 JS 进入所有页面的共享布局入口。
@@ -19,8 +20,9 @@ function isPromoBannerExcludedPath(pathname: string): boolean {
 
 export function PromoBannerSlot() {
   const pathname = usePathname() ?? "/";
+  const shouldRenderByProfile = useClientValue(() => shouldPreloadLite(), false);
   // 省流/弱网偏好下不加载可选活动横幅，减少带宽与主线程占用
-  if (!shouldPreloadLite()) return null;
+  if (!shouldRenderByProfile) return null;
   if (isPromoBannerExcludedPath(pathname)) return null;
 
   // 说明：以 pathname 作为 key，路由切换时自动重置横幅内部状态（current/collapsed 等）。

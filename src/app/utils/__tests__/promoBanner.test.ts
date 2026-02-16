@@ -1,8 +1,12 @@
 ﻿import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_PROMO_BANNER_APPEARANCE,
+  filterSlidesByDismissState,
   matchPath,
   isWithinTimeWindow,
   isSlideActive,
+  resolvePromoBannerAppearance,
+  resolvePromoBannerSlideAppearance,
   selectActiveSlides,
   resolveAutoHideMs,
   type PromoBannerConfig,
@@ -84,5 +88,59 @@ describe("resolveAutoHideMs", () => {
     const slide = { ...baseSlide, autoHideAfterMs: 15000 };
     expect(resolveAutoHideMs(slide, baseConfig)).toBe(15000);
     expect(resolveAutoHideMs(baseSlide, baseConfig)).toBe(baseConfig.autoCollapseMs);
+  });
+});
+
+describe("filterSlidesByDismissState", () => {
+  it("keeps all slides when not dismissed", () => {
+    const slides: PromoBannerSlide[] = [
+      { id: "normal", title: "normal" },
+      { id: "always", title: "always", ignoreDismiss: true },
+    ];
+    expect(filterSlidesByDismissState(slides, false)).toEqual(slides);
+  });
+
+  it("keeps only ignoreDismiss slides when dismissed", () => {
+    const slides: PromoBannerSlide[] = [
+      { id: "normal", title: "normal" },
+      { id: "always", title: "always", ignoreDismiss: true },
+    ];
+    expect(filterSlidesByDismissState(slides, true)).toEqual([
+      { id: "always", title: "always", ignoreDismiss: true },
+    ]);
+  });
+});
+
+describe("resolvePromoBannerAppearance", () => {
+  it("returns defaults when appearance is undefined", () => {
+    expect(resolvePromoBannerAppearance(undefined)).toEqual(DEFAULT_PROMO_BANNER_APPEARANCE);
+  });
+
+  it("merges custom colors on top of defaults", () => {
+    const merged = resolvePromoBannerAppearance({
+      backgroundColor: "#111111",
+      textColor: "#eeeeee",
+    });
+    expect(merged.backgroundColor).toBe("#111111");
+    expect(merged.textColor).toBe("#eeeeee");
+    expect(merged.borderColor).toBe(DEFAULT_PROMO_BANNER_APPEARANCE.borderColor);
+  });
+});
+
+describe("resolvePromoBannerSlideAppearance", () => {
+  it("allows slide appearance to override global appearance", () => {
+    const merged = resolvePromoBannerSlideAppearance(
+      {
+        backgroundColor: "#f6f1ea",
+        textColor: "#374151",
+      },
+      {
+        textColor: "#111111",
+        linkHoverColor: "#000000",
+      },
+    );
+    expect(merged.backgroundColor).toBe("#f6f1ea");
+    expect(merged.textColor).toBe("#111111");
+    expect(merged.linkHoverColor).toBe("#000000");
   });
 });

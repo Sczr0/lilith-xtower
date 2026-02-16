@@ -111,6 +111,16 @@ html.brand-font body {
   background: rgba(59, 130, 246, 0.7);
 }
 
+/* 横向滚动区域：保留可滚动能力，但隐藏浏览器原生滚动条 */
+.hide-scrollbar {
+  -ms-overflow-style: none; /* IE/Edge Legacy */
+  scrollbar-width: none; /* Firefox */
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
 /* 动画效果 */
 @keyframes fadeInUp {
   from {
