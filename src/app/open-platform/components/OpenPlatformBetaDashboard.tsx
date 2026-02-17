@@ -117,7 +117,7 @@ export function OpenPlatformBetaDashboard() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4">
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-50">开发者仪表盘</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-50">开发者仪表盘 Beta</h1>
         <div className="rounded-lg bg-blue-50 border border-blue-100 text-blue-800 px-4 py-3 flex items-start sm:items-center gap-3 dark:bg-blue-900/20 dark:border-blue-800/30 dark:text-blue-200">
           <Layers className="h-5 w-5 shrink-0 mt-0.5 sm:mt-0" aria-hidden="true" />
           <span className="text-sm font-medium">

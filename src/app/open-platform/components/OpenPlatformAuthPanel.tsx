@@ -140,7 +140,7 @@ export function OpenPlatformAuthPanel() {
           </dl>
           <div className="flex flex-col sm:flex-row gap-3">
             <a href="/unified-api-dashboard" className={buttonStyles({ size: 'sm', variant: 'primary' })}>
-              前往开发者仪表盘
+              前往开发者仪表盘 Beta
             </a>
             <button
               type="button"
