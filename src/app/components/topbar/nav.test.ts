@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { DASHBOARD_NAV_ITEMS, SITE_NAV_ITEMS, UNIFIED_API_DASHBOARD_NAV_ITEMS, isExternalHref } from './nav';
+import {
+  DASHBOARD_NAV_ITEMS,
+  SITE_NAV_ITEMS,
+  UNIFIED_API_DASHBOARD_NAV_ITEMS,
+  buildSiteNavItems,
+  isExternalHref,
+} from './nav';
 
 describe('topbar/nav', () => {
   it('isExternalHref: 识别常见外链协议', () => {
@@ -21,8 +27,18 @@ describe('topbar/nav', () => {
   it('默认导航配置应包含核心入口', () => {
     expect(SITE_NAV_ITEMS.length).toBeGreaterThan(0);
     expect(SITE_NAV_ITEMS.some((item) => item.href === '/dashboard')).toBe(true);
+    // 灰度默认关闭“开放平台”Header入口
+    expect(SITE_NAV_ITEMS.some((item) => item.href === '/open-platform')).toBe(false);
     expect(SITE_NAV_ITEMS.some((item) => item.href === '/unified-api-dashboard')).toBe(false);
     expect(DASHBOARD_NAV_ITEMS.some((item) => item.href === '/unified-api-dashboard')).toBe(false);
     expect(UNIFIED_API_DASHBOARD_NAV_ITEMS.some((item) => item.href === '/dashboard')).toBe(true);
+  });
+
+  it('buildSiteNavItems: 支持灰度开关控制开放平台入口', () => {
+    const hiddenItems = buildSiteNavItems(false);
+    const shownItems = buildSiteNavItems(true);
+
+    expect(hiddenItems.some((item) => item.href === '/open-platform')).toBe(false);
+    expect(shownItems.some((item) => item.href === '/open-platform')).toBe(true);
   });
 });

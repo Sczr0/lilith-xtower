@@ -22,16 +22,35 @@ export function isExternalHref(href: string): boolean {
 }
 
 /**
+ * 是否在站点 Header 展示“开放平台”入口。
+ * 说明：用于灰度发布，默认关闭，设置 NEXT_PUBLIC_ENABLE_OPEN_PLATFORM_NAV=true 后开启。
+ */
+export function isOpenPlatformNavEnabled(): boolean {
+  const raw = (process.env.NEXT_PUBLIC_ENABLE_OPEN_PLATFORM_NAV ?? '').trim().toLowerCase();
+  return raw === '1' || raw === 'true' || raw === 'on' || raw === 'yes';
+}
+
+export function buildSiteNavItems(enableOpenPlatformNav: boolean): NavItem[] {
+  const items: NavItem[] = [
+    { href: '/about', label: '关于' },
+    { href: '/sponsors', label: '赞助者' },
+    { href: '/qa', label: '常见问题' },
+    { href: '/contribute', label: '投稿' },
+    { href: '/dashboard', label: '仪表盘' },
+  ];
+
+  if (enableOpenPlatformNav) {
+    items.splice(3, 0, { href: '/open-platform', label: '开放平台' });
+  }
+
+  return items;
+}
+
+/**
  * 站点默认导航（用于站点页顶栏）。
  * 说明：导航项集中定义，避免各页面/各 Header 分散维护。
  */
-export const SITE_NAV_ITEMS: NavItem[] = [
-  { href: '/about', label: '关于' },
-  { href: '/sponsors', label: '赞助者' },
-  { href: '/qa', label: '常见问题' },
-  { href: '/contribute', label: '投稿' },
-  { href: '/dashboard', label: '仪表盘' },
-];
+export const SITE_NAV_ITEMS: NavItem[] = buildSiteNavItems(isOpenPlatformNavEnabled());
 
 /**
  * Dashboard 顶栏默认导航（用于 dashboard 等后台壳）。
