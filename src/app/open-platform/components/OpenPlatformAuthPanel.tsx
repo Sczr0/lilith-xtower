@@ -12,6 +12,7 @@ type AuthPanelState =
   | { status: 'error'; message: string };
 
 const GITHUB_LOGIN_HREF = '/api/auth/github/login';
+const OPEN_PLATFORM_DOCS_HREF = 'https://lilith.xtower.site/api-docs/';
 
 async function readPayload(response: Response): Promise<unknown> {
   const contentType = response.headers.get('content-type') ?? '';
@@ -139,8 +140,13 @@ export function OpenPlatformAuthPanel() {
             </div>
           </dl>
           <div className="flex flex-col sm:flex-row gap-3">
-            <a href="/unified-api-dashboard" className={buttonStyles({ size: 'sm', variant: 'primary' })}>
-              前往开发者仪表盘 Beta
+            <a
+              href={OPEN_PLATFORM_DOCS_HREF}
+              target="_blank"
+              rel="noreferrer"
+              className={buttonStyles({ size: 'sm', variant: 'primary' })}
+            >
+              前往接口文档
             </a>
             <button
               type="button"
