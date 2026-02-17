@@ -5,7 +5,6 @@ import { useMemo, useState } from 'react';
 import {
   BarChart3,
   CircleHelp,
-  CreditCard,
   FileText,
   KeyRound,
   Layers,
@@ -13,12 +12,11 @@ import {
   ScrollText,
   UserRound,
 } from 'lucide-react';
-import { buttonStyles, cardStyles, cx } from '../../components/ui/styles';
-import { buildGoHref } from '../../utils/outbound';
+import { cardStyles, cx } from '../../components/ui/styles';
 import { OpenPlatformAuthPanel } from './OpenPlatformAuthPanel';
 import { OpenPlatformApiKeysPanel } from './OpenPlatformApiKeysPanel';
 
-type DashboardSectionId = 'usage' | 'keys' | 'billing' | 'account';
+type DashboardSectionId = 'usage' | 'keys' | 'account';
 
 type DashboardNavItem = {
   id: DashboardSectionId;
@@ -27,7 +25,7 @@ type DashboardNavItem = {
   description: string;
 };
 
-const DOCS_URL = 'https://seekend.xtower.site/docs/';
+const DOCS_URL = 'https://lilith.xtower.site/api-docs/';
 
 const PRIMARY_ITEMS: DashboardNavItem[] = [
   {
@@ -41,12 +39,6 @@ const PRIMARY_ITEMS: DashboardNavItem[] = [
     label: 'API keys',
     icon: KeyRound,
     description: '创建与管理密钥',
-  },
-  {
-    id: 'billing',
-    label: '账单与配额',
-    icon: CreditCard,
-    description: 'Beta 阶段占位',
   },
   {
     id: 'account',
@@ -113,34 +105,11 @@ function UsagePlaceholder() {
   );
 }
 
-function BillingPlaceholder() {
-  return (
-    <section className={cardStyles({ padding: 'md' })}>
-      <h2 className="text-2xl font-semibold tracking-tight">账单与配额</h2>
-      <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-        当前为 Beta 灰度阶段，暂未启用计费。后续将提供每个 Key 的调用配额与套餐策略。
-      </p>
-      <div className="mt-4">
-        <a
-          href={buildGoHref(DOCS_URL) ?? DOCS_URL}
-          target="_blank"
-          rel="noreferrer"
-          className={buttonStyles({ variant: 'outline', size: 'sm' })}
-        >
-          <FileText className="h-4 w-4" aria-hidden="true" />
-          查看接口文档
-        </a>
-      </div>
-    </section>
-  );
-}
-
 export function OpenPlatformBetaDashboard() {
   const [activeSection, setActiveSection] = useState<DashboardSectionId>('keys');
 
   const content = useMemo(() => {
     if (activeSection === 'usage') return <UsagePlaceholder />;
-    if (activeSection === 'billing') return <BillingPlaceholder />;
     if (activeSection === 'account') return <OpenPlatformAuthPanel />;
     return <OpenPlatformApiKeysPanel />;
   }, [activeSection]);
@@ -169,7 +138,7 @@ export function OpenPlatformBetaDashboard() {
 
           <div className="hidden lg:block pt-6 border-t border-gray-100 dark:border-neutral-800 space-y-1">
             <a
-              href={buildGoHref(DOCS_URL) ?? DOCS_URL}
+              href={DOCS_URL}
               target="_blank"
               rel="noreferrer"
               className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-neutral-800/50 transition-colors"

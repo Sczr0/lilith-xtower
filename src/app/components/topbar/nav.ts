@@ -23,11 +23,12 @@ export function isExternalHref(href: string): boolean {
 
 /**
  * 是否在站点 Header 展示“开放平台”入口。
- * 说明：用于灰度发布，默认关闭，设置 NEXT_PUBLIC_ENABLE_OPEN_PLATFORM_NAV=true 后开启。
+ * 说明：默认开启；如需紧急隐藏，可设置 NEXT_PUBLIC_ENABLE_OPEN_PLATFORM_NAV=false/off/0/no。
  */
 export function isOpenPlatformNavEnabled(): boolean {
   const raw = (process.env.NEXT_PUBLIC_ENABLE_OPEN_PLATFORM_NAV ?? '').trim().toLowerCase();
-  return raw === '1' || raw === 'true' || raw === 'on' || raw === 'yes';
+  if (raw === '0' || raw === 'false' || raw === 'off' || raw === 'no') return false;
+  return true;
 }
 
 export function buildSiteNavItems(enableOpenPlatformNav: boolean): NavItem[] {
