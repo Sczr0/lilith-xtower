@@ -1,0 +1,57 @@
+[
+  {
+    "id": "heading-0",
+    "title": "1. 引言",
+    "level": 4
+  },
+  {
+    "id": "heading-1",
+    "title": "2. 定义",
+    "level": 4
+  },
+  {
+    "id": "heading-2",
+    "title": "3. 服务内容与边界",
+    "level": 4
+  },
+  {
+    "id": "heading-3",
+    "title": "4. 开发者账户与认证",
+    "level": 4
+  },
+  {
+    "id": "heading-4",
+    "title": "5. API Key 使用规范",
+    "level": 4
+  },
+  {
+    "id": "heading-5",
+    "title": "6. 调用规范与限制",
+    "level": 4
+  },
+  {
+    "id": "heading-6",
+    "title": "7. 数据与隐私",
+    "level": 4
+  },
+  {
+    "id": "heading-7",
+    "title": "8. 可用性与免责",
+    "level": 4
+  },
+  {
+    "id": "heading-8",
+    "title": "9. 协议变更与终止",
+    "level": 4
+  },
+  {
+    "id": "heading-9",
+    "title": "10. 联系方式",
+    "level": 4
+  },
+  {
+    "id": "heading-10",
+    "title": "11. 其他",
+    "level": 4
+  }
+]

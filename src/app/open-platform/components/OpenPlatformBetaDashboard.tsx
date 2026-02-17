@@ -6,11 +6,11 @@ import {
   BarChart3,
   CircleHelp,
   CreditCard,
-  ExternalLink,
   FileText,
   KeyRound,
   Layers,
   Mail,
+  ScrollText,
   UserRound,
 } from 'lucide-react';
 import { buttonStyles, cardStyles, cx } from '../../components/ui/styles';
@@ -72,17 +72,18 @@ function NavButton({
       type="button"
       onClick={() => onClick(item.id)}
       className={cx(
-        'w-full rounded-xl px-3 py-2.5 text-left transition-colors border',
+        'w-full rounded-xl px-3 py-2.5 text-left transition-colors',
         active
-          ? 'bg-white text-gray-900 border-gray-300 shadow-sm dark:bg-neutral-800 dark:text-gray-100 dark:border-neutral-700'
-          : 'bg-transparent border-transparent text-gray-600 hover:text-gray-900 hover:bg-white/70 dark:text-gray-300 dark:hover:text-gray-100 dark:hover:bg-neutral-800/60',
+          ? 'bg-gray-100 text-gray-900 dark:bg-neutral-800 dark:text-gray-100 font-medium'
+          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-neutral-800/50',
       )}
     >
       <div className="flex items-center gap-2.5">
-        <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-        <span className="text-sm font-medium">{item.label}</span>
+        <Icon className={cx('h-4 w-4 shrink-0', active ? 'text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400')} aria-hidden="true" />
+        <span className="text-sm">{item.label}</span>
       </div>
-      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{item.description}</p>
+      {/* 描述信息在侧边栏模式下可能太占空间，可以视情况保留或移除，这里暂时保留但调淡 */}
+      {/* <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 pl-6.5">{item.description}</p> */}
     </button>
   );
 }
@@ -97,15 +98,15 @@ function UsagePlaceholder() {
       <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="rounded-lg border border-gray-200 dark:border-neutral-800 bg-gray-50 dark:bg-neutral-900 p-4">
           <div className="text-xs text-gray-500 dark:text-gray-400">近 24 小时请求</div>
-          <div className="mt-1 text-2xl font-semibold">--</div>
+          <div className="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">-</div>
+        </div>
+        <div className="rounded-lg border border-gray-200 dark:border-neutral-800 bg-gray-50 dark:bg-neutral-900 p-4">
+          <div className="text-xs text-gray-500 dark:text-gray-400">平均响应耗时</div>
+          <div className="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">-</div>
         </div>
         <div className="rounded-lg border border-gray-200 dark:border-neutral-800 bg-gray-50 dark:bg-neutral-900 p-4">
           <div className="text-xs text-gray-500 dark:text-gray-400">错误率</div>
-          <div className="mt-1 text-2xl font-semibold">--</div>
-        </div>
-        <div className="rounded-lg border border-gray-200 dark:border-neutral-800 bg-gray-50 dark:bg-neutral-900 p-4">
-          <div className="text-xs text-gray-500 dark:text-gray-400">活跃 API Keys</div>
-          <div className="mt-1 text-2xl font-semibold">--</div>
+          <div className="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">-</div>
         </div>
       </div>
     </section>
@@ -119,11 +120,15 @@ function BillingPlaceholder() {
       <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
         当前为 Beta 灰度阶段，暂未启用计费。后续将提供每个 Key 的调用配额与套餐策略。
       </p>
-      <div className="mt-4 flex flex-wrap gap-3">
-        <a href={buildGoHref(DOCS_URL) ?? DOCS_URL} target="_blank" rel="noreferrer" className={buttonStyles({ size: 'sm', variant: 'outline' })}>
+      <div className="mt-4">
+        <a
+          href={buildGoHref(DOCS_URL) ?? DOCS_URL}
+          target="_blank"
+          rel="noreferrer"
+          className={buttonStyles({ variant: 'outline', size: 'sm' })}
+        >
           <FileText className="h-4 w-4" aria-hidden="true" />
           查看接口文档
-          <ExternalLink className="h-4 w-4" aria-hidden="true" />
         </a>
       </div>
     </section>
@@ -141,60 +146,64 @@ export function OpenPlatformBetaDashboard() {
   }, [activeSection]);
 
   return (
-    <div className="rounded-2xl border border-gray-200 dark:border-neutral-800 bg-gray-100 dark:bg-neutral-950 shadow-sm overflow-hidden">
-      <div className="bg-blue-600 text-white text-xs px-4 py-2 flex items-center justify-between gap-3">
-        <span className="truncate">开发者仪表盘 Beta 已开启：当前优先开放 API keys 管理能力。</span>
-        <Layers className="h-4 w-4 shrink-0" aria-hidden="true" />
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-4">
+        <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-50">开发者仪表盘</h1>
+        <div className="rounded-lg bg-blue-50 border border-blue-100 text-blue-800 px-4 py-3 flex items-start sm:items-center gap-3 dark:bg-blue-900/20 dark:border-blue-800/30 dark:text-blue-200">
+          <Layers className="h-5 w-5 shrink-0 mt-0.5 sm:mt-0" aria-hidden="true" />
+          <span className="text-sm font-medium">
+            Beta 阶段已开启：当前优先开放 API keys 管理能力。
+          </span>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[240px_minmax(0,1fr)]">
-        <aside className="border-b lg:border-b-0 lg:border-r border-gray-200 dark:border-neutral-800 bg-gray-50 dark:bg-neutral-900/40 p-4 lg:p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="h-8 w-8 rounded-lg bg-gray-900 text-white dark:bg-white dark:text-gray-900 flex items-center justify-center text-sm font-bold">
-              PQ
-            </div>
-            <div>
-              <div className="text-sm font-semibold">Phigros Query</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">开发平台</div>
-            </div>
-          </div>
-
-          <nav className="flex lg:flex-col gap-2 overflow-x-auto lg:overflow-visible pb-2 lg:pb-0">
+      <div className="grid grid-cols-1 lg:grid-cols-[240px_minmax(0,1fr)] gap-8 items-start">
+        <aside className="space-y-6">
+          <nav className="flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible pb-2 lg:pb-0">
             {PRIMARY_ITEMS.map((item) => (
-              <div key={item.id} className="min-w-[180px] lg:min-w-0">
+              <div key={item.id} className="min-w-[140px] lg:min-w-0">
                 <NavButton item={item} active={activeSection === item.id} onClick={setActiveSection} />
               </div>
             ))}
           </nav>
 
-          <div className="mt-5 pt-4 border-t border-gray-200 dark:border-neutral-800 space-y-2">
+          <div className="hidden lg:block pt-6 border-t border-gray-100 dark:border-neutral-800 space-y-1">
             <a
               href={buildGoHref(DOCS_URL) ?? DOCS_URL}
               target="_blank"
               rel="noreferrer"
-              className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100"
+              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-neutral-800/50 transition-colors"
             >
-              <FileText className="h-4 w-4" aria-hidden="true" />
+              <FileText className="h-4 w-4 text-gray-400 dark:text-gray-500" aria-hidden="true" />
               接口文档
             </a>
             <a
               href="/qa"
-              className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100"
+              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-neutral-800/50 transition-colors"
             >
-              <CircleHelp className="h-4 w-4" aria-hidden="true" />
+              <CircleHelp className="h-4 w-4 text-gray-400 dark:text-gray-500" aria-hidden="true" />
               常见问题
             </a>
             <a
-              href="/about"
-              className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100"
+              href="/open-platform/agreement"
+              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-neutral-800/50 transition-colors"
             >
-              <Mail className="h-4 w-4" aria-hidden="true" />
+              <ScrollText className="h-4 w-4 text-gray-400 dark:text-gray-500" aria-hidden="true" />
+              开放平台协议
+            </a>
+            <a
+              href="/about"
+              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-neutral-800/50 transition-colors"
+            >
+              <Mail className="h-4 w-4 text-gray-400 dark:text-gray-500" aria-hidden="true" />
               联系维护者
             </a>
           </div>
         </aside>
 
-        <main className="p-4 sm:p-6 lg:p-8 bg-gray-100 dark:bg-neutral-950/60">{content}</main>
+        <main className="min-w-0">
+          {content}
+        </main>
       </div>
     </div>
   );
