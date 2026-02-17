@@ -1,14 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Copy, KeyRound, RefreshCw, RotateCw, ShieldBan } from 'lucide-react';
+import { Copy, KeyRound, Plus, RefreshCw, RotateCw, ShieldBan, X } from 'lucide-react';
 import { buttonStyles, cardStyles, inputStyles } from '../../components/ui/styles';
 import { extractProblemMessage } from '../lib/auth';
 import {
   parseApiKeyIssueResponse,
   parseApiKeyListResponse,
   parseDateTimeLocalToUnixSeconds,
-  toDateTimeLocalValue,
   type OpenPlatformApiKeyItem,
   type OpenPlatformApiKeyIssue,
 } from '../lib/keys';
@@ -54,7 +53,7 @@ async function requestJson(url: string, init?: RequestInit): Promise<ApiRequestR
 function formatUnixSeconds(value: number | null): string {
   if (!value) return '-';
   try {
-    return new Date(value * 1000).toLocaleString();
+    return new Date(value * 1000).toLocaleDateString();
   } catch {
     return '-';
   }
@@ -79,10 +78,7 @@ async function copyText(value: string): Promise<boolean> {
 }
 
 /**
- * 开放平台 API Key 控制台：
- * - 创建 Key（申请）
- * - 列表查看
- * - 轮换与撤销
+ * 开放平台 API Key 控制台（Beta 版表格布局）。
  */
 export function OpenPlatformApiKeysPanel() {
   const [keys, setKeys] = useState<OpenPlatformApiKeyItem[]>([]);
@@ -99,6 +95,7 @@ export function OpenPlatformApiKeysPanel() {
   const [environment, setEnvironment] = useState<'live' | 'test'>('live');
   const [expiresAtInput, setExpiresAtInput] = useState('');
   const [scopes, setScopes] = useState<ScopeOption[]>(['public.read']);
+  const [showCreateForm, setShowCreateForm] = useState(false);
 
   const [issued, setIssued] = useState<OpenPlatformApiKeyIssue | null>(null);
   const [copiedHint, setCopiedHint] = useState('');
@@ -217,6 +214,7 @@ export function OpenPlatformApiKeysPanel() {
     setIssued(issuedData);
     setName('');
     setExpiresAtInput('');
+    setShowCreateForm(false);
     await refreshKeys();
   };
 
@@ -284,28 +282,39 @@ export function OpenPlatformApiKeysPanel() {
   };
 
   return (
-    <section className={cardStyles({ padding: 'md' })}>
+    <section className={cardStyles({ padding: 'md', className: 'bg-white dark:bg-neutral-900' })}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-xl font-semibold">API Key 控制台</h2>
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            申请、轮换与撤销开放平台 API Key。请妥善保管明文 token，系统仅展示一次。
+          <h2 className="text-3xl font-semibold tracking-tight">API keys</h2>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            列表为你的全部 API key。创建或轮换时会返回一次性明文 token，请立即保存，不要在浏览器或客户端中泄露。
           </p>
         </div>
-        <button
-          type="button"
-          className={buttonStyles({ variant: 'outline', size: 'sm' })}
-          onClick={() => void refreshKeys()}
-          disabled={listState.loading || createState.loading || isOperating}
-        >
-          <RefreshCw className="h-4 w-4" aria-hidden="true" />
-          刷新列表
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className={buttonStyles({ variant: 'outline', size: 'sm' })}
+            onClick={() => void refreshKeys()}
+            disabled={listState.loading || createState.loading || isOperating}
+          >
+            <RefreshCw className="h-4 w-4" aria-hidden="true" />
+            刷新
+          </button>
+          <button
+            type="button"
+            className={buttonStyles({ variant: 'primary', size: 'sm' })}
+            onClick={() => setShowCreateForm((value) => !value)}
+            disabled={createState.loading || isOperating}
+          >
+            {showCreateForm ? <X className="h-4 w-4" aria-hidden="true" /> : <Plus className="h-4 w-4" aria-hidden="true" />}
+            {showCreateForm ? '收起表单' : '创建 API key'}
+          </button>
+        </div>
       </div>
 
       {isUnauthenticated && (
         <div className="mt-4 rounded-lg border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
-          当前未登录开发者账号，请先在上方完成 GitHub 登录。
+          当前未登录开发者账号，请先在“开发者账户”页签完成 GitHub 登录。
         </div>
       )}
 
@@ -353,73 +362,71 @@ export function OpenPlatformApiKeysPanel() {
         </div>
       )}
 
-      <div className="mt-5 rounded-lg border border-gray-200 dark:border-neutral-800 p-4 sm:p-5 space-y-4">
-        <h3 className="text-base font-semibold">申请新 API Key</h3>
+      {showCreateForm && (
+        <div className="mt-4 rounded-xl border border-gray-200 dark:border-neutral-800 bg-gray-50 dark:bg-neutral-950 p-4 space-y-4">
+          <h3 className="text-base font-semibold">创建 API key</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="open-platform-key-name" className="block text-sm font-medium mb-2">
+                名称
+              </label>
+              <input
+                id="open-platform-key-name"
+                type="text"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                className={inputStyles({ className: 'w-full' })}
+                placeholder="例如：dashboard-prod"
+                maxLength={64}
+                autoComplete="off"
+              />
+            </div>
+            <div>
+              <label htmlFor="open-platform-key-env" className="block text-sm font-medium mb-2">
+                环境
+              </label>
+              <select
+                id="open-platform-key-env"
+                className={inputStyles({ className: 'w-full' })}
+                value={environment}
+                onChange={(event) => setEnvironment(event.target.value === 'test' ? 'test' : 'live')}
+              >
+                <option value="live">live</option>
+                <option value="test">test</option>
+              </select>
+            </div>
+          </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label htmlFor="open-platform-key-name" className="block text-sm font-medium mb-2">
-              Key 名称
+            <label htmlFor="open-platform-key-expire" className="block text-sm font-medium mb-2">
+              过期时间（可选）
             </label>
             <input
-              id="open-platform-key-name"
-              type="text"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              className={inputStyles({ className: 'w-full' })}
-              placeholder="例如：dashboard-prod"
-              maxLength={64}
-              autoComplete="off"
+              id="open-platform-key-expire"
+              type="datetime-local"
+              value={expiresAtInput}
+              onChange={(event) => setExpiresAtInput(event.target.value)}
+              className={inputStyles({ className: 'w-full sm:w-auto' })}
             />
           </div>
+
           <div>
-            <label htmlFor="open-platform-key-env" className="block text-sm font-medium mb-2">
-              环境
-            </label>
-            <select
-              id="open-platform-key-env"
-              className={inputStyles({ className: 'w-full' })}
-              value={environment}
-              onChange={(event) => setEnvironment(event.target.value === 'test' ? 'test' : 'live')}
-            >
-              <option value="live">live</option>
-              <option value="test">test</option>
-            </select>
+            <div className="text-sm font-medium mb-2">Scopes</div>
+            <div className="flex flex-wrap gap-3">
+              {SCOPE_OPTIONS.map((scope) => (
+                <label key={scope} className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={scopes.includes(scope)}
+                    onChange={() => onToggleScope(scope)}
+                    className="h-4 w-4"
+                  />
+                  <span className="font-mono">{scope}</span>
+                </label>
+              ))}
+            </div>
           </div>
-        </div>
 
-        <div>
-          <label htmlFor="open-platform-key-expire" className="block text-sm font-medium mb-2">
-            过期时间（可选）
-          </label>
-          <input
-            id="open-platform-key-expire"
-            type="datetime-local"
-            value={expiresAtInput}
-            onChange={(event) => setExpiresAtInput(event.target.value)}
-            className={inputStyles({ className: 'w-full sm:w-auto' })}
-          />
-          <p className="mt-2 text-xs text-gray-500 dark:text-gray-500">不填写表示按后端默认策略处理。</p>
-        </div>
-
-        <div>
-          <div className="text-sm font-medium mb-2">Scopes</div>
-          <div className="flex flex-wrap gap-3">
-            {SCOPE_OPTIONS.map((scope) => (
-              <label key={scope} className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                <input
-                  type="checkbox"
-                  checked={scopes.includes(scope)}
-                  onChange={() => onToggleScope(scope)}
-                  className="h-4 w-4"
-                />
-                <span className="font-mono">{scope}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <div>
           <button
             type="button"
             className={buttonStyles({ variant: 'primary', size: 'sm' })}
@@ -427,74 +434,94 @@ export function OpenPlatformApiKeysPanel() {
             disabled={createState.loading || listState.loading || isOperating}
           >
             <KeyRound className="h-4 w-4" aria-hidden="true" />
-            {createState.loading ? '创建中...' : '创建 API Key'}
+            {createState.loading ? '创建中...' : '提交创建'}
           </button>
         </div>
-      </div>
+      )}
 
-      <div className="mt-5 space-y-3">
-        <h3 className="text-base font-semibold">已创建的 API Keys</h3>
-        {listState.loading && <p className="text-sm text-gray-600 dark:text-gray-400">正在加载 API Key 列表...</p>}
-        {!listState.loading && keys.length === 0 && (
-          <p className="text-sm text-gray-600 dark:text-gray-400">暂无 API Key，先创建一个开始接入。</p>
-        )}
+      <div className="mt-5 overflow-x-auto rounded-xl border border-gray-200 dark:border-neutral-800">
+        <table className="min-w-[860px] w-full text-sm">
+          <thead className="bg-gray-50 dark:bg-neutral-900">
+            <tr className="text-left text-gray-600 dark:text-gray-400">
+              <th className="px-4 py-3 font-medium">名称</th>
+              <th className="px-4 py-3 font-medium">Key</th>
+              <th className="px-4 py-3 font-medium">Scopes</th>
+              <th className="px-4 py-3 font-medium">创建日期</th>
+              <th className="px-4 py-3 font-medium">最近使用日期</th>
+              <th className="px-4 py-3 font-medium">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {listState.loading && (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-gray-600 dark:text-gray-400">
+                  正在加载 API Key 列表...
+                </td>
+              </tr>
+            )}
+            {!listState.loading && keys.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-gray-600 dark:text-gray-400">
+                  暂无 API Key，点击右上角按钮创建第一个 key。
+                </td>
+              </tr>
+            )}
+            {!listState.loading &&
+              keys.map((item) => {
+                const isRotating = operationState.keyId === item.id && operationState.action === 'rotate';
+                const isRevoking = operationState.keyId === item.id && operationState.action === 'revoke';
+                const canRevoke = item.status !== 'revoked';
 
-        {keys.map((item) => {
-          const isRotating = operationState.keyId === item.id && operationState.action === 'rotate';
-          const isRevoking = operationState.keyId === item.id && operationState.action === 'revoke';
-          const canRevoke = item.status !== 'revoked';
-          const expireHint = item.expiresAt ? toDateTimeLocalValue(item.expiresAt).replace('T', ' ') : '永久/后端默认';
-
-          return (
-            <article key={item.id} className="rounded-lg border border-gray-200 dark:border-neutral-800 p-4 space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <div>
-                  <h4 className="font-medium text-gray-900 dark:text-gray-100">{item.name}</h4>
-                  <p className="mt-1 text-xs font-mono text-gray-600 dark:text-gray-400">{item.keyMasked}</p>
-                </div>
-                <span className="inline-flex w-fit rounded-full border border-gray-300 dark:border-neutral-700 px-2.5 py-1 text-xs text-gray-700 dark:text-gray-300">
-                  {item.status}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs text-gray-600 dark:text-gray-400">
-                <div>创建：{formatUnixSeconds(item.createdAt)}</div>
-                <div>过期：{expireHint}</div>
-                <div>最近使用：{formatUnixSeconds(item.lastUsedAt)}</div>
-                <div>调用次数：{item.usageCount}</div>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {item.scopes.map((scope) => (
-                  <span key={`${item.id}:${scope}`} className="rounded-md bg-gray-100 dark:bg-neutral-800 px-2 py-1 text-xs font-mono">
-                    {scope}
-                  </span>
-                ))}
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className={buttonStyles({ variant: 'outline', size: 'sm' })}
-                  onClick={() => void handleRotate(item.id)}
-                  disabled={isOperating || createState.loading || listState.loading}
-                >
-                  <RotateCw className="h-4 w-4" aria-hidden="true" />
-                  {isRotating ? '轮换中...' : '轮换'}
-                </button>
-                <button
-                  type="button"
-                  className={buttonStyles({ variant: 'danger', size: 'sm' })}
-                  onClick={() => void handleRevoke(item.id, item.name)}
-                  disabled={!canRevoke || isOperating || createState.loading || listState.loading}
-                >
-                  <ShieldBan className="h-4 w-4" aria-hidden="true" />
-                  {isRevoking ? '撤销中...' : '撤销'}
-                </button>
-              </div>
-            </article>
-          );
-        })}
+                return (
+                  <tr key={item.id} className="border-t border-gray-200 dark:border-neutral-800">
+                    <td className="px-4 py-3 align-top">
+                      <div className="font-medium text-gray-900 dark:text-gray-100">{item.name}</div>
+                      <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{item.status}</div>
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-gray-700 dark:text-gray-300 align-top">
+                      {item.keyMasked}
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <div className="flex flex-wrap gap-1.5">
+                        {item.scopes.map((scope) => (
+                          <span key={`${item.id}:${scope}`} className="rounded bg-gray-100 dark:bg-neutral-800 px-2 py-1 text-[11px] font-mono text-gray-700 dark:text-gray-300">
+                            {scope}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300 align-top">{formatUnixSeconds(item.createdAt)}</td>
+                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300 align-top">{formatUnixSeconds(item.lastUsedAt)}</td>
+                    <td className="px-4 py-3 align-top">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          className={buttonStyles({ variant: 'outline', size: 'sm', className: 'px-2.5 py-2' })}
+                          onClick={() => void handleRotate(item.id)}
+                          disabled={isOperating || createState.loading || listState.loading}
+                          title="轮换"
+                        >
+                          <RotateCw className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                        <button
+                          type="button"
+                          className={buttonStyles({ variant: 'danger', size: 'sm', className: 'px-2.5 py-2' })}
+                          onClick={() => void handleRevoke(item.id, item.name)}
+                          disabled={!canRevoke || isOperating || createState.loading || listState.loading}
+                          title="撤销"
+                        >
+                          <ShieldBan className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                        {(isRotating || isRevoking) && (
+                          <span className="text-xs text-gray-500 dark:text-gray-400">{isRotating ? '轮换中...' : '撤销中...'}</span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+          </tbody>
+        </table>
       </div>
     </section>
   );
