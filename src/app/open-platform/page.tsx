@@ -4,6 +4,7 @@ import { SiteHeader } from '../components/SiteHeader';
 import { safeJsonLdStringify } from '../lib/security/safeJsonLdStringify';
 import { SITE_URL } from '../utils/site-url';
 import { OpenPlatformBetaDashboard } from './components/OpenPlatformBetaDashboard';
+import { headers } from 'next/headers';
 
 export const metadata: Metadata = {
   title: '开发者仪表盘 Beta | Phigros Query',
@@ -28,7 +29,9 @@ export const metadata: Metadata = {
   },
 };
 
-export default function OpenPlatformPage() {
+export default async function OpenPlatformPage() {
+  const nonce = (await headers()).get('x-nonce') || undefined;
+
   const softwareJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
@@ -53,6 +56,7 @@ export default function OpenPlatformPage() {
       beforeMain={
         <script
           type="application/ld+json"
+          nonce={nonce}
           dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(softwareJsonLd) }}
         />
       }

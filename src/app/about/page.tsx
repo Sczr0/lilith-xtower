@@ -7,6 +7,7 @@ import { SITE_URL } from '../utils/site-url';
 import { buildGoHref } from '../utils/outbound';
 import { AboutClientSections } from './components/AboutClientSections';
 import { SUPPORT_LINK_SECTIONS } from './supportLinks';
+import { headers } from 'next/headers';
 
 const AVATAR_SRC = '/about/avatar.png';
 
@@ -15,6 +16,8 @@ const AVATAR_SRC = '/about/avatar.png';
  * 静态内容在服务端渲染，动态部分（平台检测、服务统计）由客户端组件处理
  */
 export default async function AboutPage() {
+  const nonce = (await headers()).get('x-nonce') || undefined;
+
   // 在服务端获取预编译的 About HTML
   let aboutHtml = '';
   let aboutError: string | null = null;
@@ -75,6 +78,7 @@ export default async function AboutPage() {
           {/* BreadcrumbList 结构化数据 */}
           <script
             type="application/ld+json"
+            nonce={nonce}
             // 说明：JSON-LD 属于“无需执行的结构化数据”，随 HTML 输出可提升爬虫抓取稳定性。
             dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(breadcrumbJsonLd) }}
           />
@@ -82,6 +86,7 @@ export default async function AboutPage() {
           {/* Person 结构化数据 */}
           <script
             type="application/ld+json"
+            nonce={nonce}
             // 说明：JSON-LD 属于“无需执行的结构化数据”，随 HTML 输出可提升爬虫抓取稳定性。
             dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(personJsonLd) }}
           />
