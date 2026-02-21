@@ -1,18 +1,33 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import type { AuthCredential } from '../lib/types/auth';
-import { AuthStorage } from '../lib/storage/auth';
-import { AuthAPI } from '../lib/api/auth';
-import { RotatingTips } from '../components/RotatingTips';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-// 动态加载协议弹窗，避免 react-markdown 进入全局共享 chunk
-const AgreementModal = dynamic(() => import('../components/AgreementModal').then(m => m.AgreementModal), { ssr: false, loading: () => null });
 
-import { useServiceReachability } from '../hooks/useServiceReachability';
+import { RotatingTips } from '../components/RotatingTips';
+import { AuthAPI } from '../lib/api/auth';
+import {
+  detectGlobalBanFromResponse,
+  shouldInspectBanForRequest,
+} from '../lib/auth/banGuard';
 import type { AuthCredentialSummary, SessionStatusResponse } from '../lib/auth/credentialSummary';
-import { AGREEMENT_ACCEPTED_KEY } from '../lib/constants/storageKeys';
+import { AGREEMENT_ACCEPTED_KEY, BANNED_DETAIL_KEY } from '../lib/constants/storageKeys';
+import { AuthStorage } from '../lib/storage/auth';
+import type { AuthCredential } from '../lib/types/auth';
+import { useServiceReachability } from '../hooks/useServiceReachability';
+
+const AgreementModal = dynamic(
+  () => import('../components/AgreementModal').then((m) => m.AgreementModal),
+  { ssr: false, loading: () => null },
+);
 
 type AuthState = {
   isAuthenticated: boolean;
@@ -33,30 +48,42 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+const DEFAULT_BANNED_DETAIL = '用户已被全局封禁';
+
 function triggerPostLoginPreload(): void {
-  // 说明：预加载工具体积较大，改为登录后按需加载，避免进入全站首屏共享包。
   void import('../lib/utils/preload')
     .then(({ runPostLoginPreload }) => {
       runPostLoginPreload();
     })
     .catch(() => {
-      // 忽略预加载模块失败，不影响登录主流程
+      // 预加载失败不影响主流程
     });
 }
 
 function triggerClearPrefetchCache(): void {
-  // 说明：仅在登出时才需要清理预取缓存，按需加载以降低首屏成本。
   void import('../lib/utils/preload')
     .then(({ clearPrefetchCache }) => {
       clearPrefetchCache();
     })
     .catch(() => {
-      // 忽略清理失败，不阻断登出
+      // 清理失败不阻断退出
     });
 }
 
+function clearUserLocalCaches(): void {
+  localStorage.removeItem(AGREEMENT_ACCEPTED_KEY);
+  try {
+    localStorage.removeItem('cache_rks_records_v1');
+    localStorage.removeItem('cache_rks_records_v2');
+    localStorage.removeItem('cache_bestn_meta_v1');
+    localStorage.removeItem('cache_song_image_meta_v1');
+  } catch {
+    // 忽略本地存储异常
+  }
+  triggerClearPrefetchCache();
+}
+
 export function AuthProvider({ children }: AuthProviderProps) {
-  // 说明：登录态由服务端 HttpOnly 会话 Cookie 决定；客户端不再读取 localStorage 的凭证（P0-1）。
   const router = useRouter();
   const [authState, setAuthState] = useState<AuthState>({
     isAuthenticated: false,
@@ -67,36 +94,48 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [showAgreement, setShowAgreement] = useState(false);
   const [agreementHtml, setAgreementHtml] = useState<string>('');
   const [isInitialized, setIsInitialized] = useState(false);
+  const banHandlingRef = useRef(false);
 
-  // 当出现"服务器暂时无法访问/网络错误"时，轮询健康端点，恢复后移除横幅
-  const shouldPollStatus = !!authState.error && (/服务器暂时无法访问/.test(authState.error || '') || /网络错误/.test(authState.error || ''));
+  const shouldPollStatus =
+    !!authState.error &&
+    (/服务器暂时无法访问/.test(authState.error) || /网络错误/.test(authState.error));
   useServiceReachability({
     shouldPoll: shouldPollStatus,
-    onReachable: () => setAuthState(prev => ({ ...prev, error: null })),
+    onReachable: () => setAuthState((prev) => ({ ...prev, error: null })),
   });
 
-  // 客户端 hydration 后进行后台健康检查（不阻塞渲染）
   useEffect(() => {
     if (isInitialized) return;
     setIsInitialized(true);
 
-    // 1) 初始化：从服务端 session 读取登录态
-    fetch('/api/session', { method: 'GET', cache: 'no-store', headers: { Accept: 'application/json' } })
+    fetch('/api/session', {
+      method: 'GET',
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+    })
       .then(async (res) => {
-        const payload = (await res.json().catch(() => null)) as (SessionStatusResponse & { error?: string }) | null;
+        const payload = (await res.json().catch(() => null)) as
+          | (SessionStatusResponse & { error?: string })
+          | null;
         if (!res.ok || !payload) {
           throw new Error(payload?.error || `获取会话失败（${res.status}）`);
         }
-        // 仅在已登录时做后台健康检查（不阻塞 UI）
+
         if (payload.isAuthenticated) {
           AuthAPI.checkHealth()
-            .then(ok => {
-              if (!ok) setAuthState(prev => ({ ...prev, error: '服务器暂时无法访问，请稍后再试' }));
+            .then((ok) => {
+              if (!ok) {
+                setAuthState((prev) => ({
+                  ...prev,
+                  error: '服务器暂时无法访问，请稍后再试',
+                }));
+              }
             })
             .catch(() => {
-              // 忽略健康检查错误，不影响用户体验
+              // 健康检查失败不阻断流程
             });
         }
+
         setAuthState({
           isAuthenticated: payload.isAuthenticated,
           credential: payload.credential,
@@ -106,113 +145,189 @@ export function AuthProvider({ children }: AuthProviderProps) {
       })
       .catch((error) => {
         const message = error instanceof Error ? error.message : '初始化认证状态失败';
-        setAuthState({ isAuthenticated: false, credential: null, isLoading: false, error: message });
+        setAuthState({
+          isAuthenticated: false,
+          credential: null,
+          isLoading: false,
+          error: message,
+        });
       });
-  }, [isInitialized, authState.isAuthenticated, authState.credential]);
+  }, [isInitialized]);
 
-  const proceedLogin = async (credential: AuthCredential) => {
-    try {
-      setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
+  const performClientLogout = useCallback(
+    (reason: 'manual' | 'banned', detail?: string | null) => {
+      if (reason === 'banned' && banHandlingRef.current) return;
 
-      const taptapVersion = AuthStorage.getTapTapVersion();
-      const res = await fetch('/api/session/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ credential, taptapVersion }),
-      });
-      const data = (await res.json().catch(() => null)) as
-        | { success: true; credential: AuthCredentialSummary; taptapVersion: string }
-        | { success: false; message: string }
-        | null;
-      if (!res.ok || !data || data.success !== true) {
-        throw new Error((data && 'message' in data && data.message) ? data.message : `登录失败（${res.status}）`);
+      if (reason === 'banned') {
+        banHandlingRef.current = true;
+        const normalizedDetail = detail?.trim() || DEFAULT_BANNED_DETAIL;
+        sessionStorage.setItem(BANNED_DETAIL_KEY, normalizedDetail);
+      } else {
+        sessionStorage.removeItem(BANNED_DETAIL_KEY);
       }
 
-      setAuthState({ isAuthenticated: true, credential: data.credential, isLoading: false, error: null });
-
-      // 登录成功后预加载关键数据
-      triggerPostLoginPreload();
-
-      router.replace('/dashboard');
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : '登录失败';
-      setAuthState(prev => ({ ...prev, isLoading: false, error: errorMessage }));
-      throw error;
-    }
-  };
-
-  const login = async (credential: AuthCredential) => {
-    const agreementAccepted = localStorage.getItem(AGREEMENT_ACCEPTED_KEY);
-    if (agreementAccepted) {
-      await proceedLogin(credential);
-      return;
-    }
-
-    // 先验证并保存凭证，再弹出同意弹窗（默认简化模式）
-    try {
-      setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
-
-      const taptapVersion = AuthStorage.getTapTapVersion();
-      const res = await fetch('/api/session/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ credential, taptapVersion }),
+      fetch('/api/session/logout', { method: 'POST' }).catch(() => {});
+      clearUserLocalCaches();
+      setAuthState({
+        isAuthenticated: false,
+        credential: null,
+        isLoading: false,
+        error: null,
       });
-      const data = (await res.json().catch(() => null)) as
-        | { success: true; credential: AuthCredentialSummary; taptapVersion: string }
-        | { success: false; message: string }
-        | null;
-      if (!res.ok || !data || data.success !== true) {
-        throw new Error((data && 'message' in data && data.message) ? data.message : `登录失败（${res.status}）`);
+
+      if (reason === 'banned') {
+        router.replace('/banned');
+        return;
+      }
+      router.replace('/login');
+    },
+    [router],
+  );
+
+  useEffect(() => {
+    const origin = window.location.origin;
+    const nativeFetch = window.fetch.bind(window);
+
+    const guardedFetch: typeof window.fetch = async (input, init) => {
+      const response = await nativeFetch(input, init);
+      if (!shouldInspectBanForRequest(input, origin)) return response;
+
+      const banResult = await detectGlobalBanFromResponse(response);
+      if (banResult.isGlobalBan) {
+        performClientLogout('banned', banResult.detail);
+      }
+      return response;
+    };
+
+    window.fetch = guardedFetch;
+    return () => {
+      window.fetch = nativeFetch;
+    };
+  }, [performClientLogout]);
+
+  const proceedLogin = useCallback(
+    async (credential: AuthCredential) => {
+      try {
+        setAuthState((prev) => ({ ...prev, isLoading: true, error: null }));
+
+        const taptapVersion = AuthStorage.getTapTapVersion();
+        const res = await fetch('/api/session/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ credential, taptapVersion }),
+        });
+
+        const data = (await res.json().catch(() => null)) as
+          | { success: true; credential: AuthCredentialSummary; taptapVersion: string }
+          | { success: false; message: string }
+          | null;
+
+        if (!res.ok || !data || data.success !== true) {
+          throw new Error(
+            data && 'message' in data && data.message ? data.message : `登录失败（${res.status}）`,
+          );
+        }
+
+        banHandlingRef.current = false;
+        sessionStorage.removeItem(BANNED_DETAIL_KEY);
+
+        setAuthState({
+          isAuthenticated: true,
+          credential: data.credential,
+          isLoading: false,
+          error: null,
+        });
+
+        triggerPostLoginPreload();
+        router.replace('/dashboard');
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : '登录失败';
+        setAuthState((prev) => ({ ...prev, isLoading: false, error: errorMessage }));
+        throw error;
+      }
+    },
+    [router],
+  );
+
+  const login = useCallback(
+    async (credential: AuthCredential) => {
+      const agreementAccepted = localStorage.getItem(AGREEMENT_ACCEPTED_KEY);
+      if (agreementAccepted) {
+        await proceedLogin(credential);
+        return;
       }
 
-      setAuthState({ isAuthenticated: true, credential: data.credential, isLoading: false, error: null });
+      try {
+        setAuthState((prev) => ({ ...prev, isLoading: true, error: null }));
 
-      // 简化模式：不给 html，则弹窗走“勾选确认”
-      setAgreementHtml('');
-      setShowAgreement(true);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : '登录失败';
-      setAuthState({ isAuthenticated: false, credential: null, isLoading: false, error: errorMessage });
-    }
-  };
+        const taptapVersion = AuthStorage.getTapTapVersion();
+        const res = await fetch('/api/session/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ credential, taptapVersion }),
+        });
 
-  const handleAgree = async () => {
+        const data = (await res.json().catch(() => null)) as
+          | { success: true; credential: AuthCredentialSummary; taptapVersion: string }
+          | { success: false; message: string }
+          | null;
+
+        if (!res.ok || !data || data.success !== true) {
+          throw new Error(
+            data && 'message' in data && data.message ? data.message : `登录失败（${res.status}）`,
+          );
+        }
+
+        banHandlingRef.current = false;
+        sessionStorage.removeItem(BANNED_DETAIL_KEY);
+
+        setAuthState({
+          isAuthenticated: true,
+          credential: data.credential,
+          isLoading: false,
+          error: null,
+        });
+
+        setAgreementHtml('');
+        setShowAgreement(true);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : '登录失败';
+        setAuthState({
+          isAuthenticated: false,
+          credential: null,
+          isLoading: false,
+          error: errorMessage,
+        });
+      }
+    },
+    [proceedLogin],
+  );
+
+  const handleAgree = useCallback(() => {
     setShowAgreement(false);
-
-    // 保存协议接受状态并跳转
     localStorage.setItem(AGREEMENT_ACCEPTED_KEY, 'true');
-    // 同意协议后预加载关键数据（与 proceedLogin 保持一致）
     triggerPostLoginPreload();
     router.replace('/dashboard');
-  };
+  }, [router]);
 
-  const handleCloseAgreement = () => {
+  const handleCloseAgreement = useCallback(() => {
     setShowAgreement(false);
-
-    // 用户拒绝协议，清除凭证和登录状态
     fetch('/api/session/logout', { method: 'POST' }).catch(() => {});
-    setAuthState({ isAuthenticated: false, credential: null, isLoading: false, error: '您需要同意用户协议才能使用本服务' });
-  };
+    sessionStorage.removeItem(BANNED_DETAIL_KEY);
+    clearUserLocalCaches();
+    setAuthState({
+      isAuthenticated: false,
+      credential: null,
+      isLoading: false,
+      error: '您需要同意用户协议才能使用本服务',
+    });
+  }, []);
 
-  const logout = () => {
-    fetch('/api/session/logout', { method: 'POST' }).catch(() => {});
-    localStorage.removeItem(AGREEMENT_ACCEPTED_KEY);
-    // 清除与用户相关的缓存
-    try {
-      localStorage.removeItem('cache_rks_records_v1');
-      localStorage.removeItem('cache_rks_records_v2');
-      localStorage.removeItem('cache_bestn_meta_v1');
-      localStorage.removeItem('cache_song_image_meta_v1');
-    } catch {}
-    // 清除预取缓存
-    triggerClearPrefetchCache();
-    setAuthState({ isAuthenticated: false, credential: null, isLoading: false, error: null });
+  const logout = useCallback(() => {
+    performClientLogout('manual');
+  }, [performClientLogout]);
 
-    router.replace('/login');
-  };
-
-  const validateCurrentCredential = async (): Promise<boolean> => {
+  const validateCurrentCredential = useCallback(async (): Promise<boolean> => {
     try {
       const res = await fetch('/api/session/validate', {
         method: 'POST',
@@ -229,7 +344,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.error('验证凭证失败:', error);
       return false;
     }
-  };
+  }, [logout]);
 
   const value: AuthContextType = {
     ...authState,
@@ -242,35 +357,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
     <AuthContext.Provider value={value}>
       {children}
       {showAgreement && (
-        <AgreementModal
-          html={agreementHtml}
-          onAgree={handleAgree}
-          onClose={handleCloseAgreement}
-        />
+        <AgreementModal html={agreementHtml} onAgree={handleAgree} onClose={handleCloseAgreement} />
       )}
     </AuthContext.Provider>
   );
 }
 
-/**
- * 使用认证上下文的Hook
- */
 export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
-
   if (context === undefined) {
     throw new Error('useAuth必须在AuthProvider内部使用');
   }
-
   return context;
 }
 
-/**
- * 认证保护的高阶组件
- */
-export function withAuth<P extends object>(
-  Component: React.ComponentType<P>
-): React.ComponentType<P> {
+export function withAuth<P extends object>(Component: React.ComponentType<P>): React.ComponentType<P> {
   return function AuthenticatedComponent(props: P) {
     const { isAuthenticated, isLoading } = useAuth();
     const router = useRouter();
