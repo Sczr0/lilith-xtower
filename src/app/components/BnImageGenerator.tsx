@@ -6,7 +6,7 @@ import { ImageAPI, BestNTheme, type ImageFormat } from '../lib/api/image';
 import { useGenerationBusy, useGenerationManager, useGenerationResult } from '../contexts/GenerationContext';
 import { StyledSelect } from './ui/Select';
 import { LoadingPlaceholder, LoadingSpinner } from './LoadingIndicator';
-import { SVGRenderer, type RenderProgress } from '../utils/svgRenderer';
+import { SVGRenderer, rewriteSvgImageUrlsToSameOriginProxy, type RenderProgress } from '../utils/svgRenderer';
 
 const DEFAULT_N = 27;
 
@@ -192,7 +192,12 @@ export function BnImageGenerator({
       'svg { text-rendering: geometricPrecision; }',
     ].join('\n');
 
-    return injectStyle(svgSource, cssFix);
+    const proxiedSvg = rewriteSvgImageUrlsToSameOriginProxy(svgSource, {
+      baseUrl: typeof window !== 'undefined' ? window.location.href : undefined,
+      allowedHosts: ['somnia.xtower.site'],
+    });
+
+    return injectStyle(proxiedSvg, cssFix);
   }, [format, svgSource]);
 
   const handleExportPng = async () => {

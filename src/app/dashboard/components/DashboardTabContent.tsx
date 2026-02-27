@@ -69,6 +69,10 @@ const LeaderboardPanel = dynamic(() => import('../../components/LeaderboardPanel
   ssr: false,
   loading: () => <PanelSkeleton rows={10} />,
 });
+const LilithLabsPanel = dynamic(() => import('../../components/LilithLabsPanel').then((m) => m.LilithLabsPanel), {
+  ssr: false,
+  loading: () => <PanelSkeleton rows={8} />,
+});
 
 type DashboardTabContentProps = {
   activeTab: TabId;
@@ -145,6 +149,8 @@ export function DashboardTabContent({
           <PlayerScoreRenderer />
         </div>
       );
+    case 'labs-lilith':
+      return <LilithLabsPanel />;
     case 'stats':
       return (
         <div className="space-y-6">
@@ -159,4 +165,3 @@ export function DashboardTabContent({
       return null;
   }
 }
-

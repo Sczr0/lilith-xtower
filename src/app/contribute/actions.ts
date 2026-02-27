@@ -46,6 +46,15 @@ export async function submitFeedback(formData: FormData) {
     return { success: false, message: `内容过长（限${limit}字）` };
   }
 
+  // 规则：除 Tip 投稿外，其余分类必须提供联系方式
+  const requiresContact = category === 'bug' || category === 'feature' || category === 'other';
+  if (requiresContact && contactRaw.trim().length === 0) {
+    return {
+      success: false,
+      message: '该分类需填写联系方式；也可加入QQ群：https://qm.qq.com/q/YQMW1eiz8m',
+    };
+  }
+
   const webhookUrl = process.env.FEISHU_WEBHOOK_URL;
   if (!webhookUrl) {
     console.error('未配置飞书 Webhook');

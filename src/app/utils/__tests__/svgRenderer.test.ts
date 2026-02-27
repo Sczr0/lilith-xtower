@@ -5,6 +5,7 @@ import {
   injectSvgImageCrossOrigin,
   inlineSvgExternalImages,
   parseSvgDimensions,
+  rewriteSvgImageUrlsToSameOriginProxy,
   rewriteCssRelativeUrls,
   sanitizeSvgXmlText,
 } from '../svgRenderer';
@@ -50,6 +51,35 @@ describe('injectSvgImageCrossOrigin', () => {
     const svg =
       '<svg xmlns="http://www.w3.org/2000/svg"><image crossorigin="use-credentials" href="https://somnia.xtower.site/a.png" /></svg>';
     expect(injectSvgImageCrossOrigin(svg)).toContain('crossorigin="use-credentials"');
+  });
+});
+
+describe('rewriteSvgImageUrlsToSameOriginProxy', () => {
+  it('rewrites somnia absolute webp url to same-origin proxy', () => {
+    const svg =
+      '<svg xmlns="http://www.w3.org/2000/svg"><image href="https://somnia.xtower.site/lilith/ill/a.webp" /></svg>';
+    const out = rewriteSvgImageUrlsToSameOriginProxy(svg);
+    expect(out).toContain(
+      'href="/api/proxy/image?url=https%3A%2F%2Fsomnia.xtower.site%2Flilith%2Fill%2Fa.webp"',
+    );
+  });
+
+  it('does not rewrite non-allowed hosts', () => {
+    const svg =
+      '<svg xmlns="http://www.w3.org/2000/svg"><image href="https://example.com/lilith/ill/a.webp" /></svg>';
+    const out = rewriteSvgImageUrlsToSameOriginProxy(svg);
+    expect(out).toContain('href="https://example.com/lilith/ill/a.webp"');
+    expect(out).not.toContain('/api/proxy/image?url=');
+  });
+
+  it('rewrites root-relative href with baseUrl when host is allowed', () => {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg"><image href="/lilith/ill/a.webp" /></svg>';
+    const out = rewriteSvgImageUrlsToSameOriginProxy(svg, {
+      baseUrl: 'https://somnia.xtower.site/any/path',
+    });
+    expect(out).toContain(
+      'href="/api/proxy/image?url=https%3A%2F%2Fsomnia.xtower.site%2Flilith%2Fill%2Fa.webp"',
+    );
   });
 });
 

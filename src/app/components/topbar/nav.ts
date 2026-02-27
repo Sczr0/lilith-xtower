@@ -36,7 +36,7 @@ export function buildSiteNavItems(enableOpenPlatformNav: boolean): NavItem[] {
     { href: '/about', label: '关于' },
     { href: '/sponsors', label: '赞助者' },
     { href: '/qa', label: '常见问题' },
-    { href: '/contribute', label: '投稿' },
+    { href: '/contribute', label: '投稿与反馈' },
     { href: '/dashboard', label: '仪表盘' },
   ];
 
@@ -59,7 +59,7 @@ export const SITE_NAV_ITEMS: NavItem[] = buildSiteNavItems(isOpenPlatformNavEnab
  */
 export const DASHBOARD_NAV_ITEMS: NavItem[] = [
   { href: '/about', label: '关于' },
-  { href: '/contribute', label: '投稿' },
+  { href: '/contribute', label: '投稿与反馈' },
   { href: '/auth', label: '认证' },
 ];
 
@@ -70,6 +70,6 @@ export const DASHBOARD_NAV_ITEMS: NavItem[] = [
 export const UNIFIED_API_DASHBOARD_NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', label: '个人仪表盘' },
   { href: '/about', label: '关于' },
-  { href: '/contribute', label: '投稿' },
+  { href: '/contribute', label: '投稿与反馈' },
   { href: '/auth', label: '认证' },
 ];

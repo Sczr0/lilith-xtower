@@ -62,6 +62,9 @@ export function useDashboardPrefetch({ isAuthenticated, activeTab }: { isAuthent
         case 'player-score-render':
           import('../../components/PlayerScoreRenderer');
           break;
+        case 'labs-lilith':
+          import('../../components/LilithLabsPanel');
+          break;
         case 'stats':
           import('../../components/ServiceStats');
           break;
@@ -79,6 +82,7 @@ export function useDashboardPrefetch({ isAuthenticated, activeTab }: { isAuthent
         import('../../components/LeaderboardPanel'); // 排行榜 - 常用
         import('../../components/SongUpdateCard'); // 新曲速递 - 较少用
         import('../../components/PlayerScoreRenderer'); // 玩家成绩渲染 - 较少用
+        import('../../components/LilithLabsPanel'); // 实验室-Lilith - 试验能力
         import('../../components/ServiceStats'); // 服务统计 - 较少用
       });
     }, policy.dashboardStage2Delay);

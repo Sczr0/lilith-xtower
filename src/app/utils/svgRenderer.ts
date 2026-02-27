@@ -610,6 +610,48 @@ function buildSameOriginImageProxyUrl(fetchUrl: string): string | null {
   }
 }
 
+export function rewriteSvgImageUrlsToSameOriginProxy(
+  svgText: string,
+  options?: {
+    proxyPath?: string;
+    baseUrl?: string;
+    allowedHosts?: readonly string[];
+  },
+): string {
+  const proxyPath = options?.proxyPath ?? SAME_ORIGIN_IMAGE_PROXY_PATH;
+  const allowedHosts = new Set(
+    (options?.allowedHosts ?? ['somnia.xtower.site']).map((host) => host.toLowerCase()),
+  );
+
+  // 目的：在内联预览阶段将指定域名的外链曲绘改写到同源代理，避免上游路径变更或跨域策略导致预览缺图。
+  // 仅改写 <image> 的 href/xlink:href，其他标签和 data/blob/hash 链接保持不变。
+  return svgText.replace(/<image\b[^>]*>/gi, (tag) => {
+    return tag.replace(
+      /\b(href|xlink:href)\s*=\s*(?:(["'])([^"']+)\2|([^\s>]+))/gi,
+      (rawAttr, attrName: string, quote: string | undefined, quotedHref: string | undefined, unquotedHref: string | undefined) => {
+        const href = (quotedHref ?? unquotedHref ?? '').trim();
+        if (!href) return rawAttr;
+
+        const normalized = normalizeSvgImageHref(href, options?.baseUrl);
+        if (!normalized) return rawAttr;
+
+        let target: URL;
+        try {
+          target = new URL(normalized);
+        } catch {
+          return rawAttr;
+        }
+
+        if (!allowedHosts.has(target.hostname.toLowerCase())) return rawAttr;
+
+        const proxyUrl = `${proxyPath}?url=${encodeURIComponent(target.toString())}`;
+        if (quote) return `${attrName}=${quote}${proxyUrl}${quote}`;
+        return `${attrName}="${proxyUrl}"`;
+      },
+    );
+  });
+}
+
 function isProbablyImageContentType(contentType: string | null, url: string): boolean {
   if (!contentType) return false;
   const trimmed = contentType.trim().toLowerCase();

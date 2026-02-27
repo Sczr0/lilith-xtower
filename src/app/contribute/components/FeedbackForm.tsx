@@ -4,11 +4,13 @@ import { useRef, useState, useTransition } from 'react';
 import { submitFeedback } from '../actions';
 import { buttonStyles, cardStyles, inputStyles } from '../../components/ui/styles';
 
+const QQ_GROUP_URL = 'https://qm.qq.com/q/YQMW1eiz8m';
+
 const CATEGORIES = [
-  { id: 'tip', label: 'Tip 投稿', desc: '分享有趣的 Tips (限100字)', limit: 100 },
-  { id: 'bug', label: 'Bug 反馈', desc: '报告问题或错误 (限500字)', limit: 500 },
-  { id: 'feature', label: '功能建议', desc: '想法与改进建议 (限500字)', limit: 500 },
-  { id: 'other', label: '其他', desc: '其他想说的话 (限500字)', limit: 500 },
+  { id: 'tip', label: 'Tip 投稿', desc: '分享有趣的 Tips（限100字，不受理问题反馈）', limit: 100 },
+  { id: 'bug', label: 'Bug 反馈', desc: '报告问题或错误（限500字，需填写联系方式）', limit: 500 },
+  { id: 'feature', label: '功能建议', desc: '想法与改进建议（限500字，需填写联系方式）', limit: 500 },
+  { id: 'other', label: '其他', desc: '其他想说的话（限500字，需填写联系方式）', limit: 500 },
 ] as const;
 
 type CategoryId = typeof CATEGORIES[number]['id'];
@@ -40,6 +42,8 @@ export function FeedbackForm() {
   }
 
   const currentCategory = CATEGORIES.find(c => c.id === category)!;
+  const requiresContact = category !== 'tip';
+  const showMetaFields = showAdvanced || requiresContact;
 
   return (
     <div className={cardStyles({ tone: 'glass' })}>
@@ -92,30 +96,53 @@ export function FeedbackForm() {
           <div className="mt-1 text-xs text-right text-gray-500 dark:text-gray-400">
              限 {currentCategory.limit} 字
           </div>
+          {category === 'tip' && (
+            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/20 px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
+              <p className="font-medium">Tips 投稿不受理问题反馈。</p>
+              <p className="mt-1">
+                如需反馈问题，请改用「Bug 反馈 / 功能建议 / 其他」，或加入QQ群：
+                {' '}
+                <a
+                  href={QQ_GROUP_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline underline-offset-2 hover:opacity-80"
+                >
+                  {QQ_GROUP_URL}
+                </a>
+              </p>
+            </div>
+          )}
         </div>
 
         <div>
           <div className="flex items-center justify-between mb-2">
-            <button
-              type="button"
-              onClick={() => setShowAdvanced((open) => !open)}
-              className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-300 dark:hover:text-blue-200 font-medium flex items-center gap-1"
-            >
-              {showAdvanced ? (
-                <>
-                  <span>收起选项</span>
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
-                </>
-              ) : (
-                <>
-                  <span>更多选项（署名，联系方式）</span>
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                </>
-              )}
-            </button>
+            {requiresContact ? (
+              <p className="text-sm text-gray-700 dark:text-gray-200 font-medium">
+                署名与联系方式（联系方式必填）
+              </p>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowAdvanced((open) => !open)}
+                className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-300 dark:hover:text-blue-200 font-medium flex items-center gap-1"
+              >
+                {showAdvanced ? (
+                  <>
+                    <span>收起选项</span>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+                  </>
+                ) : (
+                  <>
+                    <span>更多选项（署名，联系方式）</span>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                  </>
+                )}
+              </button>
+            )}
           </div>
 
-          {showAdvanced && (
+          {showMetaFields && (
             <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
               <label htmlFor="author" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                 署名（可选）
@@ -130,7 +157,7 @@ export function FeedbackForm() {
               <p className="text-xs text-gray-500 dark:text-gray-400 text-right">不填默认显示“匿名用户”</p>
 
               <label htmlFor="contact" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mt-4">
-                联系方式（可选）
+                联系方式（{requiresContact ? '必填' : '可选'}）
               </label>
               <input
                 id="contact"
@@ -138,8 +165,26 @@ export function FeedbackForm() {
                 maxLength={50}
                 placeholder="QQ / 邮箱 / 其他社交账号"
                 className={inputStyles({ className: 'py-2.5' })}
+                required={requiresContact}
               />
-              <p className="text-xs text-gray-500 dark:text-gray-400 text-right">方便我们在需要时联系你（仅管理员可见，请标注具体平台）</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 text-right">
+                {requiresContact
+                  ? '该分类需填写联系方式（仅管理员可见，请标注具体平台）；也可加入QQ群：' 
+                  : '方便我们在需要时联系你（仅管理员可见，请标注具体平台）'}
+                {requiresContact && (
+                  <>
+                    {' '}
+                    <a
+                      href={QQ_GROUP_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline underline-offset-2 hover:text-gray-700 dark:hover:text-gray-300"
+                    >
+                      {QQ_GROUP_URL}
+                    </a>
+                  </>
+                )}
+              </p>
             </div>
           )}
         </div>

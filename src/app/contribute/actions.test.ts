@@ -91,12 +91,34 @@ describe('submitFeedback', () => {
     const form = new FormData();
     form.set('content', 'bug report');
     form.set('category', 'bug');
+    form.set('contact', 'qq:123456');
 
     await submitFeedback(form);
 
     const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>;
     const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
     expect(body.content.text).toContain('【Bug 反馈】');
+    expect(body.content.text).toContain('联系方式：qq:123456');
+  });
+
+  it('requires contact for non-tip categories', async () => {
+    headersMock.mockResolvedValue({
+      get(name: string) {
+        if (name.toLowerCase() === 'x-forwarded-for') return '3.3.3.3'
+        return null
+      },
+    } as unknown as Headers)
+
+    const form = new FormData();
+    form.set('content', 'feature request');
+    form.set('category', 'feature');
+
+    const result = await submitFeedback(form);
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('联系方式');
+
+    const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>;
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('rate limits repeated submissions by IP', async () => {
