@@ -34,8 +34,10 @@ export interface RenderOptions {
   embedImageConcurrency?: number;
   // 允许嵌入图片的最大数量（按去重后的 URL 计）
   embedImageMaxCount?: number;
+  // 是否允许在图片直连失败后回退到同源代理（/api/proxy/image）
+  // 默认 true 以保持现有行为；可在特定场景（如首轮导出）显式关闭。
+  allowProxyFallback?: boolean;
 }
-
 export interface RenderProgress {
   stage: 'loading-fonts' | 'fetching-images' | 'rendering' | 'encoding' | 'complete';
   progress: number;
@@ -677,8 +679,9 @@ function guessImageMimeTypeFromUrl(url: string, contentType: string | null): str
 
 async function fetchImageResponseWithFallback(
   fetchUrl: string,
-  debugOptions: { debug?: boolean; debugTag?: string } | undefined,
+  options: { debug?: boolean; debugTag?: string; allowProxyFallback?: boolean } | undefined,
 ): Promise<Response> {
+  const allowProxyFallback = options?.allowProxyFallback ?? true;
   type Attempt = { label: string; url: string; init: RequestInit };
   const attempts: Attempt[] = [{ label: 'direct', url: fetchUrl, init: getFetchInitForUrl(fetchUrl) }];
 
@@ -696,7 +699,7 @@ async function fetchImageResponseWithFallback(
     } catch {}
   }
 
-  const proxyUrl = buildSameOriginImageProxyUrl(fetchUrl);
+  const proxyUrl = allowProxyFallback ? buildSameOriginImageProxyUrl(fetchUrl) : null;
   if (proxyUrl) {
     attempts.push({
       label: 'proxy',
@@ -708,15 +711,15 @@ async function fetchImageResponseWithFallback(
   let lastError: unknown = null;
 
   for (const attempt of attempts) {
-    dgroup(debugOptions, `image:fetch:${attempt.label}`, () => {
-      dlog(debugOptions, 'url =', attempt.url);
-      dlog(debugOptions, 'fetchInit =', attempt.init);
+    dgroup(options, `image:fetch:${attempt.label}`, () => {
+      dlog(options, 'url =', attempt.url);
+      dlog(options, 'fetchInit =', attempt.init);
     });
 
     const start = nowMs();
     try {
       const res = await fetch(attempt.url, attempt.init);
-      dlog(debugOptions, 'fetch response', { status: res.status, ms: Math.round(nowMs() - start) });
+      dlog(options, 'fetch response', { status: res.status, ms: Math.round(nowMs() - start) });
       if (!res.ok) {
         lastError = new Error(`bad status: ${res.status}`);
         continue;
@@ -732,7 +735,7 @@ async function fetchImageResponseWithFallback(
     } catch (e) {
       lastError = e;
       const message = e instanceof Error ? e.message : String(e);
-      dlog(debugOptions, 'fetch failed', { message });
+      dlog(options, 'fetch failed', { message });
       continue;
     }
   }
@@ -789,6 +792,7 @@ export async function inlineSvgExternalImages(
     concurrency?: number;
     debug?: boolean;
     debugTag?: string;
+    allowProxyFallback?: boolean;
     onProgress?: (done: number, total: number) => void;
   },
 ): Promise<string> {
@@ -926,6 +930,7 @@ export async function embedSvgExternalImagesAsObjectUrls(
     baseUrl?: string;
     debug?: boolean;
     debugTag?: string;
+    allowProxyFallback?: boolean;
     onProgress?: (done: number, total: number) => void;
   },
 ): Promise<{ svgText: string; objectUrls: string[]; revoke: () => void }> {
@@ -1212,6 +1217,7 @@ export class SVGRenderer {
       embedImages = 'data',
       embedImageConcurrency = 50,
       embedImageMaxCount = 500,
+      allowProxyFallback = true,
     } = options;
 
     const effectiveEmbedFonts = embedFonts ?? (fontPackId ? 'data' : 'none');
@@ -1233,6 +1239,7 @@ export class SVGRenderer {
         embedImages,
         embedImageConcurrency,
         embedImageMaxCount,
+        allowProxyFallback,
       });
       dlog(debugOptions, 'svgText.length =', svgText.length);
       try {
@@ -1279,6 +1286,7 @@ export class SVGRenderer {
         concurrency: embedImageConcurrency,
         debug,
         debugTag,
+        allowProxyFallback,
         onProgress: (done, total) => {
           const p = 10 + Math.round((done / Math.max(1, total)) * 35);
           onProgress?.({ stage: 'fetching-images', progress: Math.min(45, p) });
@@ -1296,6 +1304,7 @@ export class SVGRenderer {
         baseUrl,
         debug,
         debugTag,
+        allowProxyFallback,
         onProgress: (done, total) => {
           const p = 10 + Math.round((done / Math.max(1, total)) * 35);
           onProgress?.({ stage: 'fetching-images', progress: Math.min(45, p) });
@@ -1475,3 +1484,4 @@ export class SVGRenderer {
     }
   }
 }
+

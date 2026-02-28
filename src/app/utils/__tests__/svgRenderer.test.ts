@@ -113,6 +113,23 @@ describe('inlineSvgExternalImages', () => {
     expect(out).toContain('href="data:image/png;base64,');
   });
 
+  it('does not use proxy fallback when allowProxyFallback is false', async () => {
+    const svg =
+      '<svg xmlns="http://www.w3.org/2000/svg"><image href="https://example.com/a.png" /></svg>';
+
+    const fetchMock = vi.fn(async (_url: RequestInfo | URL) => {
+      void _url;
+      throw new Error('network error');
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const out = await inlineSvgExternalImages(svg, { maxCount: 10, allowProxyFallback: false });
+    expect(out).toContain('href="https://example.com/a.png"');
+
+    const calledUrls = fetchMock.mock.calls.map((call) => String(call[0]));
+    expect(calledUrls).toEqual(['https://example.com/a.png']);
+  });
+
   it('decodes xml character references in href before fetching', async () => {
     const svg =
       '<svg xmlns="http://www.w3.org/2000/svg"><image href="https://example.com/a.png?x=1&amp;y=2" /></svg>';

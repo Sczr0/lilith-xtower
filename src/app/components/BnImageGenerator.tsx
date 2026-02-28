@@ -192,12 +192,8 @@ export function BnImageGenerator({
       'svg { text-rendering: geometricPrecision; }',
     ].join('\n');
 
-    const proxiedSvg = rewriteSvgImageUrlsToSameOriginProxy(svgSource, {
-      baseUrl: typeof window !== 'undefined' ? window.location.href : undefined,
-      allowedHosts: ['somnia.xtower.site'],
-    });
-
-    return injectStyle(proxiedSvg, cssFix);
+    // 预览阶段保持外链，避免默认走同源代理消耗站点 CDN 流量。
+    return injectStyle(svgSource, cssFix);
   }, [format, svgSource]);
 
   const handleExportPng = async () => {
@@ -209,42 +205,60 @@ export function BnImageGenerator({
 
     // 优先使用注入过 CSS 修正后的版本，保证与预览一致
     const svgText = safeInlineSvg ?? svgSource;
+    const baseUrl = typeof window !== 'undefined' ? window.location.href : undefined;
 
     setExportError(null);
     setExportProgress({ stage: 'loading-fonts', progress: 0 });
 
     try {
-      const renderWithMode = (embedImages: 'data' | 'object') =>
-        SVGRenderer.renderToImage(
-          svgText,
-          {
-            format: 'png',
-            scale: 2,
-            quality: 0.95,
-            embedImages,
-            embedImageConcurrency: 32,
-            embedImageMaxCount: 500,
-            baseUrl: typeof window !== 'undefined' ? window.location.href : undefined,
-            fontPackId: 'source-han-sans-saira-hybrid-5446',
-            embedFonts: 'data',
-            embedFontMaxFiles: 400,
-            debug: debugExport,
-            debugTag: 'BestNExport',
-            waitBeforeDrawMs: 0,
-          },
-          (p) => setExportProgress(p),
-        );
+      const renderWithFallbackModes = async (
+        targetSvg: string,
+        allowProxyFallback: boolean,
+      ): Promise<Blob> => {
+        const renderWithMode = (embedImages: 'data' | 'object') =>
+          SVGRenderer.renderToImage(
+            targetSvg,
+            {
+              format: 'png',
+              scale: 2,
+              quality: 0.95,
+              embedImages,
+              embedImageConcurrency: 32,
+              embedImageMaxCount: 500,
+              baseUrl,
+              fontPackId: 'source-han-sans-saira-hybrid-5446',
+              embedFonts: 'data',
+              embedFontMaxFiles: 400,
+              allowProxyFallback,
+              debug: debugExport,
+              debugTag: 'BestNExport',
+              waitBeforeDrawMs: 0,
+            },
+            (p) => setExportProgress(p),
+          );
+
+        try {
+          return await renderWithMode('data');
+        } catch (e) {
+          if (debugExport) {
+            console.warn('[BestNExport] export fallback to embedImages=object:', e);
+          }
+          return renderWithMode('object');
+        }
+      };
 
       let blob: Blob;
       try {
-        // 优先稳定模式：把曲绘内联为 data: URL（大 N 也更不容易随机缺图）
-        blob = await renderWithMode('data');
-      } catch (e) {
-        // 兜底：如果内联导致内存/体积问题，则退回 blob: URL 模式
+        blob = await renderWithFallbackModes(svgText, false);
+      } catch (directError) {
         if (debugExport) {
-          console.warn('[BestNExport] export fallback to embedImages=object:', e);
+          console.warn('[BestNExport] direct export failed, retry with proxy:', directError);
         }
-        blob = await renderWithMode('object');
+        const proxiedSvg = rewriteSvgImageUrlsToSameOriginProxy(svgText, {
+          baseUrl,
+          allowedHosts: ['somnia.xtower.site'],
+        });
+        blob = await renderWithFallbackModes(proxiedSvg, true);
       }
 
       const url = URL.createObjectURL(blob);
@@ -423,3 +437,4 @@ export function BnImageGenerator({
     </section>
   );
 }
+
