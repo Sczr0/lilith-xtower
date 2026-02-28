@@ -4,6 +4,9 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 import { BANNED_DETAIL_KEY } from '../lib/constants/storageKeys';
+import { PageShell } from '../components/PageShell';
+import { SiteHeader } from '../components/SiteHeader';
+import { buttonStyles } from '../components/ui/styles';
 
 const DEFAULT_DETAIL = '用户已被全局封禁';
 
@@ -18,8 +21,14 @@ export default function BannedPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-rose-50 via-white to-orange-50 dark:from-gray-950 dark:via-gray-900 dark:to-red-950 flex items-center justify-center p-6">
-      <section className="w-full max-w-lg rounded-2xl border border-rose-200/70 dark:border-rose-900/50 bg-white/90 dark:bg-gray-900/80 shadow-xl p-8 text-center space-y-5">
+    <PageShell
+      variant="gradient"
+      header={<SiteHeader />}
+      footerVariant="none"
+      mainClassName="flex min-h-[calc(100vh-8rem)] items-center justify-center p-6"
+      containerClassName="mx-auto w-full max-w-lg"
+    >
+      <section className="w-full rounded-2xl border border-rose-200/70 dark:border-rose-900/50 bg-white/90 dark:bg-gray-900/80 shadow-xl p-8 text-center space-y-5">
         <h1 className="text-2xl md:text-3xl font-bold text-rose-700 dark:text-rose-300">账号已被封禁</h1>
         <p className="text-sm md:text-base text-gray-700 dark:text-gray-200">{detail}</p>
         <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
@@ -28,12 +37,15 @@ export default function BannedPage() {
         <div className="pt-2">
           <Link
             href="/"
-            className="inline-flex items-center justify-center rounded-lg border border-rose-300 dark:border-rose-700 px-4 py-2 text-sm font-medium text-rose-700 dark:text-rose-200 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors"
+            className={buttonStyles({
+              variant: 'outline',
+              className: 'border-rose-300 text-rose-700 dark:border-rose-700 dark:text-rose-200 dark:hover:bg-rose-900/30 hover:bg-rose-50',
+            })}
           >
             返回首页
           </Link>
         </div>
       </section>
-    </main>
+    </PageShell>
   );
 }

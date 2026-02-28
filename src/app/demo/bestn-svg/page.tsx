@@ -1,4 +1,5 @@
 import React from 'react';
+import { PageShell } from '../../components/PageShell';
 import { SiteHeader } from '../../components/SiteHeader';
 import { BestnSvgDemoClient } from './components/BestnSvgDemoClient';
 
@@ -15,9 +16,13 @@ export default async function Page({
     (Array.isArray(raw) && (raw.includes('1') || raw.includes('true')));
 
   return (
-    <div className="min-h-screen bg-white dark:bg-neutral-950 text-gray-900 dark:text-gray-50">
-      <SiteHeader />
-      <div className="w-full max-w-5xl mx-auto p-4 sm:p-6 space-y-4">
+    <PageShell
+      variant="plain"
+      header={<SiteHeader />}
+      footerVariant="none"
+      mainClassName="px-4 py-6 sm:px-6 sm:py-8"
+      containerClassName="w-full max-w-5xl mx-auto space-y-4"
+    >
         <header className="space-y-2">
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
             BestN SVG 渲染测试
@@ -32,7 +37,6 @@ export default async function Page({
         </header>
 
         <BestnSvgDemoClient debugExport={debug} />
-      </div>
-    </div>
+    </PageShell>
   );
 }

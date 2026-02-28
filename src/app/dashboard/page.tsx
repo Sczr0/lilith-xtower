@@ -13,6 +13,7 @@ import { useDashboardContent } from './hooks/useDashboardContent';
 import { useClientValue } from '../hooks/useClientValue';
 import { AGREEMENT_ACCEPTED_KEY } from '../lib/constants/storageKeys';
 import { DashboardShell } from './components/DashboardShell';
+import { PageShell } from '../components/PageShell';
 
 const parseDebugExport = (value: string | null): boolean => value === '1' || value === 'true';
 
@@ -58,21 +59,29 @@ export default function Dashboard() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-950 flex items-center justify-center">
+      <PageShell
+        variant="gradient"
+        mainClassName="flex min-h-screen items-center justify-center px-4 py-10"
+        containerClassName="mx-auto max-w-4xl"
+      >
         <div className="flex flex-col items-center" role="status" aria-live="polite">
           <span className="sr-only">正在加载个人成绩仪表盘 - Phigros Query</span>
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" aria-hidden="true"></div>
           <RotatingTips />
         </div>
-      </div>
+      </PageShell>
     );
   }
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-950 flex items-center justify-center">
+      <PageShell
+        variant="gradient"
+        mainClassName="flex min-h-screen items-center justify-center px-4 py-10"
+        containerClassName="mx-auto max-w-4xl"
+      >
         <div className="text-sm text-gray-600 dark:text-gray-400">正在跳转到登录页…</div>
-      </div>
+      </PageShell>
     );
   }
 
@@ -95,7 +104,7 @@ export default function Dashboard() {
     ) : undefined;
 
   return (
-    <>
+    <PageShell variant="gradient" main={false} footerVariant="none">
       {/* 公告弹窗 */}
       {showAnnouncements && announcements.length > 0 && (
         <AnnouncementModal
@@ -138,6 +147,6 @@ export default function Dashboard() {
       >
         {renderContent()}
       </DashboardShell>
-    </>
+    </PageShell>
   );
 }

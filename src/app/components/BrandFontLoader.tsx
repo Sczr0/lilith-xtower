@@ -21,15 +21,40 @@ const BRAND_FONT_CSS = (() => {
   return envHref ? envHref : DEFAULT_BRAND_FONT_CSS;
 })();
 
+const BRAND_FONT_STYLESHEET_ID = 'brand-font-stylesheet';
+const BRAND_FONT_PRECONNECT_ID = 'brand-font-preconnect';
+
+function ensurePreconnect(href: string) {
+  try {
+    const origin = new URL(href, window.location.origin).origin;
+    if (!origin || document.getElementById(BRAND_FONT_PRECONNECT_ID)) return;
+    const preconnect = document.createElement('link');
+    preconnect.id = BRAND_FONT_PRECONNECT_ID;
+    preconnect.rel = 'preconnect';
+    preconnect.href = origin;
+    preconnect.crossOrigin = 'anonymous';
+    document.head.appendChild(preconnect);
+  } catch {
+    /* ignore */
+  }
+}
+
 export function BrandFontLoader() {
   useEffect(() => {
     const loadBrandFonts = () => {
       try {
+        if (document.getElementById(BRAND_FONT_STYLESHEET_ID)) return;
+        ensurePreconnect(BRAND_FONT_CSS);
+
         const link = document.createElement('link');
+        link.id = BRAND_FONT_STYLESHEET_ID;
         link.rel = 'stylesheet';
         link.href = BRAND_FONT_CSS;
+        link.media = 'print';
+        link.setAttribute('fetchpriority', 'low');
         link.onload = () => {
           try {
+            link.media = 'all';
             document.documentElement.classList.add('brand-font');
           } catch {
             /* ignore */

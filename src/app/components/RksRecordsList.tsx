@@ -2,140 +2,23 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { RotatingTips } from './RotatingTips';
 import { useAuth } from '../contexts/AuthContext';
 import { ScoreAPI } from '../lib/api/score';
 import { RksRecord } from '../lib/types/score';
-import { DIFFICULTY_BG, DIFFICULTY_TEXT } from '../lib/constants/difficultyColors';
-import { ScoreCard } from './ScoreCard';
 import { getOwnerKey } from '../lib/utils/cache';
 import { StyledSelect } from './ui/Select';
 import { RksHistoryPanel } from './RksHistoryPanel';
 import { filterSortLimitRksRecords, type RksSortBy, type RksSortOrder } from '../lib/utils/rksRecords';
-import { formatFixedNumber, formatLocaleNumber, parseFiniteNumber } from '../lib/utils/number';
+import { formatFixedNumber } from '../lib/utils/number';
 import { attachRksPushAcc } from '../lib/utils/rksPush';
 import { exportTabularDataToCsv, exportTabularDataToTsv } from '../lib/utils/tabularExport';
-
-type ParsedFilterNumber = {
-  value: number | null;
-  error: string | null;
-};
-
-function parseFilterNumber(raw: string, options?: { integer?: boolean; min?: number; max?: number }): ParsedFilterNumber {
-  const text = raw.trim();
-  if (!text) return { value: null, error: null };
-
-  // 兼容用户粘贴带千分位分隔符的数字（如 10,000）
-  const normalized = text.replace(/,/g, '');
-  const parsed = Number(normalized);
-  if (!Number.isFinite(parsed)) return { value: null, error: '请输入有效数字' };
-
-  if (options?.integer && !Number.isInteger(parsed)) {
-    return { value: parsed, error: '请输入整数' };
-  }
-
-  if (typeof options?.min === 'number' && Number.isFinite(options.min) && parsed < options.min) {
-    return { value: parsed, error: `不能小于 ${options.min}` };
-  }
-
-  if (typeof options?.max === 'number' && Number.isFinite(options.max) && parsed > options.max) {
-    return { value: parsed, error: `不能大于 ${options.max}` };
-  }
-
-  return { value: parsed, error: null };
-}
-
-type RksFiltersSnapshot = {
-  searchQuery: string;
-  filterDifficulty: 'all' | 'EZ' | 'HD' | 'IN' | 'AT';
-  sortBy: RksSortBy;
-  sortOrder: RksSortOrder;
-  minRks: string;
-  maxRks: string;
-  minAcc: string;
-  maxAcc: string;
-  minDifficultyValue: string;
-  maxDifficultyValue: string;
-  minScore: string;
-  maxScore: string;
-  onlyPositiveRks: boolean;
-  limitCount: string;
-};
-
-const sanitizeCachedRksFilters = (raw: unknown): RksFiltersSnapshot | null => {
-  if (!raw || typeof raw !== 'object') return null;
-  const entry = raw as Record<string, unknown>;
-
-  const filterDifficulty = entry.filterDifficulty;
-  const sortBy = entry.sortBy;
-  const sortOrder = entry.sortOrder;
-
-  const isDifficultyFilter = (value: unknown): value is RksFiltersSnapshot['filterDifficulty'] =>
-    value === 'all' || value === 'EZ' || value === 'HD' || value === 'IN' || value === 'AT';
-  const isSortBy = (value: unknown): value is RksSortBy =>
-    value === 'rks' || value === 'acc' || value === 'difficulty_value' || value === 'score';
-  const isSortOrder = (value: unknown): value is RksSortOrder => value === 'asc' || value === 'desc';
-
-  return {
-    searchQuery: typeof entry.searchQuery === 'string' ? entry.searchQuery : '',
-    filterDifficulty: isDifficultyFilter(filterDifficulty) ? filterDifficulty : 'all',
-    sortBy: isSortBy(sortBy) ? sortBy : 'rks',
-    sortOrder: isSortOrder(sortOrder) ? sortOrder : 'desc',
-
-    minRks: typeof entry.minRks === 'string' ? entry.minRks : '',
-    maxRks: typeof entry.maxRks === 'string' ? entry.maxRks : '',
-    minAcc: typeof entry.minAcc === 'string' ? entry.minAcc : '',
-    maxAcc: typeof entry.maxAcc === 'string' ? entry.maxAcc : '',
-    minDifficultyValue: typeof entry.minDifficultyValue === 'string' ? entry.minDifficultyValue : '',
-    maxDifficultyValue: typeof entry.maxDifficultyValue === 'string' ? entry.maxDifficultyValue : '',
-    minScore: typeof entry.minScore === 'string' ? entry.minScore : '',
-    maxScore: typeof entry.maxScore === 'string' ? entry.maxScore : '',
-    onlyPositiveRks: entry.onlyPositiveRks === true,
-    limitCount: typeof entry.limitCount === 'string' ? entry.limitCount : '',
-  };
-};
-
-// 读取 localStorage 缓存时做轻量校验，避免旧结构/污染数据导致渲染阶段崩溃
-const sanitizeCachedRksRecords = (raw: unknown): RksRecord[] | null => {
-  if (!Array.isArray(raw)) return null;
-  const records: RksRecord[] = [];
-
-  for (const item of raw) {
-    if (!item || typeof item !== 'object') continue;
-    const entry = item as Record<string, unknown>;
-
-    const song_name = typeof entry.song_name === 'string' ? entry.song_name : null;
-    const difficulty = entry.difficulty;
-    if (!song_name) continue;
-    if (difficulty !== 'EZ' && difficulty !== 'HD' && difficulty !== 'IN' && difficulty !== 'AT') continue;
-
-    const difficulty_value = parseFiniteNumber(entry.difficulty_value);
-    const acc = parseFiniteNumber(entry.acc);
-    const score = parseFiniteNumber(entry.score);
-    const rks = parseFiniteNumber(entry.rks);
-    const push_acc = parseFiniteNumber(entry.push_acc);
-    const unreachable = entry.unreachable === true;
-    const phi_only = entry.phi_only === true;
-    const already_phi = entry.already_phi === true;
-
-    if (difficulty_value === null || acc === null || score === null || rks === null) continue;
-
-    records.push({
-      song_name,
-      difficulty,
-      difficulty_value,
-      acc,
-      score,
-      rks,
-      push_acc,
-      unreachable,
-      phi_only,
-      already_phi,
-    });
-  }
-
-  return records;
-};
+import { RksRecordsResultsSection } from './rks-records/RksRecordsResultsSection';
+import {
+  parseFilterNumber,
+  sanitizeCachedRksFilters,
+  sanitizeCachedRksRecords,
+  type RksFiltersSnapshot,
+} from './rks-records/rksRecordsFilters';
 
 // 支持通过 showDescription 隐藏组件内的描述，避免与外层重复
 function RksRecordsListInner({ showTitle = true, showDescription = true }: { showTitle?: boolean; showDescription?: boolean }) {
@@ -981,152 +864,18 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
         </div>
       )}
 
-{isLoading ? (
-        <div className="flex flex-col items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <RotatingTips />
-        </div>
-      ) : filteredResult.records.length > 0 ? (
-        <div className="space-y-4">
-          <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-            显示 {filteredResult.records.length} 条记录{filteredResult.totalMatched !== filteredResult.records.length ? `（匹配 ${filteredResult.totalMatched} 条）` : ''}
-          </div>
-
-          {/* Mobile: Card list */}
-          <div className="grid grid-cols-1 gap-3 md:hidden">
-            {filteredResult.records.map((record, index) => (
-              <div
-                key={`${record.song_name}|${record.difficulty}|${record.difficulty_value}|${record.score}`}
-                className="space-y-2"
-              >
-                <ScoreCard record={record} rank={index + 1} nameMaxLines={2} />
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => copyText(record.song_name, '歌名')}
-                    className="inline-flex items-center justify-center rounded-lg border border-gray-300 dark:border-gray-700 bg-white/70 dark:bg-gray-900/50 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
-                  >
-                    复制歌名
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => openSongQuery(record.song_name)}
-                    className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500"
-                  >
-                    单曲查询
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Desktop: Table */}
-          <div className="hidden md:block overflow-x-auto">
-            <table className="min-w-[980px] w-full border-collapse">
-              <thead>
-                <tr className="border-b border-gray-200 dark:border-gray-700">
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                    排名
-                  </th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    歌曲名称
-                  </th>
-                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                    难度
-                  </th>
-                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                    定数
-                  </th>
-                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                    分数
-                  </th>
-                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                    准确率
-                  </th>
-                  <th
-                    className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap"
-                    title={pushAccHeaderTitle}
-                  >
-                    推分ACC
-                  </th>
-                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                    单曲RKS
-                  </th>
-                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                    操作
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredResult.records.map((record, index) => (
-                  <tr
-                    key={`${record.song_name}|${record.difficulty}|${record.difficulty_value}|${record.score}`}
-                    className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors"
-                  >
-                    <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                      #{index + 1}
-                    </td>
-                    <td className="py-3 px-4 text-sm font-medium text-gray-900 dark:text-gray-100 whitespace-normal break-words">
-                      {record.song_name}
-                    </td>
-                    <td className="py-3 px-4 text-center whitespace-nowrap">
-                      <span
-                        className={`inline-block px-2 py-1 rounded text-xs font-semibold ${DIFFICULTY_BG[record.difficulty]} ${DIFFICULTY_TEXT[record.difficulty]}`}
-                      >
-                        {record.difficulty}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-center text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                      {formatFixedNumber(record.difficulty_value, 1)}
-                    </td>
-                    <td className="py-3 px-4 text-center text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                      {formatLocaleNumber(record.score, 'zh-CN')}
-                    </td>
-                    <td className="py-3 px-4 text-center text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                      {formatFixedNumber(record.acc, 2)}%
-                    </td>
-                    <td className="py-3 px-4 text-center text-sm whitespace-nowrap">
-                      {(() => {
-                        const { text, className, title } = formatPushAcc(record);
-                        return (
-                          <span className={className} title={title}>
-                            {text}
-                          </span>
-                        );
-                      })()}
-                    </td>
-                    <td className="py-3 px-4 text-center text-sm font-semibold text-blue-600 dark:text-blue-400 whitespace-nowrap">
-                      {formatFixedNumber(record.rks, 4)}
-                    </td>
-                    <td className="py-3 px-4 text-center text-sm whitespace-nowrap">
-                      <div className="inline-flex flex-wrap items-center justify-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => copyText(record.song_name, '歌名')}
-                          className="inline-flex items-center justify-center rounded-lg border border-gray-300 dark:border-gray-700 bg-white/70 dark:bg-gray-900/50 px-2.5 py-1.5 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
-                        >
-                          复制
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openSongQuery(record.song_name)}
-                          className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-500"
-                        >
-                          查询
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ) : (
-        <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-8 text-center text-sm text-gray-500 dark:text-gray-400">
-          {records.length === 0 ? '暂无成绩记录' : '没有符合条件的记录'}
-        </div>
-      )}
+      <RksRecordsResultsSection
+        isLoading={isLoading}
+        records={filteredResult.records}
+        totalMatched={filteredResult.totalMatched}
+        allRecordsCount={records.length}
+        pushAccHeaderTitle={pushAccHeaderTitle}
+        onCopySong={(songName) => {
+          void copyText(songName, '歌名');
+        }}
+        onOpenSongQuery={openSongQuery}
+        formatPushAcc={formatPushAcc}
+      />
       </section>
     </div>
   );

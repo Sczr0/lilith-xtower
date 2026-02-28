@@ -142,3 +142,25 @@ html.brand-font body {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
+
+/* 减少动态效果：关闭位移动画与无限旋转，保留最小颜色反馈 */
+@media (prefers-reduced-motion: reduce) {
+  html:focus-within {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 120ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .animate-spin,
+  .fade-in-up {
+    animation: none !important;
+    transform: none !important;
+  }
+}

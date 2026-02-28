@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import type { AuthCredentialSummary } from '../lib/auth/credentialSummary';
 
 interface AuthDetailsModalProps {
@@ -10,21 +10,78 @@ interface AuthDetailsModalProps {
 }
 
 export function AuthDetailsModal({ credential, isOpen, onClose }: AuthDetailsModalProps) {
+  const dialogId = useId();
+  const descriptionId = useId();
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const previousFocusedElementRef = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
+    if (!isOpen) return;
+
+    const previousBodyOverflow = document.body.style.overflow;
+    previousFocusedElementRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+    document.body.style.overflow = 'hidden';
+    window.setTimeout(() => {
+      closeButtonRef.current?.focus();
+    }, 0);
+
+    const handleKeydown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        e.preventDefault();
         onClose();
+        return;
+      }
+
+      if (e.key !== 'Tab') return;
+
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+
+      const focusableElements = Array.from(
+        dialog.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((element) => element.getAttribute('aria-hidden') !== 'true');
+
+      if (focusableElements.length === 0) {
+        e.preventDefault();
+        dialog.focus();
+        return;
+      }
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+      const current = document.activeElement;
+
+      if (e.shiftKey) {
+        if (current === firstElement || !dialog.contains(current)) {
+          e.preventDefault();
+          lastElement.focus();
+        }
+        return;
+      }
+
+      if (current === lastElement || !dialog.contains(current)) {
+        e.preventDefault();
+        firstElement.focus();
       }
     };
 
-    if (isOpen) {
-      document.addEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'hidden';
-    }
+    document.addEventListener('keydown', handleKeydown);
 
     return () => {
-      document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'unset';
+      document.removeEventListener('keydown', handleKeydown);
+      document.body.style.overflow = previousBodyOverflow;
+
+      if (
+        previousFocusedElementRef.current &&
+        document.contains(previousFocusedElementRef.current)
+      ) {
+        previousFocusedElementRef.current.focus();
+      }
     };
   }, [isOpen, onClose]);
 
@@ -162,7 +219,9 @@ export function AuthDetailsModal({ credential, isOpen, onClose }: AuthDetailsMod
   return (
     <>
       {/* Backdrop */}
-      <div
+      <button
+        type="button"
+        aria-label="点击遮罩关闭认证凭证详情弹窗"
         className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 transition-opacity"
         onClick={onClose}
       />
@@ -170,16 +229,24 @@ export function AuthDetailsModal({ credential, isOpen, onClose }: AuthDetailsMod
       {/* Modal */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={dialogId}
+          aria-describedby={descriptionId}
+          tabIndex={-1}
           className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
           <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+            <h2 id={dialogId} className="text-xl font-bold text-gray-900 dark:text-gray-100">
               认证凭证详情
             </h2>
             <button
+              ref={closeButtonRef}
               onClick={onClose}
+              aria-label="关闭认证凭证详情弹窗"
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
             >
               <svg className="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -187,6 +254,10 @@ export function AuthDetailsModal({ credential, isOpen, onClose }: AuthDetailsMod
               </svg>
             </button>
           </div>
+
+          <p id={descriptionId} className="sr-only">
+            这是认证凭证详情弹窗，按 Escape 可关闭，Tab 键会在弹窗内部循环。
+          </p>
 
           {/* Content */}
           <div className="px-6 py-4">

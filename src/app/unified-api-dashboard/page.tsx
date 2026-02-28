@@ -11,6 +11,7 @@ import { UnifiedApiSiteUserIdSection } from './components/sections/UnifiedApiSit
 import { UnifiedApiToolsSection } from './components/sections/UnifiedApiToolsSection';
 import { useUnifiedApiDashboard } from './hooks/useUnifiedApiDashboard';
 import { buildGoHref } from '../utils/outbound';
+import { PageShell } from '../components/PageShell';
 
 const DEFAULT_API_TOKEN = 'pgrTk';
 
@@ -49,13 +50,17 @@ export default function UnifiedApiDashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-950 flex items-center justify-center">
+      <PageShell
+        variant="gradient"
+        mainClassName="flex min-h-screen items-center justify-center px-4 py-10"
+        containerClassName="mx-auto max-w-4xl"
+      >
         <div className="flex flex-col items-center">
           <h1 className="sr-only">正在加载联合API仪表盘 - Phigros Query</h1>
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
           <RotatingTips />
         </div>
-      </div>
+      </PageShell>
     );
   }
 
@@ -63,14 +68,19 @@ export default function UnifiedApiDashboardPage() {
     // 说明：鉴权失败会在 hook 内触发 router.replace('/login')。
     // 这里返回占位 UI，避免短暂白屏直到跳转完成。
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-950 flex items-center justify-center">
+      <PageShell
+        variant="gradient"
+        mainClassName="flex min-h-screen items-center justify-center px-4 py-10"
+        containerClassName="mx-auto max-w-4xl"
+      >
         <div className="text-sm text-gray-600 dark:text-gray-400">正在跳转到登录页…</div>
-      </div>
+      </PageShell>
     );
   }
 
   return (
-    <UnifiedApiDashboardShell activeSection={activeSection} onSectionChange={handleSectionChange}>
+    <PageShell variant="gradient" main={false} footerVariant="none">
+      <UnifiedApiDashboardShell activeSection={activeSection} onSectionChange={handleSectionChange}>
       <div className="space-y-6">
         <section className={cardStyles({ tone: 'glass', padding: 'md' })}>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -165,6 +175,7 @@ export default function UnifiedApiDashboardPage() {
           />
         )}
       </div>
-    </UnifiedApiDashboardShell>
+      </UnifiedApiDashboardShell>
+    </PageShell>
   );
 }
