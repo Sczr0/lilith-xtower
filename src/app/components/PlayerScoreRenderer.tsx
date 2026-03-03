@@ -149,7 +149,10 @@ export function PlayerScoreRenderer() {
 
     try {
       // 校验歌曲是否存在
-      let songId: string | null = selectedCandidate && selectedCandidate.name === trimmedSongName ? selectedCandidate.id : null;
+      let songId: string | null =
+        selectedCandidate && (selectedCandidate.id === trimmedSongName || selectedCandidate.name === trimmedSongName)
+          ? selectedCandidate.id
+          : null;
       if (!songId) {
         songId = await searchSongId(trimmedSongName);
       }
@@ -194,7 +197,7 @@ export function PlayerScoreRenderer() {
   };
 
   const selectCandidate = (candidate: SongCandidate) => {
-    setSongName(candidate.name);
+    setSongName(candidate.id);
     setSelectedCandidate(candidate);
     setCandidates([]);
     setValidationError(null);

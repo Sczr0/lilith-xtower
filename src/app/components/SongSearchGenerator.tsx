@@ -68,7 +68,10 @@ export function SongSearchGenerator({ showTitle = true, showDescription = true }
     setCandidates(null);
 
     // 先通过搜索接口验证歌曲是否存在
-    let songId: string | null = selectedCandidate && selectedCandidate.name === query ? selectedCandidate.id : null;
+    let songId: string | null =
+      selectedCandidate && (selectedCandidate.id === query || selectedCandidate.name === query)
+        ? selectedCandidate.id
+        : null;
     try {
       if (!songId) {
         songId = await searchSongId(query);
@@ -96,7 +99,7 @@ export function SongSearchGenerator({ showTitle = true, showDescription = true }
     setError(null);
     setCandidates(null);
     // 更新输入框内容为选中的歌曲名（提升体验）
-    setSongQueryOverride(candidate.name);
+    setSongQueryOverride(candidate.id);
     setSelectedCandidate(candidate);
     // 直接使用 ID 生成图片
     generateImage(candidate.id);
