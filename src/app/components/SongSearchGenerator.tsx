@@ -30,6 +30,7 @@ export function SongSearchGenerator({ showTitle = true, showDescription = true }
   const imageUrl = useMemo(() => (resultBlob ? URL.createObjectURL(resultBlob) : null), [resultBlob]);
   const [error, setError] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<SongCandidate[] | null>(null);
+  const [selectedCandidate, setSelectedCandidate] = useState<SongCandidate | null>(null);
 
   useEffect(() => {
     return () => {
@@ -67,9 +68,11 @@ export function SongSearchGenerator({ showTitle = true, showDescription = true }
     setCandidates(null);
 
     // 先通过搜索接口验证歌曲是否存在
-    let songId: string | null = null;
+    let songId: string | null = selectedCandidate && selectedCandidate.name === query ? selectedCandidate.id : null;
     try {
-      songId = await searchSongId(query);
+      if (!songId) {
+        songId = await searchSongId(query);
+      }
       if (!songId) {
         setError('未找到匹配的歌曲，请检查输入的歌曲名称或尝试使用歌曲ID。');
         return;
@@ -78,6 +81,7 @@ export function SongSearchGenerator({ showTitle = true, showDescription = true }
       if (error instanceof MultipleMatchesError) {
         setError(error.message);
         setCandidates(error.candidates);
+        setSelectedCandidate(null);
         return;
       }
       const message = error instanceof Error ? error.message : '搜索歌曲失败';
@@ -93,6 +97,7 @@ export function SongSearchGenerator({ showTitle = true, showDescription = true }
     setCandidates(null);
     // 更新输入框内容为选中的歌曲名（提升体验）
     setSongQueryOverride(candidate.name);
+    setSelectedCandidate(candidate);
     // 直接使用 ID 生成图片
     generateImage(candidate.id);
   };
@@ -123,7 +128,10 @@ export function SongSearchGenerator({ showTitle = true, showDescription = true }
         <input
           type="text"
           value={songQuery}
-          onChange={(e) => setSongQueryOverride(e.target.value)}
+          onChange={(e) => {
+            setSongQueryOverride(e.target.value);
+            setSelectedCandidate(null);
+          }}
           onKeyPress={handleKeyPress}
           placeholder="例如：Spasmodic、Cthugha 等"
           className="flex-1 min-w-0 w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"

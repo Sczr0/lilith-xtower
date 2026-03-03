@@ -60,6 +60,7 @@ export function PlayerScoreRenderer() {
   const [candidates, setCandidates] = useState<SongCandidate[]>([]);
   const [isValidating, setIsValidating] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [selectedCandidate, setSelectedCandidate] = useState<SongCandidate | null>(null);
 
   // 从 localStorage 加载数据
   useEffect(() => {
@@ -100,7 +101,8 @@ export function PlayerScoreRenderer() {
 
   // 添加成绩
   const addScore = async () => {
-    if (!songName.trim()) {
+    const trimmedSongName = songName.trim();
+    if (!trimmedSongName) {
       alert('请输入歌曲名称');
       return;
     }
@@ -147,7 +149,10 @@ export function PlayerScoreRenderer() {
 
     try {
       // 校验歌曲是否存在
-      const songId = await searchSongId(songName.trim());
+      let songId: string | null = selectedCandidate && selectedCandidate.name === trimmedSongName ? selectedCandidate.id : null;
+      if (!songId) {
+        songId = await searchSongId(trimmedSongName);
+      }
       if (!songId) {
         setValidationError('未找到该歌曲，请检查名称');
         return;
@@ -158,7 +163,7 @@ export function PlayerScoreRenderer() {
         ...scoresList,
         {
           id: createScoreEntryId(),
-          song_name: songName.trim(),
+          song_name: trimmedSongName,
           score,
           acc,
           difficulty: songDifficulty,
@@ -173,9 +178,11 @@ export function PlayerScoreRenderer() {
       setSongScore('');
       setSongAcc('');
       setSongDifficulty('IN');
+      setSelectedCandidate(null);
     } catch (error) {
       if (error instanceof MultipleMatchesError) {
         setCandidates(error.candidates);
+        setSelectedCandidate(null);
         setValidationError('找到多个匹配歌曲，请选择：');
       } else {
         const message = error instanceof Error ? error.message : '查询歌曲失败';
@@ -188,6 +195,7 @@ export function PlayerScoreRenderer() {
 
   const selectCandidate = (candidate: SongCandidate) => {
     setSongName(candidate.name);
+    setSelectedCandidate(candidate);
     setCandidates([]);
     setValidationError(null);
   };
@@ -307,7 +315,10 @@ export function PlayerScoreRenderer() {
               <input
                 type="text"
                 value={songName}
-                onChange={(e) => setSongName(e.target.value)}
+                onChange={(e) => {
+                  setSongName(e.target.value);
+                  setSelectedCandidate(null);
+                }}
                 placeholder="请输入歌曲名称"
                 className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
