@@ -44,6 +44,7 @@ next-env.d.ts
 项目文档.md
 CLAUDE.md
 /docs/
+AGENTS.md
 
 # 参考
 test.html
@@ -52,3 +53,4 @@ test.html
 .claude
 public/preload-css.json
 .trae
+AGENTS.md
