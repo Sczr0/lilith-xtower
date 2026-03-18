@@ -38,11 +38,17 @@ npm run start
 环境变量
 
 - `NEXT_PUBLIC_SITE_URL`（可选）：用于站点元数据 `metadataBase`
+- `DISCORD_INVITE_URL`（可选）：站内固定路径 `/discord` 的目标邀请链接；优先使用该变量，并通过站内 `/go` 中间页统一外链跳转提示
+- `NEXT_PUBLIC_DISCORD_INVITE_URL`（可选）：`DISCORD_INVITE_URL` 未设置时的回退配置，适合公开前端环境注入场景
 - `UNIFIED_API_BASE_URL`（可选）：站内 `/api/unified/*` 代理的默认上游（未设置则使用内置默认值：`https://seekend.xtower.site`）
 - `UNIFIED_API_LOCAL_BASE_URL`（可选）：本地上游地址（默认 `http://127.0.0.1:3930`）
 - `UNIFIED_API_LOCAL_PROBE`（可选）：本地探针开关：`1` 强制开启；`0` 强制关闭；未设置则仅当请求 Host 为 `localhost/127.0.0.1/[::1]` 时自动启用
 - `UNIFIED_API_LOCAL_PROBE_TIMEOUT_MS`（可选）：本地探针超时（毫秒，默认 `300`）
 - `UNIFIED_API_LOCAL_PROBE_TTL_OK_MS` / `UNIFIED_API_LOCAL_PROBE_TTL_FAIL_MS`（可选）：探针结果缓存 TTL（毫秒，默认 `30000/3000`）
+
+固定跳转入口
+
+- `/discord`：读取预配置好的 Discord 邀请链接；若已配置则跳转到站内 `/go` 外链提示页，未配置时展示降级说明页
 
 Web Vitals 真实用户监测（RUM）
 - 已集成基于 `web-vitals` 的 RUM，上报核心指标 LCP/CLS/INP/TTFB/FCP。
