@@ -10,6 +10,8 @@ import { formatFixedNumber } from '../lib/utils/number';
 import {
   DEFAULT_LILITH_RECOMMENDATION_LIMIT,
   buildLilithRecommendations,
+  type CandidateTarget,
+  type CandidateTargetLabel,
   type LilithRecommendationItem,
   type LilithPool,
   type LilithStructureStatus,
@@ -20,6 +22,7 @@ const RECOMMENDATION_LIMIT = DEFAULT_LILITH_RECOMMENDATION_LIMIT;
 const AP_ACC_THRESHOLD = 100;
 const EPS = 1e-6;
 
+type ViewMode = 'efficiency' | 'potential';
 type DisplayPool = LilithPool | 'archive';
 
 type DisplaySuggestion = Omit<LilithRecommendationItem, 'pool'> & {
@@ -43,11 +46,47 @@ function clampTargetAcc(value: number): number {
   return value;
 }
 
+function formatImbalanceRatio(
+  ratio: number,
+  hasTop27Roi: boolean,
+  hasTop3PhiRoi: boolean,
+): string {
+  if (!hasTop27Roi && !hasTop3PhiRoi) return '--';
+  if (hasTop27Roi && !hasTop3PhiRoi) return '∞';
+  if (!hasTop27Roi && hasTop3PhiRoi) return '0.000';
+  return formatFixedNumber(ratio, 3);
+}
+
 function computeRksByAcc(acc: number, constant: number): number {
   if (!Number.isFinite(acc) || !Number.isFinite(constant) || constant <= 0) return 0;
   if (acc < 70) return 0;
 
   return constant * Math.pow((acc - 55) / 45, 2);
+}
+
+function getTargetLabelText(label: CandidateTargetLabel): string {
+  switch (label) {
+    case 'push_line': return '踩线';
+    case 'plus_1': return '+1%';
+    case 'plus_2': return '+2%';
+    case 'phi': return 'Phi';
+    case 'optimal': return '最优';
+  }
+}
+
+function getTargetLabelClassName(label: CandidateTargetLabel): string {
+  switch (label) {
+    case 'push_line':
+      return 'border-gray-300 bg-gray-100 text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300';
+    case 'plus_1':
+      return 'border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-800/60 dark:bg-sky-900/30 dark:text-sky-300';
+    case 'plus_2':
+      return 'border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-800/60 dark:bg-cyan-900/30 dark:text-cyan-300';
+    case 'phi':
+      return 'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-800/60 dark:bg-violet-900/30 dark:text-violet-300';
+    case 'optimal':
+      return 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/60 dark:bg-emerald-900/30 dark:text-emerald-300';
+  }
 }
 
 function getPoolBadge(pool: DisplayPool) {
@@ -159,6 +198,7 @@ function buildArchiveFallbackSuggestions(
       deltaTotal,
       roi,
       pool: 'archive',
+      targetLabel: 'push_line',
       fromArchiveFallback: true,
     });
   });
@@ -170,10 +210,113 @@ function buildArchiveFallbackSuggestions(
   });
 }
 
+/** 可展开的备选目标行 */
+function AlternativeTargetRow({ target }: { target: CandidateTarget }) {
+  return (
+    <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 items-center text-xs text-gray-600 dark:text-gray-400 py-1.5 border-t border-gray-100 dark:border-gray-700/50 first:border-t-0">
+      <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${getTargetLabelClassName(target.label)}`}>
+        {getTargetLabelText(target.label)}
+      </span>
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-x-2 gap-y-0.5">
+        <span>ACC {formatFixedNumber(target.targetAcc, 2)}%</span>
+        <span>ΔACC {formatFixedNumber(target.deltaAcc, 2)}%</span>
+        <span>目标RKS {formatFixedNumber(target.targetRks, 4)}</span>
+        <span>Δ总RKS {formatFixedNumber(target.deltaTotal, 4)}</span>
+        <span>ROI {formatFixedNumber(target.roi, 4)}</span>
+        <span className="text-gray-400 dark:text-gray-500">{getPoolBadge(target.pool).label}</span>
+      </div>
+    </div>
+  );
+}
+
+/** 推荐卡片组件 */
+function RecommendationCard({ item, index }: { item: DisplaySuggestion; index: number }) {
+  const [expanded, setExpanded] = useState(false);
+  const badge = getPoolBadge(item.pool);
+  const record = item.record;
+  const alternatives = 'alternativeTargets' in item ? (item as LilithRecommendationItem).alternativeTargets : undefined;
+  const hasAlternatives = alternatives && alternatives.length > 0;
+
+  return (
+    <article
+      key={`${record.song_name}|${record.difficulty}|${record.difficulty_value}|${record.score}`}
+      className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/40 p-4"
+    >
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="text-sm text-gray-500 dark:text-gray-400">建议 #{index + 1}</p>
+            {'targetLabel' in item && (item as LilithRecommendationItem).targetLabel && (
+              <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${getTargetLabelClassName((item as LilithRecommendationItem).targetLabel)}`}>
+                {getTargetLabelText((item as LilithRecommendationItem).targetLabel)}
+              </span>
+            )}
+          </div>
+          <h4 className="mt-1 text-base font-semibold text-gray-900 dark:text-gray-100 break-words">{record.song_name}</h4>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+            <span
+              className={`inline-flex items-center rounded px-2 py-1 font-semibold ${DIFFICULTY_BG[record.difficulty]} ${DIFFICULTY_TEXT[record.difficulty]}`}
+            >
+              {record.difficulty}
+            </span>
+            <span>定数 {formatFixedNumber(record.difficulty_value, 1)}</span>
+            <span>当前 ACC {formatFixedNumber(record.acc, 2)}%</span>
+            <span>单曲 RKS {formatFixedNumber(record.rks, 4)}</span>
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+            <span className={`inline-flex items-center rounded-full border px-2 py-0.5 font-semibold ${badge.className}`}>
+              {badge.label}
+            </span>
+            <span className="text-gray-600 dark:text-gray-400">{badge.reason}</span>
+          </div>
+        </div>
+        <div className="flex flex-col items-start md:items-end gap-2">
+          <div className="text-xs text-gray-500 dark:text-gray-400">目标 ACC</div>
+          <div className="text-xl font-bold text-emerald-700 dark:text-emerald-400">{formatFixedNumber(item.targetAcc, 2)}%</div>
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
+            <span>ΔACC {formatFixedNumber(item.deltaAcc, 2)}%</span>
+            <span>目标RKS {formatFixedNumber(item.targetRks, 4)}</span>
+            <span>ΔTop27 {formatFixedNumber(item.deltaTop27, 4)}</span>
+            <span>ΔTop3Phi {formatFixedNumber(item.deltaTop3Phi, 4)}</span>
+            <span>Δ总RKS {formatFixedNumber(item.deltaTotal, 4)}</span>
+            <span>ROI {formatFixedNumber(item.roi, 4)}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {hasAlternatives && (
+              <button
+                type="button"
+                onClick={() => setExpanded(!expanded)}
+                className="inline-flex items-center justify-center rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2.5 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                {expanded ? '收起其他目标' : `查看其他目标 (${alternatives!.length})`}
+              </button>
+            )}
+            <Link
+              href={buildSingleQueryHref(record.song_name)}
+              className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500 transition-colors"
+            >
+              去单曲查询
+            </Link>
+          </div>
+        </div>
+      </div>
+      {expanded && hasAlternatives && (
+        <div className="mt-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-900/40 px-3 py-2">
+          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">其他候选目标</p>
+          {alternatives!.map((target, i) => (
+            <AlternativeTargetRow key={`${target.label}-${target.targetAcc}-${i}`} target={target} />
+          ))}
+        </div>
+      )}
+    </article>
+  );
+}
+
 export function LilithLabsPanel() {
   const [records, setRecords] = useState<RksRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('efficiency');
   const [poolFilter, setPoolFilter] = useState<'all' | LilithPool>('all');
   const [easyOnly, setEasyOnly] = useState(false);
   const [noApOnly, setNoApOnly] = useState(false);
@@ -206,14 +349,31 @@ export function LilithLabsPanel() {
   );
   const roiExplanation = useMemo(() => {
     const ratio = recommendationResult.imbalanceRatio;
-    const ratioPercent = ratio === null ? null : ratio * 100;
+    const hasTop27Roi = recommendationResult.bestRoiTop27 > EPS;
+    const hasTop3PhiRoi = recommendationResult.bestRoiTop3Phi > EPS;
 
-    if (ratio === null) {
+    if (!hasTop27Roi && !hasTop3PhiRoi) {
       return {
         summary: '当前至少有一侧候选不足，暂时无法计算失衡比。',
         detail: '当 Top27 与 Top3Phi 都存在有效候选时，失衡比才有参考意义。',
       };
     }
+
+    if (hasTop27Roi && !hasTop3PhiRoi) {
+      return {
+        summary: '当前 Top3Phi 暂无有效候选，失衡比按正无穷处理。',
+        detail: '这通常意味着当前更适合优先执行 Top27 方向建议，先把主池基础抬高。',
+      };
+    }
+
+    if (!hasTop27Roi && hasTop3PhiRoi) {
+      return {
+        summary: '当前 Top27 暂无有效候选，失衡比按 0 处理。',
+        detail: '这通常意味着当前更适合补强 Top3Phi，优先处理 AP / Phi 方向的缺口。',
+      };
+    }
+
+    const ratioPercent = ratio * 100;
 
     if (ratio < 1) {
       return {
@@ -233,7 +393,15 @@ export function LilithLabsPanel() {
       summary: `失衡比 ${formatFixedNumber(ratio, 3)}，两侧最优效率基本一致。`,
       detail: '可按 ROI 从高到低执行，维持两池平衡增长。',
     };
-  }, [recommendationResult.imbalanceRatio]);
+  }, [recommendationResult.bestRoiTop27, recommendationResult.bestRoiTop3Phi, recommendationResult.imbalanceRatio]);
+
+  // 根据当前视图模式选择基础推荐列表
+  const baseRecommendations = viewMode === 'efficiency'
+    ? recommendationResult.recommendations
+    : recommendationResult.potentialRecommendations;
+  const fallbackRecommendations = viewMode === 'efficiency'
+    ? recommendationResult.allCandidates
+    : recommendationResult.potentialAllCandidates;
 
   const suggestions = useMemo(() => {
     const matchesFilters = (item: { pool: DisplayPool; deltaAcc: number; targetAcc: number; record: RksRecord }) => {
@@ -253,13 +421,13 @@ export function LilithLabsPanel() {
       selectedSourceIndex.add(item.sourceIndex);
     };
 
-    for (const item of recommendationResult.recommendations) {
+    for (const item of baseRecommendations) {
       push({ ...item, fromArchiveFallback: false });
       if (picked.length >= RECOMMENDATION_LIMIT) break;
     }
 
     if (picked.length < RECOMMENDATION_LIMIT) {
-      for (const item of recommendationResult.allCandidates) {
+      for (const item of fallbackRecommendations) {
         push({ ...item, fromArchiveFallback: false });
         if (picked.length >= RECOMMENDATION_LIMIT) break;
       }
@@ -274,7 +442,7 @@ export function LilithLabsPanel() {
     }
 
     return picked;
-  }, [easyOnly, noApOnly, poolFilter, recommendationResult.allCandidates, recommendationResult.recommendations, records]);
+  }, [easyOnly, noApOnly, poolFilter, baseRecommendations, fallbackRecommendations, records]);
 
   const archiveFallbackCount = useMemo(
     () => suggestions.filter((item) => item.fromArchiveFallback).length,
@@ -307,7 +475,7 @@ export function LilithLabsPanel() {
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">RKS 提升助手</h3>
               <span className="inline-flex items-center rounded-full border border-orange-200 bg-orange-50 px-2.5 py-0.5 text-xs font-semibold text-orange-700 dark:border-orange-800/60 dark:bg-orange-900/30 dark:text-orange-300">
-                v0.1 Alpha
+                v0.2 Alpha
               </span>
             </div>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
@@ -346,20 +514,45 @@ export function LilithLabsPanel() {
             <div className="rounded-md border border-current/20 bg-white/30 dark:bg-black/10 px-2.5 py-2">
               <p className="opacity-80">失衡比</p>
               <p className="mt-0.5 text-sm font-semibold">
-                {recommendationResult.imbalanceRatio !== null
-                  ? formatFixedNumber(recommendationResult.imbalanceRatio, 3)
-                  : '--'}
+                {formatImbalanceRatio(
+                  recommendationResult.imbalanceRatio,
+                  recommendationResult.bestRoiTop27 > EPS,
+                  recommendationResult.bestRoiTop3Phi > EPS,
+                )}
               </p>
             </div>
           </div>
           <div className="mt-2 rounded-md border border-current/20 bg-white/30 dark:bg-black/10 px-3 py-2 text-xs leading-5">
-            <p>指标说明：bestROI = 在该池中“每提升 1% ACC 可换来的最大 Δ总RKS”。</p>
+            <p>指标说明：bestROI = 在该池中“每投入 1 单位有效推分成本可换来的最大 Δ总RKS”。</p>
+            <p className="mt-1">有效推分成本会同时考虑高 ACC 区间的非线性难度、明显高于玩家当前 Best / AP 水平的高定数降权，以及目标为 Phi 时的 AP 收尾能力。</p>
             <p className="mt-1">{roiExplanation.summary}</p>
             <p className="mt-1 opacity-90">{roiExplanation.detail}</p>
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2">
+        {/* 双 Tab 视图切换 */}
+        <div className="mt-4 flex items-center gap-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 p-1 w-fit">
+          {([
+            { value: 'efficiency' as ViewMode, label: '效率之选', desc: '按 ROI 降序' },
+            { value: 'potential' as ViewMode, label: '潜力之选', desc: '按 Δ总RKS 降序' },
+          ]).map((tab) => (
+            <button
+              key={tab.value}
+              type="button"
+              onClick={() => setViewMode(tab.value)}
+              className={`inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+                viewMode === tab.value
+                  ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              }`}
+              title={tab.desc}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           {([
             { value: 'all', label: '全部' },
             { value: 'top27', label: '仅 Top27' },
@@ -424,61 +617,18 @@ export function LilithLabsPanel() {
                 条（Top27: {recommendationResult.quota.top27}，Top3Phi: {recommendationResult.quota.top3phi}）。
               </p>
               <p className="mt-1">
-                当前筛选后展示 <span className="font-semibold text-gray-900 dark:text-gray-100">{suggestions.length}</span> 条
+                当前视图：<span className="font-semibold text-gray-900 dark:text-gray-100">{viewMode === 'efficiency' ? '效率之选（ROI 优先）' : '潜力之选（Δ总RKS 优先）'}</span>
+                ，筛选后展示 <span className="font-semibold text-gray-900 dark:text-gray-100">{suggestions.length}</span> 条
                 {archiveFallbackCount > 0 ? `，其中存档补全 ${archiveFallbackCount} 条。` : '。'}
               </p>
             </div>
-            {suggestions.map((item, index) => {
-              const badge = getPoolBadge(item.pool);
-              const record = item.record;
-              return (
-              <article
-                key={`${record.song_name}|${record.difficulty}|${record.difficulty_value}|${record.score}`}
-                className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/40 p-4"
-              >
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <div className="min-w-0">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">建议 #{index + 1}</p>
-                    <h4 className="mt-1 text-base font-semibold text-gray-900 dark:text-gray-100 break-words">{record.song_name}</h4>
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                      <span
-                        className={`inline-flex items-center rounded px-2 py-1 font-semibold ${DIFFICULTY_BG[record.difficulty]} ${DIFFICULTY_TEXT[record.difficulty]}`}
-                      >
-                        {record.difficulty}
-                      </span>
-                      <span>定数 {formatFixedNumber(record.difficulty_value, 1)}</span>
-                      <span>当前 ACC {formatFixedNumber(record.acc, 2)}%</span>
-                      <span>单曲 RKS {formatFixedNumber(record.rks, 4)}</span>
-                    </div>
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                      <span className={`inline-flex items-center rounded-full border px-2 py-0.5 font-semibold ${badge.className}`}>
-                        {badge.label}
-                      </span>
-                      <span className="text-gray-600 dark:text-gray-400">{badge.reason}</span>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-start md:items-end gap-2">
-                    <div className="text-xs text-gray-500 dark:text-gray-400">目标 ACC</div>
-                    <div className="text-xl font-bold text-emerald-700 dark:text-emerald-400">{formatFixedNumber(item.targetAcc, 2)}%</div>
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
-                      <span>ΔACC {formatFixedNumber(item.deltaAcc, 2)}%</span>
-                      <span>目标RKS {formatFixedNumber(item.targetRks, 4)}</span>
-                      <span>ΔTop27 {formatFixedNumber(item.deltaTop27, 4)}</span>
-                      <span>ΔTop3Phi {formatFixedNumber(item.deltaTop3Phi, 4)}</span>
-                      <span>Δ总RKS {formatFixedNumber(item.deltaTotal, 4)}</span>
-                      <span>ROI {formatFixedNumber(item.roi, 4)}</span>
-                    </div>
-                    <Link
-                      href={buildSingleQueryHref(record.song_name)}
-                      className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500 transition-colors"
-                    >
-                      去单曲查询
-                    </Link>
-                  </div>
-                </div>
-              </article>
-              );
-            })}
+            {suggestions.map((item, index) => (
+              <RecommendationCard
+                key={`${item.record.song_name}|${item.record.difficulty}|${item.record.difficulty_value}|${item.record.score}`}
+                item={item}
+                index={index}
+              />
+            ))}
           </div>
         )}
       </section>

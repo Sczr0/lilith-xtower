@@ -7,6 +7,8 @@ import {
   ServiceStatsFeature,
   ServiceStatsResponse,
   StatsSummaryApiResponse,
+  type B30ChartEntry,
+  type ServerRksInfo,
 } from '../types/score';
 import { extractProblemMessage } from './problem';
 
@@ -151,9 +153,39 @@ export class ScoreAPI {
       }
     }
 
+    // 解析后端返回的 rks 信息（位于顶层 { save, rks, gradeCounts } 结构中）
+    const rawRks =
+      data && typeof data === 'object' && 'rks' in data
+        ? (data as Record<string, unknown>).rks
+        : null;
+
+    let serverRks: ServerRksInfo | undefined;
+    if (rawRks && typeof rawRks === 'object' && rawRks !== null) {
+      const rksObj = rawRks as Record<string, unknown>;
+      const totalRks = normalizeNumber(rksObj.totalRks ?? rksObj.total_rks);
+      const rawB30 = rksObj.b30Charts ?? rksObj.b30_charts;
+      const b30Charts: B30ChartEntry[] = Array.isArray(rawB30)
+        ? rawB30
+            .map((entry: unknown) => {
+              if (!entry || typeof entry !== 'object') return null;
+              const e = entry as Record<string, unknown>;
+              const songId = typeof e.songId === 'string' ? e.songId :
+                typeof e.song_id === 'string' ? e.song_id : null;
+              const difficulty = typeof e.difficulty === 'string' ? e.difficulty : null;
+              const rks = normalizeNumber(e.rks);
+              if (!songId || !difficulty || rks <= 0) return null;
+              return { songId, difficulty, rks };
+            })
+            .filter((entry: B30ChartEntry | null): entry is B30ChartEntry => entry !== null)
+        : [];
+      if (totalRks > 0 || b30Charts.length > 0) {
+        serverRks = { totalRks, b30Charts };
+      }
+    }
+
     const result: RksResponse = {
       code: 200,
-      data: { records },
+      data: { records, ...(serverRks ? { serverRks } : {}) },
     };
     return result;
   }

@@ -368,4 +368,65 @@ describe('ScoreAPI.getRksList', () => {
     expect(atRec?.phi_only).toBe(false);
     expect(atRec?.already_phi).toBe(false);
   });
+
+  it('parses serverRks summary from the top-level rks payload', async () => {
+    const apiResponse = {
+      save: {
+        gameRecord: {
+          SongA: [
+            {
+              difficulty: 'IN',
+              accuracy: 99.5,
+              chart_constant: 15.6,
+              score: 990000,
+            },
+          ],
+        },
+      },
+      rks: {
+        total_rks: 14.56,
+        b30_charts: [
+          { song_id: '97f9466b2e77', difficulty: 'IN', rks: 12.34 },
+          { song_id: 'ignored', difficulty: null, rks: 1.23 },
+        ],
+      },
+    };
+
+    const mockFetch = createFetchMock(apiResponse);
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+
+    const originalLocalStorage = (globalThis as unknown as { localStorage?: unknown }).localStorage;
+    (globalThis as unknown as { localStorage?: unknown }).localStorage = {
+      getItem() {
+        return null;
+      },
+      setItem() {},
+      removeItem() {},
+      clear() {},
+      key() {
+        return null;
+      },
+      get length() {
+        return 0;
+      },
+    };
+
+    let result: Awaited<ReturnType<typeof ScoreAPI.getRksList>>;
+    try {
+      result = await ScoreAPI.getRksList();
+    } finally {
+      if (originalLocalStorage === undefined) {
+        delete (globalThis as unknown as { localStorage?: unknown }).localStorage;
+      } else {
+        (globalThis as unknown as { localStorage?: unknown }).localStorage = originalLocalStorage;
+      }
+    }
+
+    expect(result.data.serverRks).toEqual({
+      totalRks: 14.56,
+      b30Charts: [
+        { songId: '97f9466b2e77', difficulty: 'IN', rks: 12.34 },
+      ],
+    });
+  });
 });

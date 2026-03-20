@@ -19,10 +19,25 @@ export interface RksRecord {
   already_phi?: boolean;
 }
 
+/** 后端 B30 条目类型 */
+export interface B30ChartEntry {
+  songId: string;
+  difficulty: string;
+  rks: number;
+}
+
+/** 后端返回的 RKS 汇总信息（calculate_rks=true 时存在） */
+export interface ServerRksInfo {
+  totalRks: number;
+  b30Charts: B30ChartEntry[];
+}
+
 export interface RksResponse {
   code: number;
   data: {
     records: RksRecord[];
+    /** 后端返回的 B30 信息（可选，calculate_rks=true 时存在） */
+    serverRks?: ServerRksInfo;
   };
 }
 
