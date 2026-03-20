@@ -8,7 +8,8 @@ import { headers } from 'next/headers';
 
 export const metadata: Metadata = {
   title: '开发者仪表盘 Beta | Phigros Query',
-  description: 'Phigros Query 开发者仪表盘 Beta：提供 GitHub 登录与 API Key 申请、轮换、撤销能力。',
+  description:
+    'Phigros Query 开发者仪表盘 Beta，提供 GitHub 登录、API Key 创建与轮换、密钥撤销、开放平台协议入口，以及后续接口接入所需的开发者管理能力。',
   alternates: {
     canonical: '/open-platform',
   },
@@ -16,7 +17,8 @@ export const metadata: Metadata = {
     type: 'website',
     url: '/open-platform',
     title: '开发者仪表盘 Beta | Phigros Query',
-    description: 'Phigros Query 开发者仪表盘 Beta：提供 GitHub 登录与 API Key 申请、轮换、撤销能力。',
+    description:
+      'Phigros Query 开发者仪表盘 Beta，提供 GitHub 登录、API Key 创建与轮换、密钥撤销、开放平台协议入口，以及后续接口接入所需的开发者管理能力。',
     siteName: 'Phigros Query',
     locale: 'zh_CN',
     images: [{ url: '/og', width: 1200, height: 630 }],
@@ -24,7 +26,8 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: '开发者仪表盘 Beta | Phigros Query',
-    description: 'Phigros Query 开发者仪表盘 Beta：提供 GitHub 登录与 API Key 申请、轮换、撤销能力。',
+    description:
+      'Phigros Query 开发者仪表盘 Beta，提供 GitHub 登录、API Key 创建与轮换、密钥撤销、开放平台协议入口，以及后续接口接入所需的开发者管理能力。',
     images: ['/og'],
   },
 };

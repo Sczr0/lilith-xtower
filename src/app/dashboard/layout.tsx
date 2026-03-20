@@ -29,11 +29,5 @@ export const metadata: Metadata = {
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <>
-      {/* 视觉隐藏但对 SEO 友好的标题*/}
-      <h1 className="sr-only">个人成绩仪表盘 - Phigros Query</h1>
-      {children}
-    </>
-  )
+  return children
 }

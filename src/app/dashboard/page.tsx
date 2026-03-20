@@ -86,14 +86,26 @@ export default function Dashboard() {
   }
 
   const renderContent = () => (
-    <DashboardTabContent
-      activeTab={activeTab}
-      debugExport={debugExport}
-      songUpdates={songUpdates}
-      songUpdatesStatus={songUpdatesStatus}
-      songUpdatesError={songUpdatesError}
-      onRetrySongUpdates={() => void reloadSongUpdates()}
-    />
+    <div className="space-y-6">
+      <section className="space-y-2">
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-50 sm:text-3xl">
+          个人成绩仪表盘
+        </h1>
+        <p className="max-w-3xl text-sm text-gray-600 dark:text-gray-400 sm:text-base">
+          集中查看 Best N、单曲表现与 RKS 走势，并按不同分析标签快速切换您的
+          Phigros 数据面板。
+        </p>
+      </section>
+
+      <DashboardTabContent
+        activeTab={activeTab}
+        debugExport={debugExport}
+        songUpdates={songUpdates}
+        songUpdatesStatus={songUpdatesStatus}
+        songUpdatesError={songUpdatesError}
+        onRetrySongUpdates={() => void reloadSongUpdates()}
+      />
+    </div>
   );
 
   const footer =
