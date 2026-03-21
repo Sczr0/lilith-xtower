@@ -375,4 +375,30 @@ describe('buildLilithRecommendations', () => {
     expect(result.potentialRecommendations).toBeDefined();
     expect(result.potentialRecommendations.length).toBeLessThanOrEqual(result.quota.total);
   });
+
+  it('heavily penalizes high-constant charts with low ACC so they do not dominate recommendations', () => {
+    // 模拟 14.99 水平的玩家：有一条 16.3 定数但只有 88% ACC 的记录
+    const records: RksRecord[] = [
+      // 玩家主力水平：14-15 定数、95-99% ACC
+      createRecord({ song_name: 'Main1', difficulty_value: 14.9, acc: 98.5, push_acc: null }),
+      createRecord({ song_name: 'Main2', difficulty_value: 14.5, acc: 99.0, push_acc: null }),
+      createRecord({ song_name: 'Main3', difficulty_value: 14.2, acc: 98.8, push_acc: null }),
+      createRecord({ song_name: 'Main4', difficulty_value: 13.8, acc: 99.2, push_acc: null }),
+      createRecord({ song_name: 'Main5', difficulty_value: 13.5, acc: 99.5, push_acc: null }),
+      // 高定数低 ACC —— 玩家"尝试过但未胜任"
+      createRecord({ song_name: 'OverLevel', difficulty_value: 16.3, acc: 88, push_acc: 95 }),
+      // 在玩家水平内的可推谱面
+      createRecord({ song_name: 'ComfyPush', difficulty_value: 14.6, acc: 96, push_acc: 98 }),
+    ];
+
+    const result = buildLilithRecommendations(records, { limit: 3 });
+
+    // ComfyPush (14.6 定数) 应排在 OverLevel (16.3 定数) 前面
+    // 因为 16.3 远超玩家实际胜任水平，应被严重降权
+    const overLevelItem = findRecommendation(result, 'OverLevel');
+    const comfyItem = findRecommendation(result, 'ComfyPush');
+    expect(comfyItem.roi).toBeGreaterThan(overLevelItem.roi);
+    // 第一个推荐不应是 OverLevel
+    expect(result.recommendations[0].record.song_name).not.toBe('OverLevel');
+  });
 });

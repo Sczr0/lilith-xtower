@@ -32,6 +32,8 @@ const MULTI_TARGET_SAMPLE_COUNT = 6;
 const MIN_MEANINGFUL_DELTA = 0.001;
 // 阶段2: 高定数锚点取样数量
 const HIGH_CONST_SAMPLE_COUNT = 5;
+// 高定数锚点的 ACC 门槛：低于此 ACC 的记录视为"尝试但未胜任"，不作为水平锚点
+const HIGH_CONST_ACC_THRESHOLD = 97;
 
 export type LilithPool = 'top27' | 'top3phi' | 'dual';
 export type LilithStructureStatus = 'top27_low' | 'top3phi_low' | 'balanced' | 'insufficient';
@@ -203,7 +205,10 @@ function buildPlayerProfile(records: RksRecord[]): LilithPlayerProfile {
   const highAccRecords = records.filter((r) => r.acc >= HIGH_ACC_PROFILE_THRESHOLD - EPS);
   const highAccAnchor = weightedMedianDifficultyValue(highAccRecords) || (bestPeak?.difficulty_value ?? 0);
 
-  const highConstAnchor = averageTopDifficultyValues(records, HIGH_CONST_SAMPLE_COUNT) ?? (bestPeak?.difficulty_value ?? 0);
+  // highConstAnchor：取 ACC ≥ 93% 的记录中定数最高的 Top5 均值
+  // 低于此 ACC 的记录视为"尝试过但未胜任"，不应拉高锚点
+  const qualifiedForConst = records.filter((r) => r.acc >= HIGH_CONST_ACC_THRESHOLD - EPS);
+  const highConstAnchor = averageTopDifficultyValues(qualifiedForConst, HIGH_CONST_SAMPLE_COUNT) ?? (bestPeak?.difficulty_value ?? 0);
 
   return {
     bestPeakConstant: bestPeak?.difficulty_value ?? 0,
@@ -246,8 +251,10 @@ function computePlayerLevelPenalty(
   } else {
     anchor = profile.highAccAnchor;
   }
-  // 保底仍使用 bestPeakConstant
-  const bestPenalty = computeDifficultyGapPenalty(targetConstant, Math.max(anchor, profile.bestPeakConstant));
+  // 不再用 Math.max(anchor, bestPeakConstant)——bestPeakConstant 按 RKS 选的，
+  // 可能正好是那条高定数低ACC记录本身，会消除惩罚。
+  // 锚点应仅反映"玩家在该方向上的真实胜任能力"。
+  const bestPenalty = computeDifficultyGapPenalty(targetConstant, anchor);
 
   const shouldCheckApLevel = pool !== 'top27' || isPhiTarget;
   if (!shouldCheckApLevel) return bestPenalty;
