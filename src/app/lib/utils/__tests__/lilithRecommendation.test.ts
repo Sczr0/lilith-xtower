@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import type { RksRecord } from '../../types/score';
-import { buildLilithRecommendations, resolveLilithStructureStatus } from '../lilithRecommendation';
+import {
+  __lilithRecommendationTestables,
+  buildLilithRecommendations,
+  resolveLilithStructureStatus,
+} from '../lilithRecommendation';
 
 const rksByAcc = (acc: number, constant: number) => {
   if (acc < 70) return 0;
@@ -39,6 +43,22 @@ describe('resolveLilithStructureStatus', () => {
     expect(resolveLilithStructureStatus(0.3, 0.1, 1.8)).toBe('top27_low');
     expect(resolveLilithStructureStatus(0.1, 0.3, 1.8)).toBe('top3phi_low');
     expect(resolveLilithStructureStatus(0.2, 0.18, 1.8)).toBe('balanced');
+  });
+});
+
+describe('computeAccDifficultyMultiplier', () => {
+  it('keeps the 98~99 midpoint range no cheaper than the legacy curve', () => {
+    const { computeAccDifficultyMultiplier, computeLegacyAccDifficultyMultiplier } = __lilithRecommendationTestables;
+
+    expect(computeAccDifficultyMultiplier(97, 99)).toBeGreaterThanOrEqual(computeLegacyAccDifficultyMultiplier(98));
+    expect(computeAccDifficultyMultiplier(98, 100)).toBeGreaterThanOrEqual(computeLegacyAccDifficultyMultiplier(99));
+  });
+
+  it('preserves stronger penalties on the final AP stretch', () => {
+    const { computeAccDifficultyMultiplier, computeLegacyAccDifficultyMultiplier } = __lilithRecommendationTestables;
+
+    expect(computeAccDifficultyMultiplier(99, 100)).toBeGreaterThan(computeLegacyAccDifficultyMultiplier(99.5));
+    expect(computeAccDifficultyMultiplier(99.5, 100)).toBeGreaterThan(computeLegacyAccDifficultyMultiplier(99.75));
   });
 });
 

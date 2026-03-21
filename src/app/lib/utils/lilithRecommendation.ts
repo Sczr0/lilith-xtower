@@ -16,6 +16,11 @@ const HIGH_ACC_KNEE = 97;
 const FINAL_STRETCH_KNEE = 99.5;
 const HIGH_ACC_LINEAR_GROWTH = 0.65;
 const FINAL_STRETCH_EXP_GROWTH = 2.4;
+const ACC_COST_POWER = 4;
+const ACC_COST_HIGH_BOOST = 8;
+const ACC_COST_BOOST_KNEE = 99;
+const ACC_COST_REF = 40;
+const ACC_COST_OFFSET = 55;
 const PROFILE_LEVEL_SAMPLE_COUNT = 3;
 const NEAR_AP_ACC_THRESHOLD = 99.5;
 const CLOSE_READY_ACC_THRESHOLD = 99.8;
@@ -286,12 +291,8 @@ function computeApClosurePenalty(targetConstant: number, profile: LilithPlayerPr
     + closeRatePenalty * AP_CLOSURE_CLOSE_RATE_FACTOR;
 }
 
-// 98% 以上先线性抬升成本，99.5% 之后再切到指数增长，拉开 99.0->99.5 与 99.5->100 的差距。
-function computeAccDifficultyMultiplier(currentAcc: number, targetAcc: number): number {
-  if (!Number.isFinite(currentAcc) || !Number.isFinite(targetAcc) || targetAcc <= currentAcc + EPS) return 1;
-
-  const midpoint = (currentAcc + targetAcc) / 2;
-  if (midpoint <= HIGH_ACC_KNEE) return 1;
+function computeLegacyAccDifficultyMultiplier(midpoint: number): number {
+  if (!Number.isFinite(midpoint) || midpoint <= HIGH_ACC_KNEE) return 1;
 
   if (midpoint <= FINAL_STRETCH_KNEE) {
     return 1 + (midpoint - HIGH_ACC_KNEE) * HIGH_ACC_LINEAR_GROWTH;
@@ -300,6 +301,27 @@ function computeAccDifficultyMultiplier(currentAcc: number, targetAcc: number): 
   const baseMultiplier = 1 + (FINAL_STRETCH_KNEE - HIGH_ACC_KNEE) * HIGH_ACC_LINEAR_GROWTH;
   return baseMultiplier * Math.exp((midpoint - FINAL_STRETCH_KNEE) * FINAL_STRETCH_EXP_GROWTH);
 }
+
+// 混合成本模型：
+// 1. 保留旧曲线作为下界，避免 98~99 区间比历史实现更便宜而抬高 near-AP / Phi 的 ROI；
+// 2. 在 99%+ 继续叠加基于导数特征的幂律曲线，维持最终收尾阶段的强惩罚。
+function computeAccDifficultyMultiplier(currentAcc: number, targetAcc: number): number {
+  if (!Number.isFinite(currentAcc) || !Number.isFinite(targetAcc) || targetAcc <= currentAcc + EPS) return 1;
+
+  const midpoint = (currentAcc + targetAcc) / 2;
+  const legacyMult = computeLegacyAccDifficultyMultiplier(midpoint);
+  const u = (midpoint - ACC_COST_OFFSET) / ACC_COST_REF;
+  const derivativeMult = Math.pow(u, ACC_COST_POWER);
+  const overshoot = Math.max(0, midpoint - ACC_COST_BOOST_KNEE);
+  const highAccBoost = 1 + ACC_COST_HIGH_BOOST * overshoot * overshoot;
+
+  return Math.max(1, legacyMult, derivativeMult * highAccBoost);
+}
+
+export const __lilithRecommendationTestables = {
+  computeAccDifficultyMultiplier,
+  computeLegacyAccDifficultyMultiplier,
+};
 
 function computeEffectiveCost(currentAcc: number, targetAcc: number, levelPenalty: number): number {
   const deltaAcc = targetAcc - currentAcc;
