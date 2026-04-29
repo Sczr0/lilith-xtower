@@ -1,0 +1,7 @@
+{
+  "format": "openpgp-clearsign",
+  "status": "signed",
+  "verified": null,
+  "hash": "SHA256",
+  "signature": "-----BEGIN PGP SIGNATURE-----\n\niQGzBAEBCAAdFiEELLqNPkwXwRaxvR3OAM+CMkOXAy8FAmnxnpAACgkQAM+CMkOX\nAy8lUAv/c7ePPP47tKNa2MoVuy8KLwMYZyakDOS9ZZnpO0wiGkgNZ6HncudcCx2o\nPo/8tQiwczBJHq32ZaKG3rzJhOFnIG6Hh1Bst2bQ/oAN+LHfAyBx6heP2Asghm51\nEqT6Vz8bCW4R9s+4uauQ+ihs+734jL1JojZ6t98WtR+VXHFi0YojKkggKUWrGwCQ\nLp5QI8BUd/1YJMEe9pKYkuoveASHUf8+cebhtdN7colcd63vMvPjazQZBAw/ak5n\nAQ2VSDftgQx/0NdMJFr/qw7otrDkqqtEmX71cKVYLWWxeKOrtTib2SxS06iUtRjc\nEuGkj1A1X7S+REPpBgx/p/BfZCzUK0iZtMxH2Oy+WeY3xvmwaOLVqQvCSfNIW/wN\n4OuChUwarlzzVom7IXMkzzuUvxeB0PidXJDQ/rqi1W/FxOOUh9RQIEWEtuC7Lq2/\n3BuVUxW4q7Utf+K/cKpZqwNJl90QYmxGcmm6fsJLQjvPQdt0csObIGrA1dRqBrnD\nUt2fSSNH\n=dKyb\n-----END PGP SIGNATURE-----"
+}

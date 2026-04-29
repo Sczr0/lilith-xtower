@@ -16,7 +16,7 @@
   },
   {
     "id": "heading-3",
-    "title": "4. 开发者账户与认证",
+    "title": "4. 接入方账户与认证",
     "level": 4
   },
   {
@@ -36,17 +36,22 @@
   },
   {
     "id": "heading-7",
-    "title": "9. 协议变更与终止",
+    "title": "8. 协议变更与终止",
     "level": 4
   },
   {
     "id": "heading-8",
-    "title": "10. 适用法律与管辖权",
+    "title": "9. 适用法律与管辖权",
     "level": 4
   },
   {
     "id": "heading-9",
-    "title": "11. 其他",
+    "title": "10. 其他",
+    "level": 4
+  },
+  {
+    "id": "heading-10",
+    "title": "11. 联系我们",
     "level": 4
   }
 ]
