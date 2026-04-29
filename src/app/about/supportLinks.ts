@@ -37,7 +37,7 @@ export const SUPPORT_LINK_SECTIONS: SupportLinkSection[] = [
     title: '友链',
     links: [
       { name: 'Phi-plugin 使用指引', url: 'https://www.kdocs.cn/l/catqcMM9UR5Y', external: true },
-      { name: 'RankHub —— 跨平台音游数据管理应用', url: 'https://github.com/Project-Fukakai/RankHub', external: true },
+      { name: 'Phi Tracker -- 一款可以用于读取 Phigros 云存档查分的开源小工具', url: 'https://github.com/Kasumi-Ushio/Phi-Tracker', external: true },
       { name: '空游小站', url: 'https://kyou.net.cn', external: true },
     ],
     icon: Users,
