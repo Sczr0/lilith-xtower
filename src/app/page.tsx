@@ -7,7 +7,6 @@ import { PageShell } from './components/PageShell';
 import { buttonStyles, cardStyles } from './components/ui/styles';
 import { safeJsonLdStringify } from './lib/security/safeJsonLdStringify';
 import { SITE_URL } from './utils/site-url';
-import { headers } from 'next/headers';
 
 export const metadata: Metadata = {
   alternates: {
@@ -17,11 +16,9 @@ export const metadata: Metadata = {
 
 /**
  * 首页
- * 说明：为配合 CSP nonce（middleware.ts），RootLayout 强制按请求渲染（dynamic = 'force-dynamic'）。
  * 结构化数据在服务端渲染，Header 由客户端组件处理登录状态。
  */
 export default async function Home() {
-  const nonce = (await headers()).get('x-nonce') || undefined;
 
   // 结构化数据（WebSite + Organization）
   const jsonLd = {
@@ -76,8 +73,6 @@ export default async function Home() {
         <>
           <script
             type="application/ld+json"
-            nonce={nonce}
-            // 说明：JSON-LD 属于“无需执行的结构化数据”，随 HTML 输出可提升爬虫抓取稳定性。
             dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(jsonLd) }}
           />
 

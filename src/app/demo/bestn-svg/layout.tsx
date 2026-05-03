@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'BestN SVG 渲染测试 | Phigros Query',
+  title: 'BestN SVG 渲染测试',
   description: '用于测试前端是否能正常渲染后端返回的 SVG 格式 BestN 图片（通过 format=svg 获取）。',
   robots: {
     index: false,
@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     url: '/demo/bestn-svg',
-    title: 'BestN SVG 渲染测试 | Phigros Query',
+    title: 'BestN SVG 渲染测试',
     description: '用于测试前端是否能正常渲染后端返回的 SVG 格式 BestN 图片（通过 format=svg 获取）。',
     siteName: 'Phigros Query',
     locale: 'zh_CN',
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'BestN SVG 渲染测试 | Phigros Query',
+    title: 'BestN SVG 渲染测试',
     description: '用于测试前端是否能正常渲染后端返回的 SVG 格式 BestN 图片（通过 format=svg 获取）。',
     images: ['/og'],
   },

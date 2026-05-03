@@ -69,8 +69,14 @@ export function QAList({ qaData }: QAListProps) {
       </div>
 
       {/* QA List */}
-      <div className="space-y-4">
-        {filteredQA.map((item) => (
+      {filteredQA.length === 0 ? (
+        <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+          <p className="text-lg">没有找到相关问题</p>
+          <p className="text-sm mt-1">试试切换其他分类，或搜索其他关键词</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {filteredQA.map((item) => (
           <details
             key={item.id}
             className="group bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-xl border border-gray-200/50 dark:border-gray-700/50 overflow-hidden transition-all duration-200 hover:shadow-lg"
@@ -104,7 +110,8 @@ export function QAList({ qaData }: QAListProps) {
             </div>
           </details>
         ))}
-      </div>
+        </div>
+      )}
     </>
   );
 }

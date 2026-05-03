@@ -64,7 +64,7 @@ export default function LoginPage() {
       variant="gradient"
       header={<SiteHeader showLogin={false} />}
       footerVariant="none"
-      mainClassName="relative z-10 flex-1 flex items-center justify-center p-4 sm:p-6 min-h-[calc(100vh-8rem)]"
+      mainClassName="relative z-10 flex-1 flex items-start justify-center p-4 sm:p-6 pt-8 sm:pt-12 lg:pt-16"
       containerClassName="w-full max-w-5xl mx-auto"
       afterMain={(
         <footer className="relative z-10 flex items-center justify-center h-16 backdrop-blur-sm bg-white/30 dark:bg-gray-900/30 border-t border-gray-200/50 dark:border-gray-700/50">
@@ -74,20 +74,20 @@ export default function LoginPage() {
         </footer>
       )}
     >
-      <div className="text-center mb-6 sm:mb-8 lg:mb-10">
-        <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold mb-3 sm:mb-4 tracking-tight">
+      <div className="text-center mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 sm:mb-3 tracking-tight">
           登录 Phigros 查询服务
         </h1>
-        <p className="text-base sm:text-lg lg:text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto px-2">
+        <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 max-w-2xl mx-auto px-2">
           选择登录方式，开始查询您的 Phigros 成绩
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8 w-full max-w-5xl">
         {/* 登录方式选择 */}
-        <div className="lg:col-span-4">
-          <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-2xl p-4 sm:p-6 shadow-lg border border-gray-200/50 dark:border-gray-700/50">
-            <h2 id="login-methods-title" className="text-lg sm:text-xl font-bold mb-4 sm:mb-6">选择登录方式</h2>
+        <div className="lg:col-span-5">
+          <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-2xl p-5 sm:p-6 shadow-lg border border-gray-200/50 dark:border-gray-700/50">
+            <h2 id="login-methods-title" className="text-lg sm:text-xl font-bold mb-5 sm:mb-6">选择登录方式</h2>
             <LoginMethodSelector
               titleId="login-methods-title"
               methods={LOGIN_METHODS}
@@ -98,23 +98,23 @@ export default function LoginPage() {
         </div>
 
         {/* 登录表单 */}
-        <div className="lg:col-span-8">
-          <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-2xl p-4 sm:p-6 lg:p-8 shadow-lg border border-gray-200/50 dark:border-gray-700/50">
+        <div className="lg:col-span-7">
+          <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-2xl p-5 sm:p-6 lg:p-8 shadow-lg border border-gray-200/50 dark:border-gray-700/50">
             {/* TapTap版本选择 */}
             <div className="mb-6">
-              <h3 id="taptap-version-title" className="text-base sm:text-lg font-medium mb-3 text-gray-900 dark:text-gray-100">
+              <h3 id="taptap-version-title" className="text-sm sm:text-base font-medium mb-3 text-gray-900 dark:text-gray-100">
                 选择TapTap版本
               </h3>
               <RadioGroup.Root
                 aria-labelledby="taptap-version-title"
                 orientation="horizontal"
-                className="flex gap-4"
+                className="flex gap-3 sm:gap-4"
                 value={taptapVersion}
                 onValueChange={(v) => handleVersionChange(v as TapTapVersion)}
               >
                 <RadioGroup.Item
                   value="cn"
-                  className={`flex-1 py-3 px-4 rounded-xl transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                  className={`flex-1 py-2.5 px-4 rounded-xl transition-all duration-300 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                     taptapVersion === 'cn'
                       ? 'bg-blue-500 text-white shadow-lg border-2 border-blue-600'
                       : 'bg-gray-100 dark:bg-gray-700/50 border-2 border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-700'
@@ -124,7 +124,7 @@ export default function LoginPage() {
                 </RadioGroup.Item>
                 <RadioGroup.Item
                   value="global"
-                  className={`flex-1 py-3 px-4 rounded-xl transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                  className={`flex-1 py-2.5 px-4 rounded-xl transition-all duration-300 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                     taptapVersion === 'global'
                       ? 'bg-blue-500 text-white shadow-lg border-2 border-blue-600'
                       : 'bg-gray-100 dark:bg-gray-700/50 border-2 border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-700'
@@ -143,22 +143,20 @@ export default function LoginPage() {
               />
             )}
             <LoginFormPanel activeMethod={activeMethod} taptapVersion={taptapVersion} />
+
+            {/* 协议提示 — 放在表单卡片内，确保始终可见 */}
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-6 pt-4 border-t border-gray-200/50 dark:border-gray-700/50 text-center">
+              登录即表示您同意我们的
+              <a href="/agreement" target="_blank" rel="noopener noreferrer" className="font-medium text-blue-600 hover:underline dark:text-blue-400">
+                用户协议
+              </a>
+              {' '}和{' '}
+              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-medium text-blue-600 hover:underline dark:text-blue-400">
+                隐私协议
+              </a>
+            </p>
           </div>
         </div>
-      </div>
-
-      <div className="text-center mt-6 sm:mt-8">
-        <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 px-2">
-          登录即表示您同意我们的
-          <a href="/agreement" target="_blank" rel="noopener noreferrer" className="font-medium text-blue-600 hover:underline dark:text-blue-400">
-            用户协议
-          </a>
-          {' '}和{' '}
-          <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-medium text-blue-600 hover:underline dark:text-blue-400">
-            隐私协议
-          </a>
-          。
-        </p>
       </div>
 
       {/* Auth Details Modal */}

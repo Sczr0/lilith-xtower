@@ -3,7 +3,7 @@
 import type { LeaderboardTopItem } from '../../lib/types/leaderboard';
 import { formatFixedNumber } from '../../lib/utils/number';
 import { StyledSelect } from '../ui/Select';
-import { buttonStyles } from '../ui/styles';
+import { buttonStyles, cardStyles } from '../ui/styles';
 
 type SelectOption = {
   label: string;
@@ -77,7 +77,7 @@ export function LeaderboardTopTableSection({
   formatDateTime,
 }: LeaderboardTopTableSectionProps) {
   return (
-    <section className="rounded-2xl border border-gray-200 bg-white/80 p-6 shadow-sm shadow-gray-100/40 backdrop-blur-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900/50 dark:shadow-none">
+    <section className={cardStyles({ tone: 'glass-subtle', rounded: '2xl', padding: 'md', className: 'transition-colors' })}>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 flex-1">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 sm:text-xl">

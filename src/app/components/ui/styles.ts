@@ -42,9 +42,10 @@ export function buttonStyles({
 }
 
 interface CardStyleOptions {
-  tone?: 'default' | 'glass';
+  tone?: 'default' | 'glass' | 'glass-subtle';
   dashed?: boolean;
   padding?: UiSize;
+  rounded?: 'xl' | '2xl';
   className?: string;
 }
 
@@ -52,19 +53,24 @@ interface CardStyleOptions {
  * 统一卡片容器样式
  * - default：白底卡片（plain 页/内容页）
  * - glass：玻璃拟态（gradient 页）
+ * - glass-subtle：轻玻璃拟态（排行榜等需要区分的场景）
  */
-export function cardStyles({ tone = 'default', dashed, padding = 'md', className }: CardStyleOptions = {}) {
+export function cardStyles({ tone = 'default', dashed, padding = 'md', rounded = 'xl', className }: CardStyleOptions = {}) {
   const paddingCls =
     padding === 'sm' ? 'p-4' : padding === 'lg' ? 'p-8' : 'p-6 sm:p-8';
 
-  const base = cx('rounded-xl border', paddingCls);
-  const border = dashed ? 'border-dashed' : '';
+  const roundedCls = rounded === '2xl' ? 'rounded-2xl' : 'rounded-xl';
+
+  const base = cx(`${roundedCls} border`, paddingCls);
+  const borderCls = dashed ? 'border-dashed' : '';
   const toneCls =
     tone === 'glass'
       ? 'bg-white/70 dark:bg-neutral-900/60 backdrop-blur-md border-gray-200/50 dark:border-neutral-800/60 shadow-lg'
-      : 'bg-white dark:bg-neutral-900 border-gray-200 dark:border-neutral-800 shadow-sm';
+      : tone === 'glass-subtle'
+        ? 'bg-white/80 dark:bg-neutral-900/50 backdrop-blur-sm border-gray-200 dark:border-neutral-800 shadow-sm shadow-gray-100/40 dark:shadow-none'
+        : 'bg-white dark:bg-neutral-900 border-gray-200 dark:border-neutral-800 shadow-sm';
 
-  return cx(base, border, toneCls, className);
+  return cx(base, borderCls, toneCls, className);
 }
 
 interface InputStyleOptions {

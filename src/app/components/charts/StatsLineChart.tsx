@@ -69,6 +69,19 @@ export function StatsLineChart({ title, xAxis, series, height = 260, className }
         borderColor: tooltipBorder,
         textStyle: { color: tooltipText },
       },
+      toolbox: {
+        show: true,
+        right: 40,
+        top: 4,
+        feature: {
+          saveAsImage: {
+            title: '保存图片',
+            pixelRatio: 2,
+            backgroundColor: isDark ? '#171717' : '#ffffff',
+          },
+          dataView: { title: '数据', readOnly: true },
+        },
+      },
       xAxis: {
         type: 'category',
         data: xAxis,

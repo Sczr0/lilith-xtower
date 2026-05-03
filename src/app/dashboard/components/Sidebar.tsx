@@ -222,20 +222,32 @@ export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobile
         {!isCollapsed && (
           <span className="font-semibold text-lg">功能菜单</span>
         )}
-        <button
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          title={isCollapsed ? '展开侧边栏' : '收起侧边栏'}
-        >
-          <svg
-            className={`w-5 h-5 transition-transform ${isCollapsed ? 'rotate-180' : ''}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+        <div className="flex items-center gap-1">
+          {/* 移动端关闭按钮 */}
+          <button
+            onClick={onMobileClose}
+            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors lg:hidden"
+            aria-label="关闭菜单"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-          </svg>
-        </button>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            title={isCollapsed ? '展开侧边栏' : '收起侧边栏'}
+          >
+            <svg
+              className={`w-5 h-5 transition-transform ${isCollapsed ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -358,7 +370,11 @@ export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobile
                 <ActionLinkIcon href={item.href} className="w-5 h-5" />
               </Link>
             ))}
-            
+
+            <div className="flex items-center justify-center px-3 py-2">
+              <ThemeToggle />
+            </div>
+
             <button
               onClick={logout}
               className="w-full flex items-center justify-center px-3 py-3 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"

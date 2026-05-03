@@ -4,10 +4,9 @@ import { SiteHeader } from '../components/SiteHeader';
 import { safeJsonLdStringify } from '../lib/security/safeJsonLdStringify';
 import { SITE_URL } from '../utils/site-url';
 import { OpenPlatformBetaDashboard } from './components/OpenPlatformBetaDashboard';
-import { headers } from 'next/headers';
 
 export const metadata: Metadata = {
-  title: '开发者仪表盘 Beta | Phigros Query',
+  title: '开发者仪表盘 Beta',
   description:
     'Phigros Query 开发者仪表盘 Beta，提供 GitHub 登录、API Key 创建与轮换、密钥撤销、开放平台协议入口，以及后续接口接入所需的开发者管理能力。',
   alternates: {
@@ -16,7 +15,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     url: '/open-platform',
-    title: '开发者仪表盘 Beta | Phigros Query',
+    title: '开发者仪表盘 Beta',
     description:
       'Phigros Query 开发者仪表盘 Beta，提供 GitHub 登录、API Key 创建与轮换、密钥撤销、开放平台协议入口，以及后续接口接入所需的开发者管理能力。',
     siteName: 'Phigros Query',
@@ -25,7 +24,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: '开发者仪表盘 Beta | Phigros Query',
+    title: '开发者仪表盘 Beta',
     description:
       'Phigros Query 开发者仪表盘 Beta，提供 GitHub 登录、API Key 创建与轮换、密钥撤销、开放平台协议入口，以及后续接口接入所需的开发者管理能力。',
     images: ['/og'],
@@ -33,8 +32,6 @@ export const metadata: Metadata = {
 };
 
 export default async function OpenPlatformPage() {
-  const nonce = (await headers()).get('x-nonce') || undefined;
-
   const softwareJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
@@ -59,7 +56,6 @@ export default async function OpenPlatformPage() {
       beforeMain={
         <script
           type="application/ld+json"
-          nonce={nonce}
           dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(softwareJsonLd) }}
         />
       }

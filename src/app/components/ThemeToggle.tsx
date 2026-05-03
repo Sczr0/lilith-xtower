@@ -9,11 +9,21 @@ export function ThemeToggle() {
   const [mounted, setMounted] = React.useState(false);
   const { setTheme, theme, resolvedTheme } = useTheme();
 
+  const effectiveTheme = (theme === 'system' ? resolvedTheme : theme) as 'light' | 'dark' | undefined;
+
   React.useEffect(() => {
     setMounted(true);
   }, []);
 
-  const effectiveTheme = (theme === 'system' ? resolvedTheme : theme) as 'light' | 'dark' | undefined;
+  // 动态更新 theme-color meta，跟随手动主题切换（而非仅跟随系统）
+  React.useEffect(() => {
+    if (!mounted) return;
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (!meta) return;
+    const lightColor = '#2563eb';
+    const darkColor = '#1e40af';
+    meta.setAttribute('content', effectiveTheme === 'dark' ? darkColor : lightColor);
+  }, [effectiveTheme, mounted]);
 
   if (!mounted) {
     return (

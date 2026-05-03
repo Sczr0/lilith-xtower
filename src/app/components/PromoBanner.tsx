@@ -230,13 +230,14 @@ export function PromoBanner({ pathname }: { pathname: string }) {
             <div ref={marqueeGroupRef} className="flex items-center gap-2 pr-8">
               {visibleSlides.map((slide, index) => {
                 const action = resolveSlideAction(slide);
-                const slideAppearance = resolvePromoBannerSlideAppearance(
-                  promoBannerConfig.appearance,
-                  slide.appearance,
-                );
+                const isSingleSlide = visibleSlides.length === 1;
+                // 多条时统一使用 banner 级外观，避免混色
+                const effectiveAppearance = isSingleSlide
+                  ? resolvePromoBannerSlideAppearance(promoBannerConfig.appearance, slide.appearance)
+                  : bannerAppearance;
                 const slideStyle = {
-                  "--promo-slide-text": slideAppearance.textColor,
-                  "--promo-slide-link-hover": slideAppearance.linkHoverColor,
+                  "--promo-slide-text": effectiveAppearance.textColor,
+                  "--promo-slide-link-hover": effectiveAppearance.linkHoverColor,
                 } as CSSProperties;
                 return (
                   <div key={`primary-${slide.id}`} className="inline-flex items-center gap-2">
@@ -270,13 +271,10 @@ export function PromoBanner({ pathname }: { pathname: string }) {
               <div aria-hidden="true" className="flex items-center gap-2 pr-8">
                 {visibleSlides.map((slide, index) => {
                   const action = resolveSlideAction(slide);
-                  const slideAppearance = resolvePromoBannerSlideAppearance(
-                    promoBannerConfig.appearance,
-                    slide.appearance,
-                  );
+                  // 克隆段始终使用 banner 级外观，无需 per-slide 差异
                   const slideStyle = {
-                    "--promo-slide-text": slideAppearance.textColor,
-                    "--promo-slide-link-hover": slideAppearance.linkHoverColor,
+                    "--promo-slide-text": bannerAppearance.textColor,
+                    "--promo-slide-link-hover": bannerAppearance.linkHoverColor,
                   } as CSSProperties;
                   return (
                     <div key={`clone-${slide.id}`} className="inline-flex items-center gap-2">

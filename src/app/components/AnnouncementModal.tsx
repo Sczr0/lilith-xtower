@@ -2,7 +2,7 @@
 
 import * as Dialog from '@radix-ui/react-dialog';
 import { useEffect, useMemo, useState } from 'react';
-import { X } from 'lucide-react';
+import { Pin, AlertTriangle, Wrench, X } from 'lucide-react';
 import { Markdown } from './Markdown';
 import { Announcement } from '../lib/types/content';
 
@@ -106,9 +106,9 @@ export function AnnouncementModal({
   } as const;
 
   const typeIcons = {
-    info: '📌',
-    warning: '⚠️',
-    maintenance: '🔧',
+    info: <Pin className="w-6 h-6" />,
+    warning: <AlertTriangle className="w-6 h-6" />,
+    maintenance: <Wrench className="w-6 h-6" />,
   } as const;
 
   const handleClose = (applyDontShow: boolean) => {
@@ -147,7 +147,7 @@ export function AnnouncementModal({
               className={`px-6 py-4 border-b-2 ${typeStyles[current.type]} dark:bg-gray-700 dark:border-gray-600 rounded-t-2xl flex items-center justify-between`}
             >
               <div className="flex items-center gap-3">
-                <span className="text-2xl" aria-hidden>
+                <span aria-hidden>
                   {typeIcons[current.type]}
                 </span>
                 <Dialog.Title asChild>

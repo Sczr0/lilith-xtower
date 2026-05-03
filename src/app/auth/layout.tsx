@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: '认证信息 | Phigros Query',
+  title: '认证信息',
   description: '查看当前登录状态与基础认证信息（敏感字段默认遮罩）。',
   keywords: ['Phigros', '认证信息', '登录状态', '技术支持'],
   robots: {
@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     url: '/auth',
-    title: '认证信息 | Phigros Query',
+    title: '认证信息',
     description: '查看当前登录状态与基础认证信息（敏感字段默认遮罩）。',
     siteName: 'Phigros Query',
     locale: 'zh_CN',
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: '认证信息 | Phigros Query',
+    title: '认证信息',
     description: '查看当前登录状态与基础认证信息（敏感字段默认遮罩）。',
     images: ['/og'],
   },

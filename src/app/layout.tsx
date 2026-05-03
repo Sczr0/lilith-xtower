@@ -12,7 +12,6 @@ import Script from "next/script";
 import WebVitals from "./components/WebVitals";
 import { TipsProvider } from "./components/TipsProvider";
 import { BrandFontLoader } from "./components/BrandFontLoader";
-import { headers } from "next/headers";
 import { SITE_URL } from "./utils/site-url";
 
 const geistSans = Geist({
@@ -31,9 +30,6 @@ const ENABLE_VERCEL_ANALYTICS = (() => {
   return raw === "1" || raw === "true";
 })();
 
-// 说明：middleware.ts 为每个请求生成 CSP nonce。
-// Next.js 只有在按请求渲染 HTML 时才能把 nonce 注入到其内联脚本；若静态化则会因脚本缺少 nonce 被 CSP 阻止，出现白屏。
-export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -68,9 +64,6 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // 获取 CSP nonce（由 middleware 生成并透传），用于 Script 与 ThemeProvider
-  const nonce = (await headers()).get('x-nonce') || undefined;
-
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <head>
@@ -88,7 +81,6 @@ export default async function RootLayout({
           data-host-url="https://cloud.umami.is"
           data-domains="lilith.xtower.site"
           strategy="lazyOnload"
-          nonce={nonce}
         />
       </head>
       <body
@@ -100,7 +92,6 @@ export default async function RootLayout({
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
-          nonce={nonce}
         >
           <TipsProvider>
             <MaintenanceNotice />

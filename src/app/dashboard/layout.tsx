@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: '个人成绩仪表盘 - Phigros Query',
+  title: '个人成绩仪表盘',
   description: '集中查看与分析您的 Phigros 成绩，展示 RKS 走势、Best N 列表、单曲表现，并支持图片导出。',
   robots: {
     index: false,
@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     url: '/dashboard',
-    title: '个人成绩仪表盘 - Phigros Query',
+    title: '个人成绩仪表盘',
     description: '集中查看与分析您的 Phigros 成绩，展示 RKS 走势、Best N 列表、单曲表现，并支持图片导出。',
     siteName: 'Phigros Query',
     locale: 'zh_CN',
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: '个人成绩仪表盘 - Phigros Query',
+    title: '个人成绩仪表盘',
     description: '集中查看与分析您的 Phigros 成绩，展示 RKS 走势、Best N 列表、单曲表现，并支持图片导出。',
     images: ['/og?title=个人成绩仪表盘'],
   },

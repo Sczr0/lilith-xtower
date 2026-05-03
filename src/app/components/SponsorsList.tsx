@@ -144,7 +144,13 @@ export default function SponsorsList({ initialPerPage = 12, initialData, initial
         ))}
         {loading && items.length === 0 && (
           Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="border border-dashed border-gray-200 dark:border-neutral-800 rounded-xl p-4 h-[64px] animate-pulse" />
+            <div key={i} className="border border-dashed border-gray-200 dark:border-neutral-800 rounded-xl p-4 flex items-center gap-3 animate-pulse">
+              <div className="h-12 w-12 rounded-full bg-gray-200 dark:bg-gray-700" />
+              <div className="flex-1 space-y-2">
+                <div className="h-4 w-20 rounded bg-gray-200 dark:bg-gray-700" />
+                <div className="h-3 w-14 rounded bg-gray-200 dark:bg-gray-700" />
+              </div>
+            </div>
           ))
         )}
       </div>

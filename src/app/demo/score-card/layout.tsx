@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: '成绩单演示 | Phigros Query',
+  title: '成绩单演示',
   description: 'Phigros 成绩单样式演示，展示多种成绩卡片设计与图片生成效果，预览不同风格的分享模板。',
   robots: {
     index: false,
@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     url: '/demo/score-card',
-    title: '成绩单演示 | Phigros Query',
+    title: '成绩单演示',
     description: 'Phigros 成绩单样式演示，展示多种成绩卡片设计与图片生成效果，预览不同风格的分享模板。',
     siteName: 'Phigros Query',
     locale: 'zh_CN',
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: '成绩单演示 | Phigros Query',
+    title: '成绩单演示',
     description: 'Phigros 成绩单样式演示，展示多种成绩卡片设计与图片生成效果，预览不同风格的分享模板。',
     images: ['/og'],
   },

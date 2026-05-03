@@ -9,7 +9,6 @@ import { SITE_URL } from '../utils/site-url';
 import { buildGoHref } from '../utils/outbound';
 import { DEFAULT_QA_DATA } from './defaultQAData';
 import type { QAItem } from './types';
-import { headers } from 'next/headers';
 
 // ISR: 每小时重新验证一次
 export const revalidate = 3600;
@@ -17,7 +16,7 @@ export const revalidate = 3600;
 function normalizeFaqAnswerForJsonLd(answer: string): string {
   return answer
     .replace(/\r\n/g, '\n')
-    // 说明：FAQPage 的 acceptedAnswer.text 更推荐“纯文本”，这里做最小规范化以提升富摘要稳定性
+    // 说明：FAQPage 的 acceptedAnswer.text 更推荐"纯文本"，这里做最小规范化以提升富摘要稳定性
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Markdown 链接：[text](url) -> text
     .replace(/`([^`]+)`/g, '$1') // Inline code -> text
     .replace(/\n+/g, ' ')
@@ -30,7 +29,6 @@ function normalizeFaqAnswerForJsonLd(answer: string): string {
  * 在服务端获取 QA 数据，每小时重新验证
  */
 export default async function QAPage() {
-  const nonce = (await headers()).get('x-nonce') || undefined;
 
   // 在服务端获取 QA 数据
   let qaData: QAItem[];
@@ -87,15 +85,11 @@ export default async function QAPage() {
       {/* FAQPage 结构化数据 */}
       <script
         type="application/ld+json"
-        nonce={nonce}
-        // 说明：JSON-LD 属于“无需执行的结构化数据”，随 HTML 输出可提升爬虫抓取稳定性。
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(faqJsonLd) }}
       />
       {/* BreadcrumbList 结构化数据 */}
       <script
         type="application/ld+json"
-        nonce={nonce}
-        // 说明：JSON-LD 属于“无需执行的结构化数据”，随 HTML 输出可提升爬虫抓取稳定性。
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(breadcrumbJsonLd) }}
       />
       {/* Title */}

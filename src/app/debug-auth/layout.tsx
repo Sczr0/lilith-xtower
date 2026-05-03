@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 
 export const metadata: Metadata = {
-  title: '认证调试 | Phigros Query',
+  title: '认证调试',
   description: '用于调试与技术支持的认证测试页面，帮助开发者诊断登录问题并验证认证流程，确保服务稳定。',
   keywords: ['Phigros', '认证调试', '开发工具', '技术支持', '登录诊断', '认证测试', '调试工具'],
   robots: {
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     url: '/debug-auth',
-    title: '认证调试 | Phigros Query',
+    title: '认证调试',
     description: '用于调试与技术支持的认证测试页面，帮助开发者诊断登录问题并验证认证流程，确保服务稳定。',
     siteName: 'Phigros Query',
     locale: 'zh_CN',
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: '认证调试 | Phigros Query',
+    title: '认证调试',
     description: '用于调试与技术支持的认证测试页面，帮助开发者诊断登录问题并验证认证流程，确保服务稳定。',
     images: ['/og'],
   },

@@ -7,7 +7,6 @@ import { SITE_URL } from '../utils/site-url';
 import { buildGoHref } from '../utils/outbound';
 import { AboutClientSections } from './components/AboutClientSections';
 import { SUPPORT_LINK_SECTIONS } from './supportLinks';
-import { headers } from 'next/headers';
 
 const AVATAR_SRC = '/about/avatar.png';
 
@@ -16,7 +15,6 @@ const AVATAR_SRC = '/about/avatar.png';
  * 静态内容在服务端渲染，动态部分（平台检测、服务统计）由客户端组件处理
  */
 export default async function AboutPage() {
-  const nonce = (await headers()).get('x-nonce') || undefined;
 
   // 在服务端获取预编译的 About HTML
   let aboutHtml = '';
@@ -78,16 +76,12 @@ export default async function AboutPage() {
           {/* BreadcrumbList 结构化数据 */}
           <script
             type="application/ld+json"
-            nonce={nonce}
-            // 说明：JSON-LD 属于“无需执行的结构化数据”，随 HTML 输出可提升爬虫抓取稳定性。
             dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(breadcrumbJsonLd) }}
           />
 
           {/* Person 结构化数据 */}
           <script
             type="application/ld+json"
-            nonce={nonce}
-            // 说明：JSON-LD 属于“无需执行的结构化数据”，随 HTML 输出可提升爬虫抓取稳定性。
             dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(personJsonLd) }}
           />
         </>
@@ -118,7 +112,7 @@ export default async function AboutPage() {
             <div className="text-sm text-gray-500 dark:text-gray-400">无法加载 About 内容，请稍后重试。</div>
           ) : aboutHtml ? (
             <article className="prose prose-sm sm:prose dark:prose-invert max-w-none">
-              {/* 安全约束：仅允许渲染来自“预编译 + sanitize-html 白名单净化”的本地产物，禁止绕开该链路渲染外部 HTML。 */}
+              {/* 安全约束：仅允许渲染来自"预编译 + sanitize-html 白名单净化"的本地产物，禁止绕开该链路渲染外部 HTML。 */}
               <div dangerouslySetInnerHTML={{ __html: aboutHtml }} />
             </article>
           ) : (

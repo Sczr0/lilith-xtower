@@ -9,7 +9,7 @@ import type {
   LeaderboardMeResponse,
   PublicProfileResponse,
 } from '../lib/types/leaderboard';
-import { buttonStyles as getButtonStyles, inputStyles } from './ui/styles';
+import { buttonStyles as getButtonStyles, cardStyles, inputStyles } from './ui/styles';
 import { LeaderboardTopTableSection } from './leaderboard/LeaderboardTopTableSection';
 import type { LeaderboardTopItem } from '../lib/types/leaderboard';
 
@@ -428,7 +428,7 @@ export function LeaderboardPanel() {
       <div ref={topAnchorRef} />
 
       <section className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-2xl border border-gray-200 bg-white/80 p-6 shadow-sm shadow-gray-100/40 backdrop-blur-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900/50 dark:shadow-none">
+        <div className={cardStyles({ tone: 'glass-subtle', rounded: '2xl', padding: 'md', className: 'transition-colors' })}>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">我的排名</h2>
@@ -517,7 +517,7 @@ export function LeaderboardPanel() {
           ) : null}
         </div>
 
-        <div className="rounded-2xl border border-gray-200 bg-white/80 p-6 shadow-sm shadow-gray-100/40 backdrop-blur-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900/50 dark:shadow-none">
+        <div className={cardStyles({ tone: 'glass-subtle', rounded: '2xl', padding: 'md', className: 'transition-colors' })}>
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">别名管理</h2>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
             绑定别名后，排行榜中会展示更友好的称呼，同时可用于公开档案查询。
@@ -595,7 +595,7 @@ export function LeaderboardPanel() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-gray-200 bg-white/80 p-6 shadow-sm shadow-gray-100/40 backdrop-blur-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900/50 dark:shadow-none">
+      <section className={cardStyles({ tone: 'glass-subtle', rounded: '2xl', padding: 'md', className: 'transition-colors' })}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="flex flex-wrap items-center gap-2">
@@ -726,7 +726,7 @@ export function LeaderboardPanel() {
         )}
       </section>
 
-      <section className="rounded-2xl border border-gray-200 bg-white/80 p-6 shadow-sm shadow-gray-100/40 backdrop-blur-sm transition-colors dark:border-neutral-800 dark:bg-neutral-900/50 dark:shadow-none">
+      <section className={cardStyles({ tone: 'glass-subtle', rounded: '2xl', padding: 'md', className: 'transition-colors' })}>
         <div ref={profileAnchorRef} />
         <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">公开档案查询</h2>
         <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
