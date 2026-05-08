@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-import { getSessionAuthContext } from '@/app/lib/auth/sessionAuthContext'
+import { withAuth } from '@/app/lib/api/withAuth'
 import { getSeekendApiBaseUrl } from '@/app/lib/auth/upstream'
 
 export const runtime = 'nodejs'
@@ -8,17 +8,10 @@ export const dynamic = 'force-dynamic'
 
 const TIMEOUT_MS = 30_000
 
-function jsonError(message: string, status: number) {
-  return NextResponse.json({ message }, { status, headers: { 'Cache-Control': 'no-store' } })
-}
-
 /**
  * /api/leaderboard/rks/me（需要鉴权）
  */
-export async function POST() {
-  const ctx = await getSessionAuthContext()
-  if (!ctx) return jsonError('未登录', 401)
-
+export const POST = withAuth(async (_req, ctx) => {
   const upstream = `${getSeekendApiBaseUrl()}/leaderboard/rks/me`
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS)
@@ -41,9 +34,11 @@ export async function POST() {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error'
     const isTimeout = /aborted|abort/i.test(message)
-    return jsonError(isTimeout ? '请求超时，请稍后重试' : '请求失败，请稍后重试', isTimeout ? 504 : 502)
+    return NextResponse.json(
+      { message: isTimeout ? '请求超时，请稍后重试' : '请求失败，请稍后重试' },
+      { status: isTimeout ? 504 : 502, headers: { 'Cache-Control': 'no-store' } },
+    )
   } finally {
     clearTimeout(timeout)
   }
-}
-
+})

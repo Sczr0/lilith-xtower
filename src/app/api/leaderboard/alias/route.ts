@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 
-import { getSessionAuthContext } from '@/app/lib/auth/sessionAuthContext'
+import { withAuth } from '@/app/lib/api/withAuth'
 import { getSeekendApiBaseUrl } from '@/app/lib/auth/upstream'
 
 export const runtime = 'nodejs'
@@ -8,21 +8,16 @@ export const dynamic = 'force-dynamic'
 
 const TIMEOUT_MS = 30_000
 
-function jsonError(message: string, status: number) {
-  return NextResponse.json({ message }, { status, headers: { 'Cache-Control': 'no-store' } })
-}
-
 /**
  * /api/leaderboard/alias（需要鉴权）
  * - body: { alias }
  */
-export async function PUT(request: NextRequest) {
-  const ctx = await getSessionAuthContext()
-  if (!ctx) return jsonError('未登录', 401)
-
-  const rawBody = (await request.json().catch(() => ({}))) as Record<string, unknown>
+export const PUT = withAuth(async (req, ctx) => {
+  const rawBody = (await req.json().catch(() => ({}))) as Record<string, unknown>
   const alias = typeof rawBody.alias === 'string' ? rawBody.alias.trim() : ''
-  if (!alias) return jsonError('别名不能为空', 400)
+  if (!alias) {
+    return NextResponse.json({ message: '别名不能为空' }, { status: 400, headers: { 'Cache-Control': 'no-store' } })
+  }
 
   const upstream = `${getSeekendApiBaseUrl()}/leaderboard/alias`
   const controller = new AbortController()
@@ -46,9 +41,11 @@ export async function PUT(request: NextRequest) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error'
     const isTimeout = /aborted|abort/i.test(message)
-    return jsonError(isTimeout ? '请求超时，请稍后重试' : '请求失败，请稍后重试', isTimeout ? 504 : 502)
+    return NextResponse.json(
+      { message: isTimeout ? '请求超时，请稍后重试' : '请求失败，请稍后重试' },
+      { status: isTimeout ? 504 : 502, headers: { 'Cache-Control': 'no-store' } },
+    )
   } finally {
     clearTimeout(timeout)
   }
-}
-
+})

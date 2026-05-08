@@ -1,16 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 
-import { getSessionAuthContext } from '@/app/lib/auth/sessionAuthContext'
+import { withAuth } from '@/app/lib/api/withAuth'
 import { getSeekendApiBaseUrl } from '@/app/lib/auth/upstream'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 const TIMEOUT_MS = 30_000
-
-function jsonError(message: string, status: number) {
-  return NextResponse.json({ message }, { status, headers: { 'Cache-Control': 'no-store' } })
-}
 
 function toInt(value: unknown, fallback: number): number {
   if (typeof value === 'number' && Number.isFinite(value)) return Math.trunc(value)
@@ -29,11 +25,8 @@ function clamp(value: number, min: number, max: number): number {
  * /api/rks/history（需要鉴权）
  * - body: { limit, offset }
  */
-export async function POST(request: NextRequest) {
-  const ctx = await getSessionAuthContext()
-  if (!ctx) return jsonError('未登录', 401)
-
-  const rawBody = (await request.json().catch(() => ({}))) as Record<string, unknown>
+export const POST = withAuth(async (req, ctx) => {
+  const rawBody = (await req.json().catch(() => ({}))) as Record<string, unknown>
   const limit = clamp(toInt(rawBody.limit, 50), 1, 100)
   const offset = Math.max(0, toInt(rawBody.offset, 0))
 
@@ -59,9 +52,11 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error'
     const isTimeout = /aborted|abort/i.test(message)
-    return jsonError(isTimeout ? '请求超时，请稍后重试' : '请求失败，请稍后重试', isTimeout ? 504 : 502)
+    return NextResponse.json(
+      { message: isTimeout ? '请求超时，请稍后重试' : '请求失败，请稍后重试' },
+      { status: isTimeout ? 504 : 502, headers: { 'Cache-Control': 'no-store' } },
+    )
   } finally {
     clearTimeout(timeout)
   }
-}
-
+})
