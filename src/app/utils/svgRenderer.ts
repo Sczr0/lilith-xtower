@@ -368,17 +368,20 @@ async function getFontPackCss(
     }
   }
 
+  // 字体会加载到 canvas，需要跨域支持；优先使用 r-0semi CDN 节点（字体更快）
+  const FONT_CDN_ORIGIN = 'https://r-0semi.xtower.site';
+
   const origin =
     (() => {
-      if (typeof window !== 'undefined' && window.location?.origin) return window.location.origin;
+      // 测试/SSR 环境：从传入的 baseUrl 推导
       if (baseUrl) {
         try {
           return new URL(baseUrl).origin;
         } catch {}
       }
-      return '';
+      // 默认走字体专用 CDN，不依赖页面 origin
+      return FONT_CDN_ORIGIN;
     })();
-  if (!origin) throw new Error('font pack requires window.location.origin or baseUrl');
 
   const dirPath = `/fonts/${encodeURIComponent(pack.dirName)}/`;
   const dirUrl = new URL(dirPath, origin).toString();
@@ -476,20 +479,25 @@ async function buildEmbeddedFontCssForSvg(
     return { css: '', embeddedFiles: 0 };
   }
 
+  const results = await Promise.all(
+    urls.map(async (url) => {
+      try {
+        const res = await fetch(url, getFetchInitForUrl(url));
+        if (!res.ok) throw new Error(`Failed to fetch font: ${res.status} ${url}`);
+        const buf = await res.arrayBuffer();
+        const mime = cssFontMimeTypeFromUrl(url, res.headers.get('content-type'));
+        return { url, dataUrl: `data:${mime};base64,${arrayBufferToBase64(buf)}` } as const;
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        dlog(options, 'embedFonts fetch failed', { url, message });
+        return null;
+      }
+    }),
+  );
+
   const dataUrlByUrl = new Map<string, string>();
-  for (const url of urls) {
-    try {
-      const res = await fetch(url, getFetchInitForUrl(url));
-      if (!res.ok) throw new Error(`Failed to fetch font: ${res.status} ${url}`);
-      const buf = await res.arrayBuffer();
-      const mime = cssFontMimeTypeFromUrl(url, res.headers.get('content-type'));
-      const dataUrl = `data:${mime};base64,${arrayBufferToBase64(buf)}`;
-      dataUrlByUrl.set(url, dataUrl);
-    } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      dlog(options, 'embedFonts fetch failed', { url, message });
-      // 某个子集失败不应阻断导出：跳过，交给后续 fallback（可能使用系统字体/已有字体）
-    }
+  for (const r of results) {
+    if (r) dataUrlByUrl.set(r.url, r.dataUrl);
   }
 
   if (dataUrlByUrl.size === 0) return { css: '', embeddedFiles: 0 };

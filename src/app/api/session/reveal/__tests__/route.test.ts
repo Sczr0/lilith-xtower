@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/app/lib/auth/session', () => ({
   getAuthSession: vi.fn(),
+  ensureAuthSessionKey: vi.fn((s) => s?.credential?.token ?? 'mock-key'),
 }))
 
 vi.mock('@/app/lib/auth/backendSessionGuard', () => ({

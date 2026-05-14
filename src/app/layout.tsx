@@ -6,6 +6,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { MaintenanceProvider } from "./components/MaintenanceProvider";
 import { GenerationProvider } from "./contexts/GenerationContext";
 import { MaintenanceNotice } from "./components/MaintenanceNotice";
+import { PrivacyNotice } from "./components/PrivacyNotice";
 import { Analytics } from "@vercel/analytics/next";
 import { Suspense } from "react";
 import Script from "next/script";
@@ -95,6 +96,7 @@ export default async function RootLayout({
         >
           <TipsProvider>
             <MaintenanceNotice />
+            <PrivacyNotice />
             <Suspense fallback={null}>
               <AuthProvider>
                 <MaintenanceProvider>
