@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { useClientValue } from "../hooks/useClientValue";
-import { shouldPreloadLite } from "../lib/utils/preload-gate";
+import { resolvePreloadProfile } from "../lib/utils/preload-gate";
 
 // 说明：PromoBanner 是“可选交互组件”，放在 app/layout 会让其 JS 进入所有页面的共享布局入口。
 // 为降低首屏解析成本（INP/LCP 关键路径），这里用 dynamic 将其拆分为按需 chunk，并在空闲期再加载。
@@ -20,7 +20,23 @@ function isPromoBannerExcludedPath(pathname: string): boolean {
 
 export function PromoBannerSlot() {
   const pathname = usePathname() ?? "/";
-  const shouldRenderByProfile = useClientValue(() => shouldPreloadLite(), false);
+  const shouldRenderByProfile = useClientValue(() => {
+    // 只根据网络状况判断，不依赖内存/CPU，避免低端设备有良好网络时误判
+    if (typeof window === 'undefined') return false;
+    try {
+      const conn = (navigator as any).connection;
+      const profile = resolvePreloadProfile({
+        saveData: !!conn?.saveData,
+        prefersReducedData: !!window.matchMedia?.('(prefers-reduced-data: reduce)').matches,
+        effectiveType: conn?.effectiveType,
+        downlink: conn?.downlink,
+        rtt: conn?.rtt,
+      });
+      return profile !== 'off';
+    } catch {
+      return true;
+    }
+  }, false);
   // 省流/弱网偏好下不加载可选活动横幅，减少带宽与主线程占用
   if (!shouldRenderByProfile) return null;
   if (isPromoBannerExcludedPath(pathname)) return null;
