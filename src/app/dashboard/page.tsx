@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { type TabId, isDashboardTabId } from './components/Sidebar';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -17,21 +17,7 @@ import { PageShell } from '../components/PageShell';
 
 const parseDebugExport = (value: string | null): boolean => value === '1' || value === 'true';
 
-/**
- * 说明：Suspense 是 useSearchParams 的必需边界。
- * Next.js 15+ 要求使用 useSearchParams 的组件必须包裹在 Suspense 中，
- * 否则页面会被静态渲染导致 hydration 后全量重渲染（表现为页面"刷新"）
- * 以及路由状态不一致。
- */
 export default function Dashboard() {
-  return (
-    <Suspense fallback={<div className="flex min-h-screen items-center justify-center" />}>
-      <DashboardInner />
-    </Suspense>
-  );
-}
-
-function DashboardInner() {
   const { isAuthenticated, isLoading, error } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -60,7 +46,7 @@ function DashboardInner() {
   const handleTabChange = useCallback((tabId: TabId) => {
     const next = new URLSearchParams(searchParams.toString());
     next.set('tab', tabId);
-    router.replace(`/dashboard?${next.toString()}`, { scroll: false });
+    router.push(`/dashboard?${next.toString()}`, { scroll: false });
   }, [router, searchParams]);
 
   // 说明：未登录时软跳转 /login，避免硬刷新带来的体验割裂。

@@ -1,5 +1,12 @@
 import type { Metadata } from 'next'
 
+/**
+ * 强制动态渲染：dashboard 页面使用 useSearchParams() 读取 tab 参数，
+ * 若被静态优化则会导致 hydration 后全量重渲染（表现为页面"刷新"），
+ * 并使 router.replace() 状态异常，tab 切换失效。
+ */
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: '个人成绩仪表盘',
   description: '集中查看与分析您的 Phigros 成绩，展示 RKS 走势、Best N 列表、单曲表现，并支持图片导出。',
