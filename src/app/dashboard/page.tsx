@@ -22,13 +22,29 @@ export default function Dashboard() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // 说明：tab 与 debug 以 URL 查询参数为单一来源，避免组件内再做“硬刷新”同步。
-  const tabParam = searchParams.get('tab');
-  const activeTab: TabId = tabParam && isDashboardTabId(tabParam) ? tabParam : 'best-n';
+  // Tab 状态：以 React state 为主，URL 仅做初始读取与同步，避免 Next Router 导航触发服务端请求。
+  const [activeTab, setActiveTab] = useState<TabId>(() => {
+    const tabParam = searchParams.get('tab');
+    return tabParam && isDashboardTabId(tabParam) ? tabParam : 'best-n';
+  });
+
   const debugExport = parseDebugExport(searchParams.get('debug'));
   const [menuGuideDismissed, setMenuGuideDismissed] = useState(false);
   const agreementAccepted = useClientValue(() => localStorage.getItem(AGREEMENT_ACCEPTED_KEY) === 'true', false);
   const showMenuGuide = agreementAccepted && !menuGuideDismissed;
+
+  // 浏览器前进/后退时同步 tab 状态
+  useEffect(() => {
+    const syncTabFromUrl = () => {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab');
+      if (tabParam && isDashboardTabId(tabParam)) {
+        setActiveTab(tabParam);
+      }
+    };
+    window.addEventListener('popstate', syncTabFromUrl);
+    return () => window.removeEventListener('popstate', syncTabFromUrl);
+  }, []);
 
   useDashboardPrefetch({ isAuthenticated, activeTab });
   const {
@@ -43,11 +59,15 @@ export default function Dashboard() {
     reloadSongUpdates,
   } = useDashboardContent({ isAuthenticated, agreementAccepted });
 
+  // 说明：用 window.history.replaceState 同步 URL，绕过 Next Router 的 segment cache，
+  // 避免动态渲染页面上每次 navigation 触发服务端 RSC 请求导致页面刷新。
   const handleTabChange = useCallback((tabId: TabId) => {
-    const next = new URLSearchParams(searchParams.toString());
+    if (tabId === activeTab) return;
+    setActiveTab(tabId);
+    const next = new URLSearchParams(window.location.search);
     next.set('tab', tabId);
-    router.push(`/dashboard?${next.toString()}`, { scroll: false });
-  }, [router, searchParams]);
+    window.history.replaceState(null, '', `?${next.toString()}`);
+  }, [activeTab]);
 
   // 说明：未登录时软跳转 /login，避免硬刷新带来的体验割裂。
   useEffect(() => {
