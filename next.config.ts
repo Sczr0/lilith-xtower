@@ -47,6 +47,23 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        source: "/api/auth/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, no-store, no-cache, max-age=0, must-revalidate",
+          },
+          {
+            key: "Pragma",
+            value: "no-cache",
+          },
+          {
+            key: "Vary",
+            value: "Cookie, Authorization",
+          },
+        ],
+      },
+      {
         source: "/internal/:path*",
         headers: [
           {

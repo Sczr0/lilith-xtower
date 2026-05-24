@@ -70,7 +70,10 @@ async function proxy(req: NextRequest, params: { path: string[] }) {
 
     const responseHeaders = new Headers({
       'Content-Type': res.headers.get('content-type') || 'application/json; charset=utf-8',
-      'Cache-Control': 'no-store',
+      'Cache-Control': 'private, no-store, no-cache, max-age=0, must-revalidate',
+      Pragma: 'no-cache',
+      Expires: '0',
+      Vary: 'Cookie, Authorization',
     });
 
     const location = res.headers.get('location');
@@ -92,7 +95,15 @@ async function proxy(req: NextRequest, params: { path: string[] }) {
     const isTimeout = /aborted|abort/i.test(message);
     return NextResponse.json(
       { error: isTimeout ? 'API 请求超时，请稍后重试' : `API 请求失败：${message}` },
-      { status: isTimeout ? 504 : 502, headers: { 'Cache-Control': 'no-store' } },
+      {
+        status: isTimeout ? 504 : 502,
+        headers: {
+          'Cache-Control': 'private, no-store, no-cache, max-age=0, must-revalidate',
+          Pragma: 'no-cache',
+          Expires: '0',
+          Vary: 'Cookie, Authorization',
+        },
+      },
     );
   } finally {
     clearTimeout(timeout);
