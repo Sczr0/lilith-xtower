@@ -45,9 +45,17 @@ async function proxy(req: NextRequest, params: { path: string[] }) {
   try {
     const headers: Record<string, string> = {
       Accept: req.headers.get('accept') || 'application/json',
-      'Content-Type': req.headers.get('content-type') || 'application/json',
       'X-Forwarded-By': 'PhigrosQuery',
     };
+
+    const contentType = req.headers.get('content-type');
+    if (contentType) headers['Content-Type'] = contentType;
+
+    const cookie = req.headers.get('cookie');
+    if (cookie) headers.Cookie = cookie;
+
+    const userAgent = req.headers.get('user-agent');
+    if (userAgent) headers['User-Agent'] = userAgent;
 
     const body = req.method === 'GET' || req.method === 'HEAD' ? undefined : await req.text().catch(() => undefined);
 
@@ -57,16 +65,28 @@ async function proxy(req: NextRequest, params: { path: string[] }) {
       body,
       signal: controller.signal,
       cache: 'no-store',
+      redirect: 'manual',
     });
 
-    const text = await res.text();
-    return new NextResponse(text, {
-      status: res.status,
-      headers: {
-        'Content-Type': res.headers.get('content-type') || 'application/json; charset=utf-8',
-        'Cache-Control': 'no-store',
-      },
+    const responseHeaders = new Headers({
+      'Content-Type': res.headers.get('content-type') || 'application/json; charset=utf-8',
+      'Cache-Control': 'no-store',
     });
+
+    const location = res.headers.get('location');
+    if (location) responseHeaders.set('Location', location);
+
+    const setCookies = typeof res.headers.getSetCookie === 'function' ? res.headers.getSetCookie() : [];
+    for (const value of setCookies) {
+      responseHeaders.append('Set-Cookie', value);
+    }
+
+    if (res.status >= 300 && res.status < 400) {
+      return new NextResponse(null, { status: res.status, headers: responseHeaders });
+    }
+
+    const text = await res.text();
+    return new NextResponse(text, { status: res.status, headers: responseHeaders });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     const isTimeout = /aborted|abort/i.test(message);
