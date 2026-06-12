@@ -1,0 +1,584 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - button [ref=e5] [cursor=pointer]:
+      - img [ref=e7]
+    - generic [ref=e9]:
+      - generic [ref=e10]:
+        - heading "「长夜有尽」" [level=2] [ref=e14]
+        - generic [ref=e20]: 3 Online
+      - generic [ref=e21]:
+        - generic [ref=e23]:
+          - button "Filter" [ref=e25] [cursor=pointer]:
+            - generic [ref=e26]:
+              - img [ref=e28]
+              - generic [ref=e29]: Filter
+          - generic [ref=e31]:
+            - generic [ref=e32]:
+              - button [ref=e33] [cursor=pointer]:
+                - img [ref=e35]
+              - button [disabled] [ref=e37] [cursor=pointer]:
+                - img [ref=e39]
+            - generic [ref=e41]:
+              - button "Last 24 hours Select" [ref=e42] [cursor=pointer]:
+                - generic [ref=e43]: Last 24 hours
+                - img [ref=e45]
+              - combobox [ref=e49]
+        - generic [ref=e50]:
+          - generic [ref=e51]:
+            - generic [ref=e53]: Visitors
+            - generic "205" [ref=e55]
+            - generic "7" [ref=e56]:
+              - img [ref=e58]
+              - generic [ref=e61]: 3%
+          - generic [ref=e62]:
+            - generic [ref=e64]: Visits
+            - generic "251" [ref=e66]
+            - generic "15" [ref=e67]:
+              - img [ref=e69]
+              - generic [ref=e72]: 6%
+          - generic [ref=e73]:
+            - generic [ref=e75]: Views
+            - generic "1066" [ref=e77]: 1.07k
+            - generic "157" [ref=e78]:
+              - img [ref=e80]
+              - generic [ref=e83]: 17%
+          - generic [ref=e84]:
+            - generic [ref=e86]: Bounce rate
+            - generic "37.84860557768924" [ref=e88]: 38%
+            - generic "-4%" [ref=e89]:
+              - img [ref=e91]
+              - generic [ref=e94]: 9%
+          - generic [ref=e95]:
+            - generic [ref=e97]: Visit duration
+            - generic "133.95219123505976" [ref=e99]: 2m 13s
+            - generic "-1m 13s" [ref=e100]:
+              - img [ref=e102]
+              - generic [ref=e105]: 35%
+        - generic [ref=e110]:
+          - generic [ref=e115]: Visitors
+          - generic [ref=e120]: Views
+        - generic [ref=e121]:
+          - generic [ref=e122]:
+            - generic [ref=e123]:
+              - heading "Pages" [level=2] [ref=e124]
+              - generic [ref=e125]:
+                - tablist [ref=e126]:
+                  - tab "Path" [selected] [ref=e127] [cursor=pointer]
+                  - tab "Entry page" [ref=e128] [cursor=pointer]
+                  - tab "Exit page" [ref=e129] [cursor=pointer]
+                - tabpanel "Path" [ref=e130]:
+                  - generic [ref=e131]:
+                    - generic [ref=e132]:
+                      - generic [ref=e133]:
+                        - generic [ref=e134]: Path
+                        - generic [ref=e135]: Visitors
+                      - generic [ref=e136]:
+                        - generic [ref=e137]:
+                          - generic "/dashboard" [ref=e141]:
+                            - link "/dashboard" [ref=e142] [cursor=pointer]:
+                              - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?path=eq.%2Fdashboard
+                          - generic "156" [ref=e145]
+                          - generic [ref=e147]: 41%
+                        - generic [ref=e148]:
+                          - generic "/login" [ref=e152]:
+                            - link "/login" [ref=e153] [cursor=pointer]:
+                              - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?path=eq.%2Flogin
+                          - generic "105" [ref=e156]
+                          - generic [ref=e158]: 28%
+                        - generic [ref=e159]:
+                          - generic / [ref=e163]:
+                            - link / [ref=e164] [cursor=pointer]:
+                              - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?path=eq.%2F
+                          - generic "69" [ref=e167]
+                          - generic [ref=e169]: 18%
+                        - generic [ref=e170]:
+                          - generic "/auth" [ref=e174]:
+                            - link "/auth" [ref=e175] [cursor=pointer]:
+                              - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?path=eq.%2Fauth
+                          - generic "11" [ref=e178]
+                          - generic [ref=e180]: 3%
+                        - generic [ref=e181]:
+                          - generic "/open-platform" [ref=e185]:
+                            - link "/open-platform" [ref=e186] [cursor=pointer]:
+                              - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?path=eq.%2Fopen-platform
+                          - generic "9" [ref=e189]
+                          - generic [ref=e191]: 2%
+                        - generic [ref=e192]:
+                          - generic "/go" [ref=e196]:
+                            - link "/go" [ref=e197] [cursor=pointer]:
+                              - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?path=eq.%2Fgo
+                          - generic "8" [ref=e200]
+                          - generic [ref=e202]: 2%
+                        - generic [ref=e203]:
+                          - generic "/session" [ref=e207]:
+                            - link "/session" [ref=e208] [cursor=pointer]:
+                              - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?path=eq.%2Fsession
+                          - generic "7" [ref=e211]
+                          - generic [ref=e213]: 2%
+                        - generic [ref=e214]:
+                          - generic "/about" [ref=e218]:
+                            - link "/about" [ref=e219] [cursor=pointer]:
+                              - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?path=eq.%2Fabout
+                          - generic "6" [ref=e222]
+                          - generic [ref=e224]: 2%
+                        - generic [ref=e225]:
+                          - generic "/qa" [ref=e229]:
+                            - link "/qa" [ref=e230] [cursor=pointer]:
+                              - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?path=eq.%2Fqa
+                          - generic "4" [ref=e233]
+                          - generic [ref=e235]: 1%
+                        - generic [ref=e236]:
+                          - generic "/contribute" [ref=e240]:
+                            - link "/contribute" [ref=e241] [cursor=pointer]:
+                              - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?path=eq.%2Fcontribute
+                          - generic "2" [ref=e244]
+                          - generic [ref=e246]: 1%
+                    - link "More" [ref=e248] [cursor=pointer]:
+                      - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?view=path
+                      - generic [ref=e249]:
+                        - img [ref=e251]
+                        - text: More
+            - generic [ref=e256]:
+              - heading "Sources" [level=2] [ref=e257]
+              - generic [ref=e258]:
+                - tablist [ref=e259]:
+                  - tab "Referrers" [selected] [ref=e260] [cursor=pointer]
+                  - tab "Channels" [ref=e261] [cursor=pointer]
+                - tabpanel "Referrers" [ref=e262]:
+                  - generic [ref=e263]:
+                    - generic [ref=e264]:
+                      - generic [ref=e265]:
+                        - generic [ref=e266]: Referrer
+                        - generic [ref=e267]: Visitors
+                      - generic [ref=e268]:
+                        - generic [ref=e269]:
+                          - generic "aw0000.xtower.site" [ref=e273]:
+                            - link "aw0000.xtower.site" [ref=e274] [cursor=pointer]:
+                              - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?referrer=eq.aw0000.xtower.site
+                          - generic "8" [ref=e277]
+                          - generic [ref=e279]: 50%
+                        - generic [ref=e280]:
+                          - generic "bing.com" [ref=e284]:
+                            - link "bing.com" [ref=e285] [cursor=pointer]:
+                              - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?referrer=eq.bing.com
+                          - generic "1" [ref=e288]
+                          - generic [ref=e290]: 6%
+                        - generic [ref=e291]:
+                          - generic "kdocs.cn" [ref=e295]:
+                            - link "kdocs.cn" [ref=e296] [cursor=pointer]:
+                              - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?referrer=eq.kdocs.cn
+                          - generic "1" [ref=e299]
+                          - generic [ref=e301]: 6%
+                        - generic [ref=e302]:
+                          - generic "pd.qq.com" [ref=e306]:
+                            - link "pd.qq.com" [ref=e307] [cursor=pointer]:
+                              - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?referrer=eq.pd.qq.com
+                          - generic "1" [ref=e310]
+                          - generic [ref=e312]: 6%
+                        - generic [ref=e313]:
+                          - generic "kyou.net.cn" [ref=e317]:
+                            - link "kyou.net.cn" [ref=e318] [cursor=pointer]:
+                              - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?referrer=eq.kyou.net.cn
+                          - generic "1" [ref=e321]
+                          - generic [ref=e323]: 6%
+                        - generic [ref=e324]:
+                          - generic "xtower.site" [ref=e328]:
+                            - link "xtower.site" [ref=e329] [cursor=pointer]:
+                              - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?referrer=eq.xtower.site
+                          - generic "1" [ref=e332]
+                          - generic [ref=e334]: 6%
+                        - generic [ref=e335]:
+                          - generic "github.com" [ref=e339]:
+                            - link "github.com" [ref=e340] [cursor=pointer]:
+                              - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?referrer=eq.github.com
+                          - generic "1" [ref=e343]
+                          - generic [ref=e345]: 6%
+                        - generic [ref=e346]:
+                          - generic "m.baidu.com" [ref=e350]:
+                            - link "m.baidu.com" [ref=e351] [cursor=pointer]:
+                              - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?referrer=eq.m.baidu.com
+                          - generic "1" [ref=e354]
+                          - generic [ref=e356]: 6%
+                        - generic [ref=e357]:
+                          - generic "com.google.android.googlequicksearchbox" [ref=e361]:
+                            - link "com.google.android.googlequicksearchbox" [ref=e362] [cursor=pointer]:
+                              - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?referrer=eq.com.google.android.googlequicksearchbox
+                          - generic "1" [ref=e365]
+                          - generic [ref=e367]: 6%
+                    - link "More" [ref=e369] [cursor=pointer]:
+                      - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?view=referrer
+                      - generic [ref=e370]:
+                        - img [ref=e372]
+                        - text: More
+          - generic [ref=e377]:
+            - generic [ref=e378]:
+              - heading "Environment" [level=2] [ref=e379]
+              - generic [ref=e380]:
+                - tablist [ref=e381]:
+                  - tab "Browsers" [selected] [ref=e382] [cursor=pointer]
+                  - tab "OS" [ref=e383] [cursor=pointer]
+                  - tab "Devices" [ref=e384] [cursor=pointer]
+                - tabpanel "Browsers" [ref=e385]:
+                  - generic [ref=e386]:
+                    - generic [ref=e387]:
+                      - generic [ref=e388]:
+                        - generic [ref=e389]: Browser
+                        - generic [ref=e390]: Visitors
+                      - generic [ref=e391]:
+                        - generic [ref=e392]:
+                          - generic [ref=e395]:
+                            - img "chrome" [ref=e397]
+                            - generic "Chrome" [ref=e398]:
+                              - link "Chrome" [ref=e399] [cursor=pointer]:
+                                - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?browser=eq.chrome
+                          - generic "60" [ref=e402]
+                          - generic [ref=e404]: 29%
+                        - generic [ref=e405]:
+                          - generic [ref=e408]:
+                            - img "edge-chromium" [ref=e410]
+                            - generic "Edge (Chromium)" [ref=e411]:
+                              - link "Edge (Chromium)" [ref=e412] [cursor=pointer]:
+                                - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?browser=eq.edge-chromium
+                          - generic "36" [ref=e415]
+                          - generic [ref=e417]: 18%
+                        - generic [ref=e418]:
+                          - generic [ref=e421]:
+                            - img "safari" [ref=e423]
+                            - generic "Safari" [ref=e424]:
+                              - link "Safari" [ref=e425] [cursor=pointer]:
+                                - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?browser=eq.safari
+                          - generic "32" [ref=e428]
+                          - generic [ref=e430]: 16%
+                        - generic [ref=e431]:
+                          - generic [ref=e434]:
+                            - img "ios" [ref=e436]
+                            - generic "iOS" [ref=e437]:
+                              - link "iOS" [ref=e438] [cursor=pointer]:
+                                - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?browser=eq.ios
+                          - generic "27" [ref=e441]
+                          - generic [ref=e443]: 13%
+                        - generic [ref=e444]:
+                          - generic [ref=e447]:
+                            - img "chromium-webview" [ref=e449]
+                            - generic "Chrome (webview)" [ref=e450]:
+                              - link "Chrome (webview)" [ref=e451] [cursor=pointer]:
+                                - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?browser=eq.chromium-webview
+                          - generic "21" [ref=e454]
+                          - generic [ref=e456]: 10%
+                        - generic [ref=e457]:
+                          - generic [ref=e460]:
+                            - img "miui" [ref=e462]
+                            - generic "MIUI" [ref=e463]:
+                              - link "MIUI" [ref=e464] [cursor=pointer]:
+                                - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?browser=eq.miui
+                          - generic "14" [ref=e467]
+                          - generic [ref=e469]: 7%
+                        - generic [ref=e470]:
+                          - generic [ref=e473]:
+                            - img "ios-webview" [ref=e475]
+                            - generic "iOS (webview)" [ref=e476]:
+                              - link "iOS (webview)" [ref=e477] [cursor=pointer]:
+                                - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?browser=eq.ios-webview
+                          - generic "5" [ref=e480]
+                          - generic [ref=e482]: 2%
+                        - generic [ref=e483]:
+                          - generic [ref=e486]:
+                            - img "edge-ios" [ref=e488]
+                            - generic "Edge (iOS)" [ref=e489]:
+                              - link "Edge (iOS)" [ref=e490] [cursor=pointer]:
+                                - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?browser=eq.edge-ios
+                          - generic "4" [ref=e493]
+                          - generic [ref=e495]: 2%
+                        - generic [ref=e496]:
+                          - generic [ref=e499]:
+                            - img "crios" [ref=e501]
+                            - generic "Chrome (iOS)" [ref=e502]:
+                              - link "Chrome (iOS)" [ref=e503] [cursor=pointer]:
+                                - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?browser=eq.crios
+                          - generic "3" [ref=e506]
+                          - generic [ref=e508]: 1%
+                        - generic [ref=e509]:
+                          - generic [ref=e512]:
+                            - img "fxios" [ref=e514]
+                            - generic "Firefox (iOS)" [ref=e515]:
+                              - link "Firefox (iOS)" [ref=e516] [cursor=pointer]:
+                                - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?browser=eq.fxios
+                          - generic "2" [ref=e519]
+                          - generic [ref=e521]: 1%
+                    - link "More" [ref=e523] [cursor=pointer]:
+                      - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?view=browser
+                      - generic [ref=e524]:
+                        - img [ref=e526]
+                        - text: More
+            - generic [ref=e531]:
+              - heading "Location" [level=2] [ref=e532]
+              - generic [ref=e533]:
+                - tablist [ref=e534]:
+                  - tab "Countries" [selected] [ref=e535] [cursor=pointer]
+                  - tab "Regions" [ref=e536] [cursor=pointer]
+                  - tab "Cities" [ref=e537] [cursor=pointer]
+                - tabpanel "Countries" [ref=e538]:
+                  - generic [ref=e539]:
+                    - generic [ref=e540]:
+                      - generic [ref=e541]:
+                        - generic [ref=e542]: Country
+                        - generic [ref=e543]: Visitors
+                      - generic [ref=e544]:
+                        - generic [ref=e545]:
+                          - generic [ref=e548]:
+                            - img "CN" [ref=e550]
+                            - generic "China" [ref=e551]:
+                              - link "China" [ref=e552] [cursor=pointer]:
+                                - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?country=eq.CN
+                          - generic "176" [ref=e555]
+                          - generic [ref=e557]: 86%
+                        - generic [ref=e558]:
+                          - generic [ref=e561]:
+                            - img "HK" [ref=e563]
+                            - generic "Hong Kong SAR China" [ref=e564]:
+                              - link "Hong Kong SAR China" [ref=e565] [cursor=pointer]:
+                                - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?country=eq.HK
+                          - generic "17" [ref=e568]
+                          - generic [ref=e570]: 8%
+                        - generic [ref=e571]:
+                          - generic [ref=e574]:
+                            - img "JP" [ref=e576]
+                            - generic "Japan" [ref=e577]:
+                              - link "Japan" [ref=e578] [cursor=pointer]:
+                                - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?country=eq.JP
+                          - generic "5" [ref=e581]
+                          - generic [ref=e583]: 2%
+                        - generic [ref=e584]:
+                          - generic [ref=e587]:
+                            - img "TW" [ref=e589]
+                            - generic "Taiwan" [ref=e590]:
+                              - link "Taiwan" [ref=e591] [cursor=pointer]:
+                                - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?country=eq.TW
+                          - generic "4" [ref=e594]
+                          - generic [ref=e596]: 2%
+                        - generic [ref=e597]:
+                          - generic [ref=e600]:
+                            - img "US" [ref=e602]
+                            - generic "United States" [ref=e603]:
+                              - link "United States" [ref=e604] [cursor=pointer]:
+                                - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?country=eq.US
+                          - generic "3" [ref=e607]
+                          - generic [ref=e609]: 1%
+                    - link "More" [ref=e611] [cursor=pointer]:
+                      - /url: /analytics/eu/share/NsykwU9OjIWMYsb8?view=country
+                      - generic [ref=e612]:
+                        - img [ref=e614]
+                        - text: More
+          - generic [ref=e619]:
+            - img [ref=e622]
+            - generic [ref=e804]:
+              - heading "Traffic" [level=2] [ref=e805]
+              - generic [ref=e807]:
+                - generic [ref=e810]: Sun
+                - generic [ref=e812]: Mon
+                - generic [ref=e814]: Tue
+                - generic [ref=e816]: Wed
+                - generic [ref=e818]: Thu
+                - generic [ref=e820]: Fri
+                - generic [ref=e822]: Sat
+                - generic [ref=e823]:
+                  - generic [ref=e825]: 12am
+                  - generic [ref=e827]: 1am
+                  - generic [ref=e829]: 2am
+                  - generic [ref=e831]: 3am
+                  - generic [ref=e833]: 4am
+                  - generic [ref=e835]: 5am
+                  - generic [ref=e837]: 6am
+                  - generic [ref=e839]: 7am
+                  - generic [ref=e841]: 8am
+                  - generic [ref=e843]: 9am
+                  - generic [ref=e845]: 10am
+                  - generic [ref=e847]: 11am
+                  - generic [ref=e849]: 12pm
+                  - generic [ref=e851]: 1pm
+                  - generic [ref=e853]: 2pm
+                  - generic [ref=e855]: 3pm
+                  - generic [ref=e857]: 4pm
+                  - generic [ref=e859]: 5pm
+                  - generic [ref=e861]: 6pm
+                  - generic [ref=e863]: 7pm
+                  - generic [ref=e865]: 8pm
+                  - generic [ref=e867]: 9pm
+                  - generic [ref=e869]: 10pm
+                  - generic [ref=e871]: 11pm
+                - generic [ref=e872]:
+                  - button [ref=e873]
+                  - button [ref=e875]
+                  - button [ref=e877]
+                  - button [ref=e879]
+                  - button [ref=e881]
+                  - button [ref=e883]
+                  - button [ref=e885]
+                  - button [ref=e887]
+                  - button [ref=e889]
+                  - button [ref=e891]
+                  - button [ref=e893]
+                  - button [ref=e895]
+                  - button [ref=e897]
+                  - button [ref=e899]
+                  - button [ref=e901]
+                  - button [ref=e903]
+                  - button [ref=e905]
+                  - button [ref=e907]
+                  - button [ref=e909]
+                  - button [ref=e911]
+                  - button [ref=e912]
+                  - button [ref=e913]
+                  - button [ref=e914]
+                  - button [ref=e915]
+                - generic [ref=e916]:
+                  - button [ref=e917]
+                  - button [ref=e918]
+                  - button [ref=e919]
+                  - button [ref=e920]
+                  - button [ref=e921]
+                  - button [ref=e922]
+                  - button [ref=e923]
+                  - button [ref=e924]
+                  - button [ref=e925]
+                  - button [ref=e926]
+                  - button [ref=e927]
+                  - button [ref=e928]
+                  - button [ref=e929]
+                  - button [ref=e930]
+                  - button [ref=e931]
+                  - button [ref=e932]
+                  - button [ref=e933]
+                  - button [ref=e934]
+                  - button [ref=e935]
+                  - button [ref=e936]
+                  - button [ref=e937]
+                  - button [ref=e938]
+                  - button [ref=e939]
+                  - button [ref=e940]
+                - generic [ref=e941]:
+                  - button [ref=e942]
+                  - button [ref=e943]
+                  - button [ref=e944]
+                  - button [ref=e945]
+                  - button [ref=e946]
+                  - button [ref=e947]
+                  - button [ref=e948]
+                  - button [ref=e949]
+                  - button [ref=e950]
+                  - button [ref=e951]
+                  - button [ref=e952]
+                  - button [ref=e953]
+                  - button [ref=e954]
+                  - button [ref=e955]
+                  - button [ref=e956]
+                  - button [ref=e957]
+                  - button [ref=e958]
+                  - button [ref=e959]
+                  - button [ref=e960]
+                  - button [ref=e961]
+                  - button [ref=e962]
+                  - button [ref=e963]
+                  - button [ref=e964]
+                  - button [ref=e965]
+                - generic [ref=e966]:
+                  - button [ref=e967]
+                  - button [ref=e968]
+                  - button [ref=e969]
+                  - button [ref=e970]
+                  - button [ref=e971]
+                  - button [ref=e972]
+                  - button [ref=e973]
+                  - button [ref=e974]
+                  - button [ref=e975]
+                  - button [ref=e976]
+                  - button [ref=e977]
+                  - button [ref=e978]
+                  - button [ref=e979]
+                  - button [ref=e980]
+                  - button [ref=e981]
+                  - button [ref=e982]
+                  - button [ref=e983]
+                  - button [ref=e984]
+                  - button [ref=e985]
+                  - button [ref=e986]
+                  - button [ref=e987]
+                  - button [ref=e988]
+                  - button [ref=e989]
+                  - button [ref=e990]
+                - generic [ref=e991]:
+                  - button [ref=e992]
+                  - button [ref=e993]
+                  - button [ref=e994]
+                  - button [ref=e995]
+                  - button [ref=e996]
+                  - button [ref=e997]
+                  - button [ref=e998]
+                  - button [ref=e999]
+                  - button [ref=e1000]
+                  - button [ref=e1001]
+                  - button [ref=e1002]
+                  - button [ref=e1003]
+                  - button [ref=e1004]
+                  - button [ref=e1005]
+                  - button [ref=e1006]
+                  - button [ref=e1007]
+                  - button [ref=e1008]
+                  - button [ref=e1009]
+                  - button [ref=e1010]
+                  - button [ref=e1011]
+                  - button [ref=e1012]
+                  - button [ref=e1013]
+                  - button [ref=e1014]
+                  - button [ref=e1015]
+                - generic [ref=e1016]:
+                  - button [ref=e1017]
+                  - button [ref=e1018]
+                  - button [ref=e1019]
+                  - button [ref=e1020]
+                  - button [ref=e1021]
+                  - button [ref=e1022]
+                  - button [ref=e1023]
+                  - button [ref=e1024]
+                  - button [ref=e1025]
+                  - button [ref=e1026]
+                  - button [ref=e1027]
+                  - button [ref=e1028]
+                  - button [ref=e1029]
+                  - button [ref=e1030]
+                  - button [ref=e1031]
+                  - button [ref=e1032]
+                  - button [ref=e1033]
+                  - button [ref=e1034]
+                  - button [ref=e1035]
+                  - button [ref=e1036]
+                  - button [ref=e1037]
+                  - button [ref=e1038]
+                  - button [ref=e1039]
+                  - button [ref=e1040]
+                - generic [ref=e1041]:
+                  - button [ref=e1042]
+                  - button [ref=e1043]
+                  - button [ref=e1044]
+                  - button [ref=e1045]
+                  - button [ref=e1046]
+                  - button [ref=e1047]
+                  - button [ref=e1048]
+                  - button [ref=e1049]
+                  - button [ref=e1050]
+                  - button [ref=e1051]
+                  - button [ref=e1052]
+                  - button [ref=e1053]
+                  - button [ref=e1054]
+                  - button [ref=e1055]
+                  - button [ref=e1056]
+                  - button [ref=e1057]
+                  - button [ref=e1058]
+                  - button [ref=e1059]
+                  - button [ref=e1060]
+                  - button [ref=e1062]
+                  - button [ref=e1064]
+                  - button [ref=e1066]
+                  - button [ref=e1068]
+                  - button [ref=e1070]
+  - alert [ref=e2]
