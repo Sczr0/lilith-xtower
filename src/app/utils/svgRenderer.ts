@@ -693,20 +693,6 @@ async function fetchImageResponseWithFallback(
   type Attempt = { label: string; url: string; init: RequestInit };
   const attempts: Attempt[] = [{ label: 'direct', url: fetchUrl, init: getFetchInitForUrl(fetchUrl) }];
 
-  // 经验兼容：somnia 可能需要凭证（同站点 cookie）才能正确返回资源；失败仍会回退到同源代理
-  if (typeof window !== 'undefined') {
-    try {
-      const target = new URL(fetchUrl);
-      if (target.hostname.toLowerCase() === 'somnia.xtower.site') {
-        attempts.push({
-          label: 'direct-credentials',
-          url: fetchUrl,
-          init: { ...getFetchInitForUrl(fetchUrl), mode: 'cors', credentials: 'include' },
-        });
-      }
-    } catch {}
-  }
-
   const proxyUrl = allowProxyFallback ? buildSameOriginImageProxyUrl(fetchUrl) : null;
   if (proxyUrl) {
     attempts.push({
