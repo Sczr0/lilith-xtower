@@ -67,4 +67,4 @@ Web Vitals 真实用户监测（RUM）
 
 许可
 
-MIT，详见 `LICENSE`。
+详见 `LICENSE`。
