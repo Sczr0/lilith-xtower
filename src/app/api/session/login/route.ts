@@ -5,6 +5,7 @@ import { toCredentialSummary } from '@/app/lib/auth/credentialSummary';
 import { exchangeBackendToken } from '@/app/lib/auth/phi-session';
 import { ensureAuthSessionKey, getAuthSession } from '@/app/lib/auth/session';
 import { getSeekendApiBaseUrl } from '@/app/lib/auth/upstream';
+import { verifyCapToken } from '@/app/lib/api/withCap';
 import type { AuthCredential, TapTapVersion } from '@/app/lib/types/auth';
 
 export const runtime = 'nodejs';
@@ -16,6 +17,7 @@ const GLOBAL_BAN_CODE = 'FORBIDDEN';
 type LoginRequestBody = {
   credential?: unknown;
   taptapVersion?: unknown;
+  capToken?: unknown;
 };
 
 type UpstreamErrorPayload = {
@@ -93,6 +95,21 @@ export async function POST(request: NextRequest) {
         { success: false, message: '无效的登录凭证' },
         { status: 400, headers: { 'Cache-Control': 'no-store' } },
       );
+    }
+
+    // Cap 验证码：渐进式上线 — 未配置时跳过，配置后强制校验
+    const capToken = typeof body.capToken === 'string' ? body.capToken.trim() : undefined;
+    const capResult = await verifyCapToken(capToken);
+    if (!capResult.ok) {
+      // 只有明确配置了 SECRET_KEY 且验证失败时才拒绝
+      if (capResult.reason === 'invalid_token') {
+        return NextResponse.json(
+          { success: false, message: '安全验证失败，请刷新页面重试', code: 'CAP_FAILED' },
+          { status: 403, headers: { 'Cache-Control': 'no-store' } },
+        );
+      }
+      // upstream_error / timeout / circuit_open → 降级通过，允许登录
+      console.warn('Cap degraded, allowing login:', capResult.reason);
     }
 
     const taptapVersion = normalizeTapTapVersion(body.taptapVersion);

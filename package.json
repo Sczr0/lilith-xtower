@@ -21,6 +21,7 @@
                     "@radix-ui/react-radio-group": "^1.4.0",
                     "@radix-ui/react-select": "^2.3.0",
                     "@vercel/analytics": "^1.6.1",
+                    "cap-widget": "^0.1.50",
                     "echarts": "^6.1.0",
                     "echarts-for-react": "^3.0.6",
                     "gray-matter": "^4.0.3",

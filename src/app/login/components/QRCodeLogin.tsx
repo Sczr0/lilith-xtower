@@ -11,6 +11,7 @@ import {
   requestTapTapDeviceCode,
 } from '../../lib/taptap/qrLogin';
 import { buildTapTapLoginAuthDeepLink, normalizeTapTapConfirmUrl } from '../../lib/taptap/deeplink';
+import { getCapToken } from '../../lib/cap/client';
 import QRCode from 'qrcode';
 import { getPreloadedQrData, clearPreloadedQrData } from '../../lib/utils/preload';
 import { useClientValue } from '../../hooks/useClientValue';
@@ -113,7 +114,10 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
         timestamp: Date.now(),
       };
 
-      await loginRef.current(credential);
+      // 获取 Cap 验证码 token（程序化模式，已在页面加载时启动后台解题）
+      const capToken = await getCapToken();
+
+      await loginRef.current(credential, capToken);
       cancelPolling();
       setStatus('success');
     } catch (err) {

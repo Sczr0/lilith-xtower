@@ -22,6 +22,10 @@
         {
             "source": "/internal/sponsors",
             "destination": "/internal/sponsors"
+        },
+        {
+            "source": "/api/cap-proxy/*",
+            "destination": "/api/cap-proxy/:splat"
         }
     ],
     "redirects": [],

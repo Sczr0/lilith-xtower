@@ -16,6 +16,7 @@ import { useClientValue } from '../hooks/useClientValue';
 import { LOGIN_METHODS } from './loginMethods';
 import { LoginFormPanel } from './components/LoginFormPanel';
 import { AGREEMENT_ACCEPTED_KEY } from '../lib/constants/storageKeys';
+import { initCap } from '../lib/cap/client';
 
 export default function LoginPage() {
   const [activeMethod, setActiveMethod] = useState<AuthMethod>('qrcode');
@@ -26,6 +27,14 @@ export default function LoginPage() {
     () => localStorage.getItem(AGREEMENT_ACCEPTED_KEY) === 'true',
     false
   );
+
+  // Cap 验证码：页面加载时立即启动后台解题（程序化模式，无可见 UI）
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const endpoint =
+      process.env.NEXT_PUBLIC_CAP_ENDPOINT || 'https://cap.xtower.site/904b5b0099/';
+    initCap(endpoint);
+  }, []);
 
   const storedTapTapVersion = useClientValue(() => AuthStorage.getTapTapVersion(), 'cn');
   const [taptapVersionOverride, setTaptapVersionOverride] = useState<TapTapVersion | null>(null);

@@ -37,7 +37,7 @@ type AuthState = {
 };
 
 interface AuthContextType extends AuthState {
-  login: (credential: AuthCredential) => Promise<void>;
+  login: (credential: AuthCredential, capToken?: string) => Promise<void>;
   logout: () => void;
   validateCurrentCredential: () => Promise<boolean>;
 }
@@ -206,7 +206,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [performClientLogout]);
 
   const proceedLogin = useCallback(
-    async (credential: AuthCredential) => {
+    async (credential: AuthCredential, capToken?: string) => {
       try {
         setAuthState((prev) => ({ ...prev, isLoading: true, error: null }));
 
@@ -214,12 +214,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const res = await fetch('/api/session/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ credential, taptapVersion }),
+          body: JSON.stringify({ credential, taptapVersion, capToken }),
         });
 
         const data = (await res.json().catch(() => null)) as
           | { success: true; credential: AuthCredentialSummary; taptapVersion: string }
-          | { success: false; message: string }
+          | { success: false; message: string; code?: string }
           | null;
 
         if (!res.ok || !data || data.success !== true) {
@@ -250,10 +250,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   );
 
   const login = useCallback(
-    async (credential: AuthCredential) => {
+    async (credential: AuthCredential, capToken?: string) => {
       const agreementAccepted = localStorage.getItem(AGREEMENT_ACCEPTED_KEY);
       if (agreementAccepted) {
-        await proceedLogin(credential);
+        await proceedLogin(credential, capToken);
         return;
       }
 
@@ -264,7 +264,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const res = await fetch('/api/session/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ credential, taptapVersion }),
+          body: JSON.stringify({ credential, taptapVersion, capToken }),
         });
 
         const data = (await res.json().catch(() => null)) as

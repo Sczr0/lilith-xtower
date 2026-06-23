@@ -73,7 +73,7 @@ jobs:
           target: "/tmp/nextjs_build" # 先上传到临时目录
           strip_components: 2 # 去掉 .next/standalone 前缀
 
-      - name: Deploy on Server
+      - name: Deploy Cap & Next.js on Server
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -81,6 +81,11 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT }}
           script: |
+            # 0. 确保 Cap Standalone 正在运行（首次部署或重启后自动拉起）
+            if [ -d /opt/cap ]; then
+              cd /opt/cap
+              docker compose up -d --remove-orphans 2>/dev/null || echo "Cap: already running or docker not available"
+            fi
             # 4. 加载环境变量以找到 pm2
             # 尝试加载 bashrc 或 profile，因为非交互式 SSH 默认不加载 PATH
             [ -f ~/.bashrc ] && source ~/.bashrc
