@@ -69,7 +69,7 @@ export async function verifyCapToken(token: string | undefined | null): Promise<
     const res = await fetch(CAP_VERIFY_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ secret: CAP_SECRET_KEY, token }),
+      body: JSON.stringify({ secret: CAP_SECRET_KEY, response: token }),
       signal: controller.signal,
       cache: 'no-store',
     });
