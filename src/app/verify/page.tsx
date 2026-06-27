@@ -147,7 +147,62 @@ export default function VerifyPage() {
 
   // ── PNG：客户端提取隐写水印 ──
   const verifyPng = async (file: File) => {
-    // 将 PNG 加载到 canvas 获取 ImageData
+    // 读取 PNG 原始字节
+    const pngBuffer = await file.arrayBuffer()
+
+    // ── 方案 A：从 PNG tEXt 块读取 lilith-sig → 解析 sigHash → 精确提取 LSB ──
+    try {
+      const { extractLilithSigFromPng } = await import('../utils/pngChunks')
+      const sigComment = extractLilithSigFromPng(pngBuffer)
+
+      if (sigComment) {
+        // 从 tEXt 块拿到了签名注释，解析 sigHash
+        const wrapped = '<!-- ' + sigComment + ' -->'
+        const parsed = extractSvgSignature(wrapped)
+
+        if (parsed) {
+          // 渲染 PNG 到 canvas 获取 ImageData
+          const img = await loadImageFromFile(file)
+          const canvas = document.createElement('canvas')
+          canvas.width = img.naturalWidth
+          canvas.height = img.naturalHeight
+          const ctx = canvas.getContext('2d')
+          if (!ctx) throw new Error('无法创建 canvas 上下文')
+          ctx.drawImage(img, 0, 0)
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+
+          // 用解析出的 sigHash 做精确提取
+          const hmacHex = parsed.hmac.replace(/[^0-9a-fA-F]/g, '')
+          const sigHash = new Uint8Array(32)
+          for (let i = 0; i < 32 && i * 2 < hmacHex.length; i += 1) {
+            sigHash[i] = parseInt(hmacHex.slice(i * 2, i * 2 + 2), 16) || 0
+          }
+
+          const { extractWatermark } = await import('../utils/stego/index')
+          const result = extractWatermark(imageData, sigHash, {
+            spreadFactor: 3,
+            channelOffset: 2,
+            marginPixels: 8,
+          })
+
+          if (result.found && result.payload) {
+            const p = result.payload
+            setPngMeta({
+              userId: hexBytes(p.userId),
+              signedAt: formatTimestamp(p.timestamp),
+              contentHash: hexBytes(p.contentHash),
+            })
+            setVerifyBadge(null)
+            setState('png-found')
+            return
+          }
+        }
+      }
+    } catch {
+      // tEXt 提取失败，降级到暴力扫描
+    }
+
+    // ── 方案 B：暴力扫描（回退，不可靠）──
     const img = await loadImageFromFile(file)
     const canvas = document.createElement('canvas')
     canvas.width = img.naturalWidth
@@ -157,43 +212,11 @@ export default function VerifyPage() {
     ctx.drawImage(img, 0, 0)
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
 
-    // 尝试用空种子快速扫描（先用 magic 字节暴力探测，然后逐步验证）
-    // 说明：需要知道 sigHash 才能确定像素位置。而 sigHash 来自原始签名。
-    // 对于 PNG 水印提取，我们需要用户同时提供原始的 sigHash（从 SVG 签名中获取）。
-    // 
-    // 简化方案：用户上传 PNG 时，我们只能做"水印存在性检测"——扫描全图 LSB 寻找魔数。
-    // 这比完整提取更慢但不需要 sigHash。
     const foundMagic = scanWatermarkMagic(imageData)
-
     if (foundMagic) {
-      // 提取到了魔数，尝试用找到的 sigHash 做完整提取
-      try {
-        const { extractWatermark } = await import('../utils/stego/index')
-        const sigHash = foundMagic.sigHash
-        const result = extractWatermark(imageData, sigHash, {
-          spreadFactor: 3,
-          channelOffset: 2,
-          marginPixels: 8,
-        })
-
-        if (result.found && result.payload) {
-          const p = result.payload
-          setPngMeta({
-            userId: hexBytes(p.userId),
-            signedAt: formatTimestamp(p.timestamp),
-            contentHash: hexBytes(p.contentHash),
-          })
-          setState('png-found')
-          return
-        }
-      } catch {
-        // 降级：至少有魔数
-      }
-
-      // 魔数找到但完整提取失败——显示部分信息
       setPngMeta({
         userId: hexBytes(foundMagic.sigHash),
-        signedAt: '无法解析',
+        signedAt: '无法解析（缺少元数据）',
         contentHash: '无法解析',
       })
       setState('png-found')

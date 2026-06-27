@@ -186,7 +186,7 @@ export function BnImageGenerator({
         switch (renderProgress.stage) {
           case 'loading-fonts': return '加载字体中…';
           case 'fetching-images': return `下载封面图 (${renderProgress.progress}%)…`;
-          case 'rendering': return '渲染图片 + 嵌入保护…';
+          case 'rendering': return '渲染图片…';
           case 'encoding': return '编码输出…';
           case 'complete': return '完成！';
         }
@@ -314,7 +314,6 @@ export function BnImageGenerator({
           <ul className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
             <li>• 图片包含隐写溯源标识，可在需要时验证来源</li>
             <li>• 如需验证他人分享的 BestN 图片真伪，请使用图片验证工具</li>
-            <li>• 截图、压缩或转换格式会破坏保护标识</li>
           </ul>
         </div>
       )}

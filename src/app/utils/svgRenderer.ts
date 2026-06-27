@@ -1467,7 +1467,7 @@ export class SVGRenderer {
       onProgress?.({ stage: 'encoding', progress: 80 });
 
       const mimeType = format === 'jpg' ? 'image/jpeg' : `image/${format}`;
-      const resultBlob = await new Promise<Blob>((resolve, reject) => {
+      let resultBlob = await new Promise<Blob>((resolve, reject) => {
         canvas.toBlob(
           (blob) => {
             if (blob) {
@@ -1480,6 +1480,22 @@ export class SVGRenderer {
           quality
         );
       });
+
+      // ── PNG 元数据注入：将 lilith-sig 写入 tEXt 块，供验证端提取 ──
+      if (wm?.enabled && wm.svgText && format === 'png') {
+        try {
+          const sigComment = extractLilithSigComment(wm.svgText)
+          if (sigComment) {
+            const { injectPngTextChunkSync } = await import('./pngChunks')
+            const buf = await resultBlob.arrayBuffer()
+            const injected = injectPngTextChunkSync(buf, 'lilith-sig', sigComment)
+            resultBlob = new Blob([injected], { type: 'image/png' })
+            dlog(debugOptions, 'png:chunk-injected', { commentLen: sigComment.length })
+          }
+        } catch (chunkErr) {
+          dlog(debugOptions, 'png:chunk-inject-error', { message: String(chunkErr) })
+        }
+      }
 
       onProgress?.({ stage: 'complete', progress: 100 });
 
@@ -1555,6 +1571,15 @@ export function extractSvgSignature(svg: string): SvgSignature | null {
     contentHash: match[5] || null,
     nonce: match[6] || null,
   }
+}
+
+/**
+ * 从 SVG 中提取原始 lilith-sig HTML 注释文本（包含完整字段）。
+ * 用于注入 PNG tEXt 元数据块。
+ */
+function extractLilithSigComment(svg: string): string | null {
+  const match = /<!--\s*(lilith-sig:[\s\S]*?)\s*-->/i.exec(svg)
+  return match?.[1]?.trim() ?? null
 }
 
 /**
