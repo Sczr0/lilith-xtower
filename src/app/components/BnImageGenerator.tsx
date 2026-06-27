@@ -6,7 +6,7 @@ import { ImageAPI, BestNTheme, type ImageFormat } from '../lib/api/image';
 import { useGenerationBusy, useGenerationManager, useGenerationResult } from '../contexts/GenerationContext';
 import { StyledSelect } from './ui/Select';
 import { LoadingPlaceholder, LoadingSpinner } from './LoadingIndicator';
-import { SVGRenderer, rewriteSvgImageUrlsToSameOriginProxy, type RenderProgress } from '../utils/svgRenderer';
+import { SVGRenderer, rewriteSvgImageUrlsToSameOriginProxy, injectSvgStyle, type RenderProgress } from '../utils/svgRenderer';
 
 const DEFAULT_N = 27;
 
@@ -86,7 +86,16 @@ export function BnImageGenerator({
       });
 
       const svgText = await svgBlob.text();
-      svgTextRef.current = svgText;
+      
+      // 注入字体修复 CSS（与旧版 SVG 预览保持一致，抑制 canvas 合成粗体）
+      const cssFix = [
+        '* { font-synthesis: none; }',
+        '.text-score, .text-difficulty-badge, .text-fc-ap-badge, .text-rank-tag { font-weight: 600 !important; }',
+        'svg { text-rendering: geometricPrecision; }',
+      ].join('\n');
+      const fixedSvgText = injectSvgStyle(svgText, cssFix);
+      
+      svgTextRef.current = fixedSvgText;
 
       setGeneratedN(parsed);
       setRenderState('rendering');
@@ -96,10 +105,11 @@ export function BnImageGenerator({
       const baseUrl = typeof window !== 'undefined' ? window.location.href : undefined;
 
       const renderWithMode = async (
+        sourceSvg: string,
         embedMode: 'data' | 'object',
         allowProxy: boolean,
       ): Promise<Blob> => {
-        return SVGRenderer.renderToImage(svgText, {
+        return SVGRenderer.renderToImage(sourceSvg, {
           format: 'png',
           scale: 2,
           quality: 0.95,
@@ -114,9 +124,8 @@ export function BnImageGenerator({
           debug: debugExport,
           debugTag: 'BestNExport',
           waitBeforeDrawMs: 0,
-          // ★ 关键：传入原始 SVG 用于水印嵌入
           watermark: {
-            svgText,
+            svgText: sourceSvg,
             enabled: true,
           },
         }, (p) => setRenderProgress(p));
@@ -124,16 +133,15 @@ export function BnImageGenerator({
 
       let pngBlob: Blob;
       try {
-        pngBlob = await renderWithMode('data', false);
+        pngBlob = await renderWithMode(fixedSvgText, 'data', false);
       } catch (directError) {
         if (debugExport) console.warn('[BestNExport] direct render failed, retry with proxy:', directError);
-        const proxiedSvg = rewriteSvgImageUrlsToSameOriginProxy(svgText, {
+        const proxiedSvg = rewriteSvgImageUrlsToSameOriginProxy(fixedSvgText, {
           baseUrl,
           allowedHosts: ['somnia.xtower.site'],
         });
-        // 更新水印用的 SVG 引用（代理改写后签名注释仍在）
         svgTextRef.current = proxiedSvg;
-        pngBlob = await renderWithMode('object', true);
+        pngBlob = await renderWithMode(proxiedSvg, 'object', true);
       }
 
       pngBlobRef.current = pngBlob;

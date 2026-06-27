@@ -1341,7 +1341,7 @@ export class SVGRenderer {
       const family = cssStringLiteral(exportFontFamily);
       normalizedSvgText = injectSvgStyle(
         normalizedSvgText,
-        `svg, text, tspan { font-family: "${family}", sans-serif !important; }`,
+        `svg, text, tspan { font-family: "${family}", sans-serif !important; font-synthesis: none !important; }`,
       );
       dlog(debugOptions, 'font override injected', { exportFontFamily });
     }
@@ -1558,10 +1558,10 @@ export interface SvgSignature {
 /**
  * 从 SVG 字符串中提取 lilith-sig 签名信息。
  *
- * 匹配格式：`<!-- lilith-sig:v3:hmac=<hex>:t=<unix_ts>:uid=<prefix>:rid=<req_id>:hash=<sha256>:nonce=<uuidv7> -->`
+ * 匹配 footer 中签名行：`lilith-sig:v3:hmac=<hex>:t=<unix_ts>:uid=<prefix>:...`
  */
 export function extractSvgSignature(svg: string): SvgSignature | null {
-  const pattern = /<!--\s*lilith-sig:v3:hmac=([a-f0-9]+):t=(\d+):uid=([^:\s>]+)(?::rid=([^:\s>-]+))?(?::hash=([a-f0-9]+))?(?::nonce=([^\s>]+))?\s*-->/i
+  const pattern = /lilith-sig:v3:hmac=([a-f0-9]+):t=(\d+):uid=([^:\s]+)(?::rid=([^:\s]+))?(?::hash=([a-f0-9]+))?(?::nonce=([^\s<]+))?/i
   const match = svg.match(pattern)
   if (!match) return null
 

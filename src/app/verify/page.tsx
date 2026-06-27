@@ -49,6 +49,14 @@ function hexBytes(bytes: Uint8Array): string {
     .join('')
 }
 
+function asciiBytes(bytes: Uint8Array): string {
+  return Array.from(bytes)
+    .filter(b => b >= 0x20 && b < 0x7f)
+    .map(b => String.fromCharCode(b))
+    .join('')
+    .trim() || hexBytes(bytes)
+}
+
 export default function VerifyPage() {
   const [state, setState] = useState<VerifyState>('idle')
   const [svgResult, setSvgResult] = useState<SvgVerifyResult | null>(null)
@@ -188,7 +196,7 @@ export default function VerifyPage() {
           if (result.found && result.payload) {
             const p = result.payload
             setPngMeta({
-              userId: hexBytes(p.userId),
+              userId: asciiBytes(p.userId),
               signedAt: formatTimestamp(p.timestamp),
               contentHash: hexBytes(p.contentHash),
             })
