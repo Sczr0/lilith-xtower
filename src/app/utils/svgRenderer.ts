@@ -1431,6 +1431,7 @@ export class SVGRenderer {
       ctx.drawImage(img, 0, 0, width, height);
 
       // ── 隐写水印嵌入（在 canvas 转 blob 之前）──
+      // 关键：getImageData 不受 ctx.scale() 影响，必须用 canvas 物理尺寸
       const wm = options.watermark
       if (wm?.enabled && wm.svgText && format !== 'jpg') {
         onProgress?.({ stage: 'rendering', progress: 70 })
@@ -1438,7 +1439,8 @@ export class SVGRenderer {
           const { buildPayloadFromSignature, embedWatermark } = await import('./stego/index')
           const payload = buildPayloadFromSignature(wm.svgText)
           if (payload) {
-            const imageData = ctx.getImageData(0, 0, width, height)
+            // ★ 用 canvas.width/height（物理像素），而不是 width/height（CSS 像素）
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
             const result = embedWatermark(imageData, payload, {
               spreadFactor: 3,
               channelOffset: 2,
