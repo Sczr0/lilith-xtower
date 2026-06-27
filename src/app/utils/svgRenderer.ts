@@ -1559,7 +1559,7 @@ export interface SvgSignature {
  * 匹配格式：`<!-- lilith-sig:v3:hmac=<hex>:t=<unix_ts>:uid=<prefix>:rid=<req_id>:hash=<sha256>:nonce=<uuidv7> -->`
  */
 export function extractSvgSignature(svg: string): SvgSignature | null {
-  const pattern = /<!--\s*lilith-sig:v3:hmac=([a-f0-9]+):t=(\d+):uid=([^:\s>]+)(?::rid=([^:\s>-]+))?(?::hash=([a-f0-9]+))?(?::nonce=([^\s>-]+))?\s*-->/i
+  const pattern = /<!--\s*lilith-sig:v3:hmac=([a-f0-9]+):t=(\d+):uid=([^:\s>]+)(?::rid=([^:\s>-]+))?(?::hash=([a-f0-9]+))?(?::nonce=([^\s>]+))?\s*-->/i
   const match = svg.match(pattern)
   if (!match) return null
 
