@@ -131,6 +131,14 @@ jobs:
                 sudo chown -R $USER:$USER "$DEPLOY_PATH"
             fi
             
+            # 保留上一版用于快速回滚
+            BACKUP_PATH="${DEPLOY_PATH}_previous"
+            if [ -d "$DEPLOY_PATH" ] && [ -n "$(ls -A "$DEPLOY_PATH" 2>/dev/null)" ]; then
+                rm -rf "$BACKUP_PATH"
+                cp -a "$DEPLOY_PATH" "$BACKUP_PATH"
+                echo "Backed up previous build to $BACKUP_PATH"
+            fi
+
             # 将文件从临时目录同步到部署目录
             # 使用 rsync 可以增量更新，减少 IO
             # --no-g --no-o: 不尝试同步组和所有者信息，避免 Operation not permitted

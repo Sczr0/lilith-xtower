@@ -9,22 +9,30 @@ import { Announcement, SongUpdate } from '../types/content';
 
 const CONTENT_DIR = path.join(process.cwd(), 'src/app/content');
 const ENABLE_PROD_CACHE = process.env.NODE_ENV === 'production';
+const CONTENT_CACHE_TTL_MS = 5 * 60 * 1000; // 5 分钟，短于 ISR revalidate 避免架空
 
-let cachedAnnouncements: Announcement[] | null = null;
-let cachedSongUpdates: SongUpdate[] | null = null;
+type CacheEntry<T> = { data: T; ts: number };
+
+let cachedAnnouncements: CacheEntry<Announcement[]> | null = null;
+let cachedSongUpdates: CacheEntry<SongUpdate[]> | null = null;
+
+function isCacheFresh<T>(entry: CacheEntry<T> | null): entry is CacheEntry<T> {
+  if (!entry) return false;
+  return Date.now() - entry.ts < CONTENT_CACHE_TTL_MS;
+}
 
 /**
  * 获取所有启用的公告
  * @returns 公告列表，按发布时间降序排列
  */
 export function getAnnouncements(): Announcement[] {
-  if (ENABLE_PROD_CACHE && cachedAnnouncements) return cachedAnnouncements;
+  if (ENABLE_PROD_CACHE && isCacheFresh(cachedAnnouncements)) return cachedAnnouncements.data;
 
   const dir = path.join(CONTENT_DIR, 'announcements');
   
   if (!fs.existsSync(dir)) {
     console.warn('公告目录不存在:', dir);
-    if (ENABLE_PROD_CACHE) cachedAnnouncements = [];
+    if (ENABLE_PROD_CACHE) cachedAnnouncements = { data: [], ts: Date.now() };
     return [];
   }
 
@@ -52,7 +60,7 @@ export function getAnnouncements(): Announcement[] {
       new Date(b.publishDate).getTime() - new Date(a.publishDate).getTime()
     );
 
-  if (ENABLE_PROD_CACHE) cachedAnnouncements = announcements;
+  if (ENABLE_PROD_CACHE) cachedAnnouncements = { data: announcements, ts: Date.now() };
   return announcements;
 }
 
@@ -69,13 +77,13 @@ export function getAnnouncementById(id: string): Announcement | null {
  * @returns 新曲速递列表，按更新时间降序排列
  */
 export function getSongUpdates(): SongUpdate[] {
-  if (ENABLE_PROD_CACHE && cachedSongUpdates) return cachedSongUpdates;
+  if (ENABLE_PROD_CACHE && isCacheFresh(cachedSongUpdates)) return cachedSongUpdates.data;
 
   const dir = path.join(CONTENT_DIR, 'song-updates');
   
   if (!fs.existsSync(dir)) {
     console.warn('新曲速递目录不存在:', dir);
-    if (ENABLE_PROD_CACHE) cachedSongUpdates = [];
+    if (ENABLE_PROD_CACHE) cachedSongUpdates = { data: [], ts: Date.now() };
     return [];
   }
 
@@ -100,8 +108,16 @@ export function getSongUpdates(): SongUpdate[] {
       new Date(b.updateDate).getTime() - new Date(a.updateDate).getTime()
     );
 
-  if (ENABLE_PROD_CACHE) cachedSongUpdates = updates;
+  if (ENABLE_PROD_CACHE) cachedSongUpdates = { data: updates, ts: Date.now() };
   return updates;
+}
+
+/**
+ * 主动失效内容缓存（供管理端点或 revalidate 回调使用）
+ */
+export function invalidateContentCache(): void {
+  cachedAnnouncements = null;
+  cachedSongUpdates = null;
 }
 
 /**

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { RotatingTips } from './RotatingTips';
 import { StatsLineChart } from './charts/StatsLineChart';
 import { ScoreAPI } from '../lib/api/score';
+import { createClientCache } from '../lib/utils/clientCache';
 import { getRecentYmdRange, normalizeIanaTimeZone } from '../lib/utils/date';
 import type { DailyDauResponse, DailyHttpResponse, ServiceStatsFeature, ServiceStatsResponse } from '../lib/types/score';
 
@@ -14,12 +15,6 @@ type Props = {
   showDescription?: boolean;
 };
 
-type CachedPayload = {
-  stats: ServiceStatsResponse;
-  ts?: number;
-  version?: number;
-};
-
 type FeatureCategory = 'primary' | 'secondary';
 
 type FeatureMeta = {
@@ -28,9 +23,11 @@ type FeatureMeta = {
   createIcon: (className: string) => React.ReactElement;
 };
 
-const CACHE_KEY = 'cache_service_stats_v3';
-const CACHE_VERSION = 1;
-const CACHE_TTL_MS = 5 * 60 * 1000;
+const serviceStatsCache = createClientCache<ServiceStatsResponse>({
+  key: 'cache_service_stats_v4',
+  version: 1,
+  ttlMs: 5 * 60 * 1000,
+});
 
 const createBarChartIcon = (className: string) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -149,12 +146,7 @@ export function ServiceStats({ variant = 'default', showTitle = true, showDescri
     try {
       const data = await ScoreAPI.getServiceStats();
       setStats(data);
-      try {
-        const payload: CachedPayload = { stats: data, ts: Date.now(), version: CACHE_VERSION };
-        localStorage.setItem(CACHE_KEY, JSON.stringify(payload));
-      } catch {
-        // ignore cache write errors
-      }
+      serviceStatsCache.set(data);
       return data;
     } catch (e) {
       setError(e instanceof Error ? e.message : '加载统计数据失败');
@@ -195,22 +187,10 @@ export function ServiceStats({ variant = 'default', showTitle = true, showDescri
   }, [loadStats, loadTrends, stats?.timezone]);
 
   useEffect(() => {
-    const readCache = () => {
-      try {
-        const cached = localStorage.getItem(CACHE_KEY);
-        if (!cached) return false;
-        const parsed = JSON.parse(cached) as CachedPayload;
-        if (parsed.version !== CACHE_VERSION || !parsed.stats) return false;
-        setStats(parsed.stats);
-        const isFresh = typeof parsed.ts === 'number' && Date.now() - parsed.ts < CACHE_TTL_MS;
-        return isFresh;
-      } catch {
-        return false;
-      }
-    };
-
-    const hasFreshCache = readCache();
-    if (!hasFreshCache) {
+    const cached = serviceStatsCache.get();
+    if (cached) {
+      setStats(cached);
+    } else {
       void loadStats();
     }
   }, [loadStats]);

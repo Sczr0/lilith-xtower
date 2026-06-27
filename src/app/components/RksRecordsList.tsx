@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { ScoreAPI } from '../lib/api/score';
 import { RksRecord } from '../lib/types/score';
 import { getOwnerKey } from '../lib/utils/cache';
+import { createOwnerKeyCache } from '../lib/utils/clientCache';
 import { StyledSelect } from './ui/Select';
 import { RksHistoryPanel } from './RksHistoryPanel';
 import { filterSortLimitRksRecords, type RksSortBy, type RksSortOrder } from '../lib/utils/rksRecords';
@@ -45,12 +46,34 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
   const [maxScore, setMaxScore] = useState('');
   const [onlyPositiveRks, setOnlyPositiveRks] = useState(false);
   const [limitCount, setLimitCount] = useState('');
-  const CACHE_KEY = 'cache_rks_records_v2';
-  const FILTERS_CACHE_KEY = 'cache_rks_records_filters_v1';
+  const CACHE_KEY = 'cache_rks_records_v3';
+  const FILTERS_CACHE_KEY = 'cache_rks_records_filters_v2';
   const ownerKey = getOwnerKey(credential);
   const hydratedFiltersOwnerKeyRef = useRef<string | null>(null);
   const skipNextFiltersSaveRef = useRef(false);
   const saveFiltersTimerRef = useRef<number | null>(null);
+
+  const rksRecordsCache = useMemo(
+    () =>
+      createOwnerKeyCache<RksRecord[]>({
+        key: CACHE_KEY,
+        version: 1,
+        ttlMs: 30 * 60 * 1000,
+        sanitize: sanitizeCachedRksRecords,
+      }),
+    [],
+  );
+
+  const rksFiltersCache = useMemo(
+    () =>
+      createOwnerKeyCache<RksFiltersSnapshot>({
+        key: FILTERS_CACHE_KEY,
+        version: 1,
+        ttlMs: 24 * 60 * 60 * 1000,
+        sanitize: sanitizeCachedRksFilters,
+      }),
+    [],
+  );
 
   // getOwnerKey 复用工具，按用户隔离缓存
 
@@ -60,43 +83,27 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
     if (hydratedFiltersOwnerKeyRef.current === ownerKey) return;
     hydratedFiltersOwnerKeyRef.current = ownerKey;
 
-    try {
-      const cached = localStorage.getItem(FILTERS_CACHE_KEY);
-      if (!cached) return;
+    const snapshot = rksFiltersCache.get(ownerKey);
+    if (!snapshot) return;
 
-      const parsed = JSON.parse(cached);
-      if (!parsed || typeof parsed !== 'object') return;
+    setSearchQuery(snapshot.searchQuery);
+    setFilterDifficulty(snapshot.filterDifficulty);
+    setSortBy(snapshot.sortBy);
+    setSortOrder(snapshot.sortOrder);
+    setMinRks(snapshot.minRks);
+    setMaxRks(snapshot.maxRks);
+    setMinAcc(snapshot.minAcc);
+    setMaxAcc(snapshot.maxAcc);
+    setMinDifficultyValue(snapshot.minDifficultyValue);
+    setMaxDifficultyValue(snapshot.maxDifficultyValue);
+    setMinScore(snapshot.minScore);
+    setMaxScore(snapshot.maxScore);
+    setOnlyPositiveRks(snapshot.onlyPositiveRks);
+    setLimitCount(snapshot.limitCount);
 
-      const map = parsed as Record<string, unknown>;
-      const entry = map?.[ownerKey];
-      if (!entry) return;
-
-      const rawValue =
-        entry && typeof entry === 'object' && entry !== null && 'value' in entry
-          ? (entry as { value?: unknown }).value
-          : entry;
-      const snapshot = sanitizeCachedRksFilters(rawValue);
-      if (!snapshot) return;
-
-      setSearchQuery(snapshot.searchQuery);
-      setFilterDifficulty(snapshot.filterDifficulty);
-      setSortBy(snapshot.sortBy);
-      setSortOrder(snapshot.sortOrder);
-      setMinRks(snapshot.minRks);
-      setMaxRks(snapshot.maxRks);
-      setMinAcc(snapshot.minAcc);
-      setMaxAcc(snapshot.maxAcc);
-      setMinDifficultyValue(snapshot.minDifficultyValue);
-      setMaxDifficultyValue(snapshot.maxDifficultyValue);
-      setMinScore(snapshot.minScore);
-      setMaxScore(snapshot.maxScore);
-      setOnlyPositiveRks(snapshot.onlyPositiveRks);
-      setLimitCount(snapshot.limitCount);
-
-      // 说明：首次恢复会触发一轮 render，避免“默认值写回覆盖”这里跳过一次保存
-      skipNextFiltersSaveRef.current = true;
-    } catch {}
-  }, [FILTERS_CACHE_KEY, ownerKey]);
+    // 说明：首次恢复会触发一轮 render，避免"默认值写回覆盖"这里跳过一次保存
+    skipNextFiltersSaveRef.current = true;
+  }, [FILTERS_CACHE_KEY, ownerKey, rksFiltersCache]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -130,13 +137,23 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
     };
 
     saveFiltersTimerRef.current = window.setTimeout(() => {
-      try {
-        const cached = localStorage.getItem(FILTERS_CACHE_KEY);
-        const parsed = (cached ? JSON.parse(cached) : {}) as Record<string, unknown>;
-        const map = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
-        map[ownerKey] = { value: snapshot, ts: Date.now() };
-        localStorage.setItem(FILTERS_CACHE_KEY, JSON.stringify(map));
-      } catch {}
+      const snapshot: RksFiltersSnapshot = {
+        searchQuery,
+        filterDifficulty,
+        sortBy,
+        sortOrder,
+        minRks,
+        maxRks,
+        minAcc,
+        maxAcc,
+        minDifficultyValue,
+        maxDifficultyValue,
+        minScore,
+        maxScore,
+        onlyPositiveRks,
+        limitCount,
+      };
+      if (ownerKey) rksFiltersCache.set(ownerKey, snapshot);
     }, 500);
 
     return () => {
@@ -166,39 +183,16 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
   useEffect(() => {
     let hasCachedRecords = false;
     // 先读缓存渲染（按用户隔离）
-    try {
-      const cached = localStorage.getItem(CACHE_KEY);
-      if (ownerKey && cached) {
-        const parsed = JSON.parse(cached);
-        if (parsed && typeof parsed === 'object') {
-          const map = parsed as Record<string, { records?: unknown; ts?: unknown }>;
-          const entry = map?.[ownerKey];
-          if (entry) {
-            const sanitized = sanitizeCachedRksRecords(entry.records);
-            if (sanitized === null) {
-              // 缓存结构异常：清理该用户条目，避免后续渲染阶段崩溃
-              delete map[ownerKey];
-              localStorage.setItem(CACHE_KEY, JSON.stringify(map));
-            } else {
-              setRecords(sanitized);
-              hasCachedRecords = true;
-              const ts = typeof entry.ts === 'number' && Number.isFinite(entry.ts) && entry.ts > 0 ? entry.ts : null;
-              if (ts !== null) {
-                setLastUpdatedAt(ts);
-                setLastUpdatedSource('cache');
-              }
-
-              // 若过滤后数量变化，回写清理后的缓存，避免下次再次触发
-              if (Array.isArray(entry.records) && sanitized.length !== entry.records.length) {
-                const ts = typeof entry.ts === 'number' && Number.isFinite(entry.ts) ? entry.ts : Date.now();
-                map[ownerKey] = { records: sanitized, ts };
-                localStorage.setItem(CACHE_KEY, JSON.stringify(map));
-              }
-            }
-          }
-        }
+    if (ownerKey) {
+      const cached = rksRecordsCache.get(ownerKey);
+      if (cached) {
+        setRecords(cached);
+        hasCachedRecords = true;
+        setLastUpdatedSource('cache');
+        // ts 信息在 ownerKeyCache 内部管理，这里用当前时间作为近似
+        setLastUpdatedAt(Date.now());
       }
-    } catch {}
+    }
 
     if (credential) {
       void loadRecords({ showLoading: !hasCachedRecords });
@@ -224,15 +218,7 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
       const now = Date.now();
       setLastUpdatedAt(now);
       setLastUpdatedSource('network');
-      try {
-        const ownerKey = getOwnerKey(credential);
-        if (ownerKey) {
-          const cached = localStorage.getItem(CACHE_KEY);
-          const map = (cached ? JSON.parse(cached) : {}) as Record<string, { records: RksRecord[]; ts: number }>;
-          map[ownerKey] = { records: newRecords, ts: now };
-          localStorage.setItem(CACHE_KEY, JSON.stringify(map));
-        }
-      } catch {}
+      if (ownerKey) rksRecordsCache.set(ownerKey, newRecords);
     } catch (error) {
       const message = error instanceof Error ? error.message : '加载失败';
       setError(message);

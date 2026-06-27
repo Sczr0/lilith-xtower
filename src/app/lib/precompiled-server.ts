@@ -28,10 +28,43 @@ interface PrecompiledAsset {
 }
 
 const ENABLE_PROD_CACHE = process.env.NODE_ENV === 'production';
+const ASSET_CACHE_MAX_SIZE = 50;
 
 let cachedManifest: PrecompiledManifest | null = null;
 let cachedManifestPromise: Promise<PrecompiledManifest> | null = null;
-const cachedAssets = new Map<string, PrecompiledAsset>();
+
+/** 简单 LRU 缓存，容量上限避免 Map 无限增长 */
+class AssetLRU {
+  private map = new Map<string, PrecompiledAsset>();
+  private maxSize: number;
+
+  constructor(maxSize: number) {
+    this.maxSize = maxSize;
+  }
+
+  get(key: string): PrecompiledAsset | undefined {
+    const value = this.map.get(key);
+    if (value !== undefined) {
+      // 移到最后（标记为最近使用）
+      this.map.delete(key);
+      this.map.set(key, value);
+    }
+    return value;
+  }
+
+  set(key: string, value: PrecompiledAsset): void {
+    if (this.map.has(key)) {
+      this.map.delete(key);
+    } else if (this.map.size >= this.maxSize) {
+      // 淘汰最久未用（Map 迭代的第一个）
+      const firstKey = this.map.keys().next().value;
+      if (firstKey !== undefined) this.map.delete(firstKey);
+    }
+    this.map.set(key, value);
+  }
+}
+
+const cachedAssets = new AssetLRU(ASSET_CACHE_MAX_SIZE);
 
 async function loadManifest(publicDir: string): Promise<PrecompiledManifest> {
   if (!ENABLE_PROD_CACHE) {

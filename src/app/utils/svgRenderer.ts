@@ -1479,3 +1479,61 @@ export class SVGRenderer {
   }
 }
 
+// ── SVG 签名相关（lilith-sig）──
+
+export interface SvgSignature {
+  /** HMAC-SHA256 签名，hex 编码 */
+  hmac: string
+  /** Unix 时间戳（秒），签发时间 */
+  timestamp: number
+  /** 用户哈希前缀（或 "anon"） */
+  userId: string | null
+}
+
+/**
+ * 从 SVG 字符串中提取 lilith-sig 签名信息。
+ *
+ * 匹配格式：`<!-- lilith-sig:v2:hmac=<hex>:t=<unix_ts>:uid=<prefix> -->`
+ */
+export function extractSvgSignature(svg: string): SvgSignature | null {
+  const pattern = /<!--\s*lilith-sig:v2:hmac=([a-f0-9]+):t=(\d+):uid=([^-\s>]+)\s*-->/i
+  const match = svg.match(pattern)
+  if (!match) return null
+
+  return {
+    hmac: match[1]!,
+    timestamp: Number(match[2]!),
+    userId: match[3] || null,
+  }
+}
+
+/**
+ * 通过后端 /api/v2/verify 端点验证 SVG 签名。
+ *
+ * 返回 `{ valid: boolean; error?: string }`
+ */
+export async function verifySvgSignature(
+  svg: string,
+  apiBase?: string,
+): Promise<{ valid: boolean; signedAt?: string; userId?: string; error?: string }> {
+  const base = (apiBase || '/api/v2').replace(/\/+$/, '')
+  try {
+    const res = await fetch(`${base}/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ svg }),
+    })
+    if (!res.ok) {
+      return { valid: false, error: `验证请求失败：${res.status}` }
+    }
+    return (await res.json()) as {
+      valid: boolean
+      signedAt?: string
+      userId?: string
+      error?: string
+    }
+  } catch (e) {
+    return { valid: false, error: e instanceof Error ? e.message : '未知错误' }
+  }
+}
+

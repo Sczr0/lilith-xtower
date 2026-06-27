@@ -38,6 +38,42 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        source: "/api/leaderboard/rks/top",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=0, s-maxage=120, stale-while-revalidate=600",
+          },
+        ],
+      },
+      {
+        source: "/api/leaderboard/rks/by-rank",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=0, s-maxage=120, stale-while-revalidate=600",
+          },
+        ],
+      },
+      {
+        source: "/api/public/profile/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=0, s-maxage=300, stale-while-revalidate=3600",
+          },
+        ],
+      },
+      {
+        source: "/api/stats/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=60, s-maxage=60, stale-while-revalidate=300",
+          },
+        ],
+      },
+      {
         source: "/api/:path*",
         headers: [
           {

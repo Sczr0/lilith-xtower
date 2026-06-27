@@ -1,0 +1,112 @@
+name: Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: '输入 yes 确认回滚到上一个部署版本'
+        required: true
+        default: 'no'
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirm == 'yes'
+    steps:
+      - name: Rollback on Server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT }}
+          script: |
+            set -e
+
+            # 加载环境变量以找到 pm2
+            [ -f ~/.bashrc ] && source ~/.bashrc
+            [ -f ~/.profile ] && source ~/.profile
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            export PATH=$PATH:/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin
+            [ -s "/root/.nvm/nvm.sh" ] && \. "/root/.nvm/nvm.sh"
+
+            DEPLOY_PATH="${{ secrets.SERVER_DEPLOY_PATH }}"
+            if [ -z "$DEPLOY_PATH" ]; then
+              echo "Error: SERVER_DEPLOY_PATH not set in secrets"
+              exit 1
+            fi
+
+            BACKUP_PATH="${DEPLOY_PATH}_previous"
+
+            # 检查是否有可回滚的备份
+            if [ ! -d "$BACKUP_PATH" ] || [ -z "$(ls -A "$BACKUP_PATH" 2>/dev/null)" ]; then
+              echo "Error: No previous build found at $BACKUP_PATH"
+              echo "A backup is created automatically before each deploy."
+              echo "If this is the first deploy, there is nothing to roll back to."
+              exit 1
+            fi
+
+            echo "=== Current deploy: $DEPLOY_PATH"
+            echo "=== Rollback target: $BACKUP_PATH"
+
+            # 原子交换：三步 mv 避免中间状态
+            SWAP_PATH="${DEPLOY_PATH}_swapping"
+
+            echo "Step 1/3: Move current → swap..."
+            mv "$DEPLOY_PATH" "$SWAP_PATH"
+
+            echo "Step 2/3: Move previous → current..."
+            mv "$BACKUP_PATH" "$DEPLOY_PATH"
+
+            echo "Step 3/3: Move swap → previous (old broken version preserved)..."
+            mv "$SWAP_PATH" "$BACKUP_PATH"
+
+            echo "Directories swapped successfully."
+
+            # 重启应用
+            cd "$DEPLOY_PATH"
+
+            # 查找 pm2（与 deploy.yml 相同的逻辑）
+            if command -v pm2 &> /dev/null; then
+              PM2_PATH=$(command -v pm2)
+            elif [ -f "/usr/local/bin/pm2" ]; then
+              PM2_PATH="/usr/local/bin/pm2"
+            elif [ -f "/usr/bin/pm2" ]; then
+              PM2_PATH="/usr/bin/pm2"
+            elif command -v node &> /dev/null && [ -f "$(dirname $(command -v node))/pm2" ]; then
+              PM2_PATH="$(dirname $(command -v node))/pm2"
+            elif [ -d "$HOME/.nvm/versions/node" ]; then
+              LATEST_NODE=$(ls -1 $HOME/.nvm/versions/node | tail -n 1)
+              PM2_PATH="$HOME/.nvm/versions/node/$LATEST_NODE/bin/pm2"
+            elif [ -d "/root/.nvm/versions/node" ]; then
+              LATEST_NODE=$(ls -1 /root/.nvm/versions/node | tail -n 1)
+              PM2_PATH="/root/.nvm/versions/node/$LATEST_NODE/bin/pm2"
+            else
+              echo "Error: pm2 not found"
+              exit 1
+            fi
+
+            if [ ! -x "$PM2_PATH" ]; then
+              echo "Error: PM2 not executable at $PM2_PATH"
+              exit 1
+            fi
+
+            echo "Using PM2 at: $PM2_PATH"
+
+            if $PM2_PATH list | grep -q "lilith-xtower"; then
+              $PM2_PATH reload lilith-xtower
+              echo "App reloaded with previous version"
+            else
+              $PM2_PATH start ecosystem.config.js
+              echo "App started with previous version"
+            fi
+
+            $PM2_PATH save
+
+            echo ""
+            echo "========================================="
+            echo "  Rollback complete!"
+            echo "  The broken version is preserved at:"
+            echo "  $BACKUP_PATH"
+            echo "========================================="

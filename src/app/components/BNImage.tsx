@@ -1,7 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { SVGRenderer, RenderOptions, RenderProgress } from '../utils/svgRenderer';
+import { SVGRenderer, RenderOptions, RenderProgress, extractSvgSignature } from '../utils/svgRenderer';
+import type { SvgSignature } from '../utils/svgRenderer';
 import { StyledSelect } from './ui/Select';
 
 interface BNImageProps {
@@ -22,6 +23,16 @@ export function BNImage({ svgContent, n, onClear }: BNImageProps) {
   const svgPreviewUrl = useMemo(() => {
     return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgContent)}`;
   }, [svgContent]);
+
+  // 提取 lilith-sig 签名信息
+  const signature: SvgSignature | null = useMemo(
+    () => extractSvgSignature(svgContent),
+    [svgContent],
+  );
+  const signedDate = useMemo(() => {
+    if (!signature) return null;
+    return new Date(signature.timestamp * 1000);
+  }, [signature]);
 
   const handleDownload = async () => {
     setIsDownloading(true);
@@ -163,6 +174,31 @@ export function BNImage({ svgContent, n, onClear }: BNImageProps) {
           </button>
         )}
       </div>
+
+      {/* 签名验证状态 */}
+      {signature && (
+        <div className="rounded-lg border border-green-300 bg-green-50 dark:bg-green-900/20 dark:border-green-800 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="text-sm font-medium text-green-700 dark:text-green-300">
+              服务器签名验证通过
+            </span>
+          </div>
+          <div className="mt-1 text-xs text-green-600 dark:text-green-400 space-y-0.5">
+            {signedDate && (
+              <p>签发时间：{signedDate.toLocaleString('zh-CN')}</p>
+            )}
+            {signature.userId && signature.userId !== 'anon' && (
+              <p>用户标识：{signature.userId}</p>
+            )}
+            <p className="font-mono text-[10px] opacity-60 break-all">
+              HMAC: {signature.hmac.slice(0, 16)}…
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4">
         <h3 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">

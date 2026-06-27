@@ -14,15 +14,23 @@ export interface QAItem {
 
 const QA_DIR = path.join(process.cwd(), 'src/app/content/qa');
 const ENABLE_PROD_CACHE = process.env.NODE_ENV === 'production';
+const QA_CACHE_TTL_MS = 5 * 60 * 1000; // 5 分钟
 
-let cachedAllQA: QAItem[] | null = null;
+type CacheEntry<T> = { data: T; ts: number };
+
+let cachedAllQA: CacheEntry<QAItem[]> | null = null;
+
+function isCacheFresh<T>(entry: CacheEntry<T> | null): entry is CacheEntry<T> {
+  if (!entry) return false;
+  return Date.now() - entry.ts < QA_CACHE_TTL_MS;
+}
 
 export function getAllQA(): QAItem[] {
-  if (ENABLE_PROD_CACHE && cachedAllQA) return cachedAllQA;
+  if (ENABLE_PROD_CACHE && isCacheFresh(cachedAllQA)) return cachedAllQA.data;
 
   try {
     if (!fs.existsSync(QA_DIR)) {
-      if (ENABLE_PROD_CACHE) cachedAllQA = [];
+      if (ENABLE_PROD_CACHE) cachedAllQA = { data: [], ts: Date.now() };
       return [];
     }
 
@@ -54,12 +62,17 @@ export function getAllQA(): QAItem[] {
         return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
       });
 
-    if (ENABLE_PROD_CACHE) cachedAllQA = result;
+    if (ENABLE_PROD_CACHE) cachedAllQA = { data: result, ts: Date.now() };
     return result;
   } catch (error) {
     console.error('Error reading QA files:', error);
     return [];
   }
+}
+
+/** 主动失效 QA 缓存 */
+export function invalidateQACache(): void {
+  cachedAllQA = null;
 }
 
 export function getQAByCategory(category: QAItem['category']): QAItem[] {

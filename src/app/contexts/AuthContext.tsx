@@ -73,8 +73,15 @@ function triggerClearPrefetchCache(): void {
 function clearUserLocalCaches(): void {
   localStorage.removeItem(AGREEMENT_ACCEPTED_KEY);
   try {
+    // 旧版本 key（迁移期保留清理）
     localStorage.removeItem('cache_rks_records_v1');
     localStorage.removeItem('cache_rks_records_v2');
+    localStorage.removeItem('cache_rks_records_filters_v1');
+    localStorage.removeItem('cache_service_stats_v3');
+    // 当前版本
+    localStorage.removeItem('cache_rks_records_v3');
+    localStorage.removeItem('cache_rks_records_filters_v2');
+    localStorage.removeItem('cache_service_stats_v4');
     localStorage.removeItem('cache_bestn_meta_v1');
     localStorage.removeItem('cache_song_image_meta_v1');
   } catch {
