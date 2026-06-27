@@ -6,103 +6,59 @@ import { ImageAPI, BestNTheme, type ImageFormat } from '../lib/api/image';
 import { useGenerationBusy, useGenerationManager, useGenerationResult } from '../contexts/GenerationContext';
 import { StyledSelect } from './ui/Select';
 import { LoadingPlaceholder, LoadingSpinner } from './LoadingIndicator';
-import { SVGRenderer, rewriteSvgImageUrlsToSameOriginProxy, inlineSvgExternalImages, type RenderProgress } from '../utils/svgRenderer';
+import { SVGRenderer, rewriteSvgImageUrlsToSameOriginProxy, type RenderProgress } from '../utils/svgRenderer';
 
 const DEFAULT_N = 27;
 
-// 支持通过 showDescription 隐藏组件内的描述，避免与外层重复
 type BnImageGeneratorProps = {
   showTitle?: boolean;
   showDescription?: boolean;
-  // 默认 png；demo 页面可传 svg 用于测试后端 SVG 输出与前端渲染
+  /** 内部固定为 svg（从后端拉取），预览统一渲染为 PNG */
   format?: ImageFormat;
-  // 仅当 format=svg 时生效：展示 SVG 源码用于排查渲染问题（默认关闭）
-  showSvgSource?: boolean;
-  // 仅当 format=svg 时生效：导出 PNG 时在控制台输出极其详细的渲染/抓取日志（默认关闭）
+  /** 调试：展示渲染日志 */
   debugExport?: boolean;
 };
 
-type ShadowSvgPreviewProps = {
-  svgHtml: string;
-  className?: string;
-};
-
-function ShadowSvgPreview({ svgHtml, className }: ShadowSvgPreviewProps) {
-  const hostRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const host = hostRef.current;
-    if (!host) return;
-
-    // 将 SVG 预览放入 Shadow DOM，避免 SVG 内的 <style> 全局影响仪表盘其它内联 <svg> 图标（侧栏/标题小图标反色问题）。
-    const root = host.shadowRoot ?? host.attachShadow({ mode: 'open' });
-    root.textContent = '';
-
-    const style = document.createElement('style');
-    style.textContent = `
-      :host { display: block; }
-      svg { width: 100%; height: auto; display: block; }
-    `;
-    root.appendChild(style);
-
-    const container = document.createElement('div');
-    container.innerHTML = svgHtml;
-    root.appendChild(container);
-  }, [svgHtml]);
-
-  return <div ref={hostRef} className={className} />;
-}
-
+/**
+ * Best N 图片生成器（隐写水印版）
+ * 
+ * 与旧版的核心区别：
+ * - 不再提供 SVG 预览或下载
+ * - 后端返回 SVG → 客户端直接渲染为 PNG → 嵌入隐写水印 → 展示 PNG 预览
+ * - 下载按钮只导出水印 PNG
+ * - 隐写代码通过 build-time 混淆，增加逆向难度
+ */
 export function BnImageGenerator({
   showTitle = true,
   showDescription = true,
-  format = 'png',
-  showSvgSource = false,
   debugExport = false,
 }: BnImageGeneratorProps) {
   const { isAuthenticated } = useAuth();
   const [nInput, setNInput] = useState(`${DEFAULT_N}`);
   const [generatedN, setGeneratedN] = useState(DEFAULT_N);
   const [theme, setTheme] = useState<BestNTheme>('dark');
-  // 全局生成占用：同一类别（best-n）未返回前，占用按钮并提示“生成中”
+
   const { startTask, clearResult } = useGenerationManager();
   const isLoading = useGenerationBusy('best-n');
-  // 跨页面读取最近一次生成结果（Blob）并转为 URL 展示
-  const resultBlob = useGenerationResult<Blob>('best-n');
-  const imageUrl = useMemo(() => (resultBlob ? URL.createObjectURL(resultBlob) : null), [resultBlob]);
-  const [svgSource, setSvgSource] = useState<string | null>(null);
+
+  // ── 渲染状态 ──
+  const [renderState, setRenderState] = useState<'idle' | 'loading-svg' | 'rendering' | 'done' | 'error'>('idle');
+  const [pngUrl, setPngUrl] = useState<string | null>(null);
+  const [renderProgress, setRenderProgress] = useState<RenderProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [exportProgress, setExportProgress] = useState<RenderProgress | null>(null);
-  const [exportError, setExportError] = useState<string | null>(null);
+  const [watermarkStatus, setWatermarkStatus] = useState<'none' | 'embedded' | 'skipped'>('none');
 
+  // 保存原始 SVG 文本用于水印签名提取
+  const svgTextRef = useRef<string | null>(null);
+  // 保存 PNG Blob 用于下载
+  const pngBlobRef = useRef<Blob | null>(null);
+
+  // 清理 blob URL
   useEffect(() => {
     return () => {
-      if (imageUrl) {
-        URL.revokeObjectURL(imageUrl);
-      }
+      if (pngUrl) URL.revokeObjectURL(pngUrl);
     };
-  }, [imageUrl]);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!resultBlob || format !== 'svg') {
-      setSvgSource(null);
-      return;
-    }
-
-    resultBlob
-      .text()
-      .then((text) => {
-        if (!cancelled) setSvgSource(text);
-      })
-      .catch(() => {
-        if (!cancelled) setSvgSource(null);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [resultBlob, format]);
+  }, [pngUrl]);
 
   const handleGenerate = async () => {
     if (!isAuthenticated) {
@@ -110,221 +66,134 @@ export function BnImageGenerator({
       return;
     }
 
-    if (!nInput.trim()) {
-      setError('请输入有效的 N 值。');
-      return;
-    }
-
     const parsed = Number.parseInt(nInput, 10);
-
     if (!Number.isInteger(parsed) || parsed <= 0) {
       setError('请输入有效的 N 值。');
       return;
     }
 
     setError(null);
+    setRenderState('loading-svg');
+    setPngUrl(null);
+    setWatermarkStatus('none');
+    pngBlobRef.current = null;
+    svgTextRef.current = null;
 
     try {
-      // 使用全局任务管理，避免页面切换中断并阻止同类重复请求；结果由上下文保存
-      await startTask('best-n', async () => {
-        return ImageAPI.generateBestNImage(parsed, theme, format);
+      // ── 1. 从后端拉取 SVG（始终请求 SVG，即使最终要 PNG）──
+      const svgBlob = await startTask('best-n', async () => {
+        return ImageAPI.generateBestNImage(parsed, theme, 'svg');
       });
+
+      const svgText = await svgBlob.text();
+      svgTextRef.current = svgText;
+
       setGeneratedN(parsed);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '生成失败';
-      setError(message);
-    }
-  };
+      setRenderState('rendering');
+      setWatermarkStatus('none');
 
-  const handleNChange = (value: string) => {
-    setNInput(value);
-  };
+      // ── 2. 渲染 SVG → 带水印的 PNG ──
+      const baseUrl = typeof window !== 'undefined' ? window.location.href : undefined;
 
-  const handleThemeChange = (value: string) => {
-    setTheme(value === 'white' ? 'white' : 'dark');
-  };
-
-  const titleText = format === 'svg' ? 'Best N SVG 生成' : 'Best N 图片生成';
-  const descriptionText =
-    format === 'svg'
-      ? '选择生成的歌曲数量和主题，点击生成即可获取 SVG（用于测试前端渲染）。'
-      : '选择生成的歌曲数量和主题，点击生成即可获取图片。';
-  const downloadName = `best-${generatedN}.${format}`;
-  const downloadLabel = format === 'svg' ? '下载 SVG' : '下载图片';
-  const placeholderText = format === 'svg' ? '正在生成 SVG...' : '正在生成图片...';
-  const emptyText = format === 'svg' ? '生成后的 SVG 将显示在这里。' : '生成后的图片将显示在这里。';
-  const generateButtonText = format === 'svg' ? '生成 SVG' : '生成图片';
-
-  const safeInlineSvg = useMemo(() => {
-    if (format !== 'svg') return null;
-    if (!svgSource) return null;
-
-    const injectStyle = (rawSvg: string, css: string) => {
-      // 优先追加到已有 <style>，避免破坏原 SVG 结构；若不存在则插入新的 <style>
-      if (/<style[\s>]/i.test(rawSvg) && /<\/style>/i.test(rawSvg)) {
-        return rawSvg.replace(/<\/style>/i, `${css}\n</style>`);
-      }
-      if (/<defs[\s>]/i.test(rawSvg) && /<\/defs>/i.test(rawSvg)) {
-        return rawSvg.replace(/<\/defs>/i, `<style>\n${css}\n</style>\n</defs>`);
-      }
-      return rawSvg.replace(/<svg\b([^>]*)>/i, `<svg$1><style>\n${css}\n</style>`);
-    };
-
-    // 安全兜底：仅用于 demo 内联预览，避免后端 SVG 被注入脚本/外部对象导致 XSS
-    const unsafePatterns: RegExp[] = [
-      /<script\b/i,
-      /<foreignObject\b/i,
-      /\bon\w+\s*=/i,
-      /\bhref\s*=\s*["']\s*javascript:/i,
-      /\bxlink:href\s*=\s*["']\s*javascript:/i,
-    ];
-
-    if (unsafePatterns.some((re) => re.test(svgSource))) {
-      return null;
-    }
-
-    // 前端渲染与 Rust 渲染差异：浏览器可能对缺失字重的字体做“伪粗体”合成，导致粗体看起来发黑。
-    // 这里禁用 font-synthesis，并把 700 的字重压到 600，尽量接近后端渲染观感（仅影响 demo 的内联预览）。
-    const cssFix = [
-      '/* Frontend demo fix: reduce synthetic bold/heavy rendering */',
-      '* { font-synthesis: none; }',
-      '.text-score, .text-difficulty-badge, .text-fc-ap-badge, .text-rank-tag { font-weight: 600 !important; }',
-      'svg { text-rendering: geometricPrecision; }',
-    ].join('\n');
-
-    // 预览阶段保持外链，避免默认走同源代理消耗站点 CDN 流量。
-    return injectStyle(svgSource, cssFix);
-  }, [format, svgSource]);
-
-  const handleExportPng = async () => {
-    if (format !== 'svg') return;
-    if (!svgSource) {
-      setExportError('未找到 SVG 内容，请先生成一次。');
-      return;
-    }
-
-    // 优先使用注入过 CSS 修正后的版本，保证与预览一致
-    const svgText = safeInlineSvg ?? svgSource;
-    const baseUrl = typeof window !== 'undefined' ? window.location.href : undefined;
-
-    setExportError(null);
-    setExportProgress({ stage: 'loading-fonts', progress: 0 });
-
-    try {
-      const renderWithFallbackModes = async (
-        targetSvg: string,
-        allowProxyFallback: boolean,
+      const renderWithMode = async (
+        embedMode: 'data' | 'object',
+        allowProxy: boolean,
       ): Promise<Blob> => {
-        const renderWithMode = (embedImages: 'data' | 'object') =>
-          SVGRenderer.renderToImage(
-            targetSvg,
-            {
-              format: 'png',
-              scale: 2,
-              quality: 0.95,
-              embedImages,
-              embedImageConcurrency: 32,
-              embedImageMaxCount: 500,
-              baseUrl,
-              fontPackId: 'source-han-sans-saira-hybrid-5446',
-              embedFonts: 'data',
-              embedFontMaxFiles: 400,
-              allowProxyFallback,
-              debug: debugExport,
-              debugTag: 'BestNExport',
-              waitBeforeDrawMs: 0,
-            },
-            (p) => setExportProgress(p),
-          );
-
-        try {
-          return await renderWithMode('data');
-        } catch (e) {
-          if (debugExport) {
-            console.warn('[BestNExport] export fallback to embedImages=object:', e);
-          }
-          return renderWithMode('object');
-        }
+        return SVGRenderer.renderToImage(svgText, {
+          format: 'png',
+          scale: 2,
+          quality: 0.95,
+          embedImages: embedMode,
+          embedImageConcurrency: 32,
+          embedImageMaxCount: 500,
+          baseUrl,
+          fontPackId: 'source-han-sans-saira-hybrid-5446',
+          embedFonts: 'data',
+          embedFontMaxFiles: 400,
+          allowProxyFallback: allowProxy,
+          debug: debugExport,
+          debugTag: 'BestNExport',
+          waitBeforeDrawMs: 0,
+          // ★ 关键：传入原始 SVG 用于水印嵌入
+          watermark: {
+            svgText,
+            enabled: true,
+          },
+        }, (p) => setRenderProgress(p));
       };
 
-      let blob: Blob;
+      let pngBlob: Blob;
       try {
-        blob = await renderWithFallbackModes(svgText, false);
+        pngBlob = await renderWithMode('data', false);
       } catch (directError) {
-        if (debugExport) {
-          console.warn('[BestNExport] direct export failed, retry with proxy:', directError);
-        }
+        if (debugExport) console.warn('[BestNExport] direct render failed, retry with proxy:', directError);
         const proxiedSvg = rewriteSvgImageUrlsToSameOriginProxy(svgText, {
           baseUrl,
           allowedHosts: ['somnia.xtower.site'],
         });
-        blob = await renderWithFallbackModes(proxiedSvg, true);
+        // 更新水印用的 SVG 引用（代理改写后签名注释仍在）
+        svgTextRef.current = proxiedSvg;
+        pngBlob = await renderWithMode('object', true);
       }
 
-      const url = URL.createObjectURL(blob);
-      try {
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `best-${generatedN}.png`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      } finally {
-        URL.revokeObjectURL(url);
-      }
-    } catch (e) {
-      const message = e instanceof Error ? e.message : '导出失败';
-      // 常见原因：SVG 内嵌图片跨域无 CORS，导致 canvas 被污染（tainted）或加载失败
-      setExportError(`${message}（若含外链封面，请确认图片服务器允许 CORS 且未设置 CORP=same-origin）`);
-    } finally {
-      setExportProgress(null);
+      pngBlobRef.current = pngBlob;
+
+      // ── 3. 生成预览 URL ──
+      if (pngUrl) URL.revokeObjectURL(pngUrl);
+      const url = URL.createObjectURL(pngBlob);
+      setPngUrl(url);
+      setWatermarkStatus('embedded');
+      setRenderState('done');
+      setRenderProgress(null);
+
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '生成失败';
+      setError(message);
+      setRenderState('error');
+      setRenderProgress(null);
     }
   };
 
-  const handleExportSvg = async () => {
-    if (format !== 'svg') return;
-    if (!svgSource) {
-      setExportError('未找到 SVG 内容，请先生成一次。');
-      return;
-    }
+  const handleDownload = () => {
+    if (!pngBlobRef.current) return;
+    const url = URL.createObjectURL(pngBlobRef.current);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `best-${generatedN}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
 
-    const svgText = safeInlineSvg ?? svgSource;
-    const baseUrl = typeof window !== 'undefined' ? window.location.href : undefined;
+  const handleClear = () => {
+    if (pngUrl) URL.revokeObjectURL(pngUrl);
+    setPngUrl(null);
+    pngBlobRef.current = null;
+    svgTextRef.current = null;
+    setRenderState('idle');
+    setRenderProgress(null);
+    setWatermarkStatus('none');
+    clearResult('best-n');
+  };
 
-    setExportError(null);
-    setExportProgress({ stage: 'fetching-images', progress: 0 });
+  // ── UI ──
 
-    try {
-      // 内联所有外链图片为 data URI，确保下载的 SVG 完全自包含（签名 URL 过期后不影响）
-      const inlined = await inlineSvgExternalImages(svgText, {
-        maxCount: 500,
-        baseUrl,
-        concurrency: 32,
-        allowProxyFallback: true,
-        onProgress: (done, total) => {
-          const p = Math.round((done / Math.max(1, total)) * 100);
-          setExportProgress({ stage: 'fetching-images', progress: p });
-        },
-      });
-
-      const blob = new Blob([inlined], { type: 'image/svg+xml;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      try {
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `best-${generatedN}.svg`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      } finally {
-        URL.revokeObjectURL(url);
+  const renderStageText = () => {
+    if (renderState === 'loading-svg') return '正在从服务器获取成绩数据…';
+    if (renderState === 'rendering') {
+      if (renderProgress) {
+        switch (renderProgress.stage) {
+          case 'loading-fonts': return '加载字体中…';
+          case 'fetching-images': return `下载封面图 (${renderProgress.progress}%)…`;
+          case 'rendering': return '渲染图片 + 嵌入保护…';
+          case 'encoding': return '编码输出…';
+          case 'complete': return '完成！';
+        }
       }
-    } catch (e) {
-      const message = e instanceof Error ? e.message : '导出失败';
-      setExportError(`SVG 导出失败：${message}`);
-    } finally {
-      setExportProgress(null);
+      return '渲染中…';
     }
+    return null;
   };
 
   return (
@@ -332,40 +201,37 @@ export function BnImageGenerator({
       <div className="mb-6">
         {showTitle && (
           <h2 className="text-2xl font-semibold mb-2 text-gray-900 dark:text-gray-100">
-            {titleText}
+            Best N 图片生成
           </h2>
         )}
         {showDescription && (
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            {descriptionText}
+            选择生成的歌曲数量和主题，点击生成即可获取带保护标识的图片。
           </p>
         )}
       </div>
 
+      {/* 参数区 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            N 值
-          </label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">N 值</label>
           <input
             type="number"
             min={1}
             value={nInput}
-            onChange={(event) => handleNChange(event.target.value)}
+            onChange={(e) => setNInput(e.target.value)}
             className="w-full h-10 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            主题
-          </label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">主题</label>
           <StyledSelect
             options={[
               { label: '深色主题', value: 'dark' },
               { label: '白色主题', value: 'white' },
             ]}
-            value={theme as BestNTheme}
-            onValueChange={(v) => handleThemeChange(v)}
+            value={theme}
+            onValueChange={(v) => setTheme(v === 'white' ? 'white' : 'dark')}
             placeholder="选择主题"
           />
         </div>
@@ -375,12 +241,7 @@ export function BnImageGenerator({
             onClick={handleGenerate}
             className="w-full inline-flex items-center justify-center rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-medium px-4 py-2 transition-colors"
           >
-            {isLoading ? (
-              // 生成请求等待动画（按钮内小尺寸旋转圈）
-              <LoadingSpinner size="sm" text="生成中..." />
-            ) : (
-              generateButtonText
-            )}
+            {isLoading ? <LoadingSpinner size="sm" text="生成中..." /> : '生成图片'}
           </button>
         </div>
       </div>
@@ -391,106 +252,72 @@ export function BnImageGenerator({
         </div>
       )}
 
-      {imageUrl ? (
+      {/* 预览区 */}
+      {pngUrl ? (
         <div className="space-y-4">
           <div className="relative w-full overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-            {format === 'svg' ? (
-              !svgSource ? (
-                <div className="p-6 text-sm text-gray-600 dark:text-gray-300">SVG 解析中...</div>
-              ) : safeInlineSvg ? (
-                // 关键：SVG 内联到 DOM 后，<image href> 子资源才会正常发起请求（可配合同源代理验证封面加载）
-                <ShadowSvgPreview svgHtml={safeInlineSvg} className="w-full" />
-              ) : (
-                <div className="p-6 text-sm text-gray-600 dark:text-gray-300">
-                  SVG 包含不安全内容，已阻止内联渲染；可使用下方下载查看原文件。
-                </div>
-              ) 
-            ) : (
-              // eslint-disable-next-line @next/next/no-img-element -- 说明：生成结果为 blob: URL（本地对象 URL），不适合 next/image 的远程优化链路
-              <img
-                src={imageUrl}
-                alt={`Best ${generatedN} 成绩图片`}
-                className="w-full h-auto"
-                loading="lazy"
-                decoding="async"
-              />
-            )}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={pngUrl}
+              alt={`Best ${generatedN} 成绩图片`}
+              className="w-full h-auto"
+              loading="lazy"
+              decoding="async"
+            />
           </div>
+
+          {/* 操作按钮 */}
           <div className="flex flex-wrap gap-3">
-            {format === 'svg' ? (
-              <button
-                onClick={handleExportSvg}
-                disabled={!!exportProgress}
-                className="inline-flex items-center justify-center rounded-lg border border-blue-500 px-4 py-2 text-blue-600 hover:bg-blue-50 disabled:opacity-60 disabled:cursor-not-allowed dark:hover:bg-blue-900/30"
-              >
-                {exportProgress ? `导出中：${exportProgress.stage}` : downloadLabel}
-              </button>
-            ) : (
-              <a
-                href={imageUrl}
-                download={downloadName}
-                className="inline-flex items-center justify-center rounded-lg border border-blue-500 px-4 py-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30"
-              >
-                {downloadLabel}
-              </a>
-            )}
-            {format === 'svg' && (
-              <button
-                onClick={handleExportPng}
-                disabled={!!exportProgress}
-                className="inline-flex items-center justify-center rounded-lg border border-green-600 px-4 py-2 text-green-700 hover:bg-green-50 disabled:opacity-60 disabled:cursor-not-allowed dark:text-green-300 dark:hover:bg-green-900/20"
-              >
-                {exportProgress ? `导出中：${exportProgress.stage}` : '导出 PNG（本地渲染）'}
-              </button>
-            )}
             <button
-              onClick={() => {
-                clearResult('best-n');
-              }}
+              onClick={handleDownload}
+              className="inline-flex items-center justify-center rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 transition-colors"
+            >
+              下载 PNG
+            </button>
+            <button
+              onClick={handleClear}
               className="inline-flex items-center justify-center rounded-lg border border-gray-400 px-4 py-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
             >
               清除结果
             </button>
           </div>
 
-          {exportError && (
-            <div className="rounded-lg border border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">
-              {exportError}
-            </div>
-          )}
-
-          {exportProgress && (
-            <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-950/30 px-4 py-3 text-sm text-gray-700 dark:text-gray-200">
-              {`导出进度：${exportProgress.stage}（${exportProgress.progress}%）`}
-            </div>
-          )}
-
-          {format === 'svg' && showSvgSource && (
-            <details className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 px-4 py-3">
-              <summary className="cursor-pointer select-none text-sm font-medium text-gray-800 dark:text-gray-200">
-                查看 SVG 源码（调试用）
-              </summary>
-              <div className="mt-3">
-                {svgSource ? (
-                  <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950 p-3 text-xs text-gray-700 dark:text-gray-200">
-                    {svgSource}
-                  </pre>
-                ) : (
-                  <p className="text-xs text-gray-500 dark:text-gray-400">SVG 源码解析中...</p>
-                )}
+          {/* 水印状态 */}
+          {watermarkStatus === 'embedded' && (
+            <div className="rounded-lg border border-green-300 bg-green-50 dark:bg-green-900/20 dark:border-green-800 px-4 py-3">
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-sm font-medium text-green-700 dark:text-green-300">
+                  图片已嵌入溯源保护标识
+                </span>
               </div>
-            </details>
+              <p className="mt-1 text-xs text-green-600 dark:text-green-400">
+                此 PNG 包含不可见的数字签名，用于验证图片来源于本服务。
+              </p>
+            </div>
           )}
         </div>
-      ) : isLoading ? (
-        // 图片生成请求等候阶段的加载动画占位
-        <LoadingPlaceholder text={placeholderText} />
+      ) : isLoading || renderState !== 'idle' ? (
+        <LoadingPlaceholder text={renderStageText() ?? '正在生成图片...'} />
       ) : (
         <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-8 text-center text-sm text-gray-500 dark:text-gray-400">
-          {emptyText}
+          生成后的图片将显示在这里
+        </div>
+      )}
+
+      {/* 提示信息 */}
+      {renderState === 'done' && (
+        <div className="mt-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4">
+          <h3 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">关于图片保护</h3>
+          <ul className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
+            <li>• 图片包含隐写溯源标识，可在需要时验证来源</li>
+            <li>• 如需验证他人分享的 BestN 图片真伪，请使用图片验证工具</li>
+            <li>• 截图、压缩或转换格式会破坏保护标识</li>
+          </ul>
         </div>
       )}
     </section>
   );
 }
-

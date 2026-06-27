@@ -11,7 +11,7 @@ export interface RenderOptions {
   waitBeforeDrawMs?: number;
   fontPackId?: 'source-han-sans-saira-hybrid-5446';
   fontFamily?: string;
-  // 是否将字体包内的字体文件嵌入到 SVG（data: URL），用于解决“SVG 作为 blob/img 渲染时字体不生效”的问题
+  // 是否将字体包内的字体文件嵌入到 SVG（data: URL），用于解决"SVG 作为 blob/img 渲染时字体不生效"的问题
   // 说明：blob/data URL 的 SVG 子资源请求通常会带 Origin: null，若字体文件未放行 CORS，会导致字体加载失败；
   // 嵌入 data: 可避免跨域与时序问题，但会增大 SVG 字符串体积。
   embedFonts?: 'none' | 'data';
@@ -37,6 +37,13 @@ export interface RenderOptions {
   // 是否允许在图片直连失败后回退到同源代理（/api/proxy/image）
   // 默认 true 以保持现有行为；可在特定场景（如首轮导出）显式关闭。
   allowProxyFallback?: boolean;
+  // ── 隐写水印 ──
+  // 渲染完成后在像素中嵌入 LSB 隐写水印
+  // 传入从 SVG 提取的签名信息用于水印编码
+  watermark?: {
+    svgText: string
+    enabled: boolean
+  }
 }
 export interface RenderProgress {
   stage: 'loading-fonts' | 'fetching-images' | 'rendering' | 'encoding' | 'complete';
@@ -1423,6 +1430,40 @@ export class SVGRenderer {
 
       ctx.drawImage(img, 0, 0, width, height);
 
+      // ── 隐写水印嵌入（在 canvas 转 blob 之前）──
+      const wm = options.watermark
+      if (wm?.enabled && wm.svgText && format !== 'jpg') {
+        onProgress?.({ stage: 'rendering', progress: 70 })
+        try {
+          const { buildPayloadFromSignature, embedWatermark } = await import('./stego/index')
+          const payload = buildPayloadFromSignature(wm.svgText)
+          if (payload) {
+            const imageData = ctx.getImageData(0, 0, width, height)
+            const result = embedWatermark(imageData, payload, {
+              spreadFactor: 3,
+              channelOffset: 2,
+              marginPixels: 8,
+            })
+            if (result.ok) {
+              ctx.putImageData(imageData, 0, 0)
+              dlog(debugOptions, 'watermark:embedded', {
+                bitsWritten: result.bitsWritten,
+                pixelsUsed: result.pixelsNeeded,
+              })
+            } else {
+              dlog(debugOptions, 'watermark:failed', {
+                reason: 'not enough pixels',
+                needed: result.pixelsNeeded,
+                available: result.pixelsAvailable,
+              })
+            }
+          }
+        } catch (wmErr) {
+          // 水印失败不阻断渲染
+          dlog(debugOptions, 'watermark:error', { message: String(wmErr) })
+        }
+      }
+
       onProgress?.({ stage: 'encoding', progress: 80 });
 
       const mimeType = format === 'jpg' ? 'image/jpeg' : `image/${format}`;
@@ -1488,15 +1529,21 @@ export interface SvgSignature {
   timestamp: number
   /** 用户哈希前缀（或 "anon"） */
   userId: string | null
+  /** 请求 ID，用于服务端日志追踪 */
+  requestId: string | null
+  /** SHA-256(去签名后的SVG正文)，客户端可本地校验内容完整性 */
+  contentHash: string | null
+  /** UUIDv7，防签名重放 */
+  nonce: string | null
 }
 
 /**
  * 从 SVG 字符串中提取 lilith-sig 签名信息。
  *
- * 匹配格式：`<!-- lilith-sig:v2:hmac=<hex>:t=<unix_ts>:uid=<prefix> -->`
+ * 匹配格式：`<!-- lilith-sig:v3:hmac=<hex>:t=<unix_ts>:uid=<prefix>:rid=<req_id>:hash=<sha256>:nonce=<uuidv7> -->`
  */
 export function extractSvgSignature(svg: string): SvgSignature | null {
-  const pattern = /<!--\s*lilith-sig:v2:hmac=([a-f0-9]+):t=(\d+):uid=([^-\s>]+)\s*-->/i
+  const pattern = /<!--\s*lilith-sig:v3:hmac=([a-f0-9]+):t=(\d+):uid=([^:\s>]+)(?::rid=([^:\s>-]+))?(?::hash=([a-f0-9]+))?(?::nonce=([^\s>-]+))?\s*-->/i
   const match = svg.match(pattern)
   if (!match) return null
 
@@ -1504,19 +1551,25 @@ export function extractSvgSignature(svg: string): SvgSignature | null {
     hmac: match[1]!,
     timestamp: Number(match[2]!),
     userId: match[3] || null,
+    requestId: match[4] || null,
+    contentHash: match[5] || null,
+    nonce: match[6] || null,
   }
 }
 
 /**
- * 通过后端 /api/v2/verify 端点验证 SVG 签名。
+ * 通过后端签名验证端点验证 SVG 的 lilith-sig 签名。
+ * 
+ * 后端端点：POST /api/verify  body: { svg: "..." }
+ * Next.js fallback rewrite 自动代理到 https://seekend.xtower.site/api/v1/verify
  *
- * 返回 `{ valid: boolean; error?: string }`
+ * 返回 `{ valid: boolean; signedAt?: string; userHashPrefix?: string; error?: string }`
  */
 export async function verifySvgSignature(
   svg: string,
   apiBase?: string,
 ): Promise<{ valid: boolean; signedAt?: string; userId?: string; error?: string }> {
-  const base = (apiBase || '/api/v2').replace(/\/+$/, '')
+  const base = (apiBase || '/api').replace(/\/+$/, '')
   try {
     const res = await fetch(`${base}/verify`, {
       method: 'POST',
@@ -1526,11 +1579,18 @@ export async function verifySvgSignature(
     if (!res.ok) {
       return { valid: false, error: `验证请求失败：${res.status}` }
     }
-    return (await res.json()) as {
+    const data = await res.json() as {
       valid: boolean
       signedAt?: string
-      userId?: string
+      userHashPrefix?: string
       error?: string
+    }
+    // 兼容后端返回字段名
+    return {
+      valid: data.valid,
+      signedAt: data.signedAt,
+      userId: data.userHashPrefix,
+      error: data.error,
     }
   } catch (e) {
     return { valid: false, error: e instanceof Error ? e.message : '未知错误' }

@@ -3,6 +3,7 @@ packages:
 
 allowBuilds:
   esbuild: true
+  javascript-obfuscator: true
   sharp: true
   unrs-resolver: true
 

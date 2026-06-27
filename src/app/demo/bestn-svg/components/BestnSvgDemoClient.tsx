@@ -58,8 +58,6 @@ export function BestnSvgDemoClient({ debugExport }: BestnSvgDemoClientProps) {
     <BnImageGenerator
       showTitle={false}
       showDescription={false}
-      format="svg"
-      showSvgSource
       debugExport={debugExport}
     />
   );
