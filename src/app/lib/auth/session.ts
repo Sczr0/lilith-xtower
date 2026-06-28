@@ -12,6 +12,12 @@ export type AuthSessionData = {
   backendAccessToken?: string
   backendExpAt?: number
   sessionKey?: string
+  /** 用户已显式同意的《用户协议》版本（YYYY-MM-DD）。 */
+  acceptedAgreementVersion?: string
+  /** 用户已显式同意的《隐私协议》版本（YYYY-MM-DD）。 */
+  acceptedPrivacyVersion?: string
+  /** 最近一次同意协议的时间戳（ms）。 */
+  acceptedAt?: number
 }
 
 /**
@@ -25,6 +31,9 @@ declare module 'iron-session' {
     backendAccessToken?: string
     backendExpAt?: number
     sessionKey?: string
+    acceptedAgreementVersion?: string
+    acceptedPrivacyVersion?: string
+    acceptedAt?: number
   }
 }
 
@@ -93,6 +102,9 @@ function clearAuthSessionData(session: IronSession<AuthSessionData>): void {
   delete session.backendAccessToken
   delete session.backendExpAt
   delete session.sessionKey
+  delete session.acceptedAgreementVersion
+  delete session.acceptedPrivacyVersion
+  delete session.acceptedAt
 }
 
 export function getSessionRevocationKey(data: Pick<AuthSessionData, 'sessionKey' | 'credential' | 'createdAt' | 'taptapVersion'>): string | null {

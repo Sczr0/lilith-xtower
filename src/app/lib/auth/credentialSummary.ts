@@ -13,6 +13,12 @@ export type SessionStatusResponse = {
   isAuthenticated: boolean
   credential: AuthCredentialSummary | null
   taptapVersion: TapTapVersion | null
+  requiredAgreementVersion: string
+  requiredPrivacyVersion: string
+  acceptedAgreementVersion: string | null
+  acceptedPrivacyVersion: string | null
+  /** 已同意版本落后于应同意版本时为 true，前端需弹出协议确认。 */
+  consentRequired: boolean
 }
 
 export function toCredentialSummary(credential: AuthCredential): AuthCredentialSummary {

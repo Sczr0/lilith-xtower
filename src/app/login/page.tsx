@@ -15,18 +15,13 @@ import { LoginMethodSelector } from './components/LoginMethodSelector';
 import { useClientValue } from '../hooks/useClientValue';
 import { LOGIN_METHODS } from './loginMethods';
 import { LoginFormPanel } from './components/LoginFormPanel';
-import { AGREEMENT_ACCEPTED_KEY } from '../lib/constants/storageKeys';
 import { initCap } from '../lib/cap/client';
 
 export default function LoginPage() {
   const [activeMethod, setActiveMethod] = useState<AuthMethod>('qrcode');
   const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const { isAuthenticated, isLoading, credential, logout } = useAuth();
+  const { isAuthenticated, isLoading, credential, logout, consentRequired } = useAuth();
   const router = useRouter();
-  const agreementAccepted = useClientValue(
-    () => localStorage.getItem(AGREEMENT_ACCEPTED_KEY) === 'true',
-    false
-  );
 
   // Cap 验证码：页面加载时立即启动后台解题（程序化模式，无可见 UI）
   useEffect(() => {
@@ -63,10 +58,12 @@ export default function LoginPage() {
   };
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated && agreementAccepted) {
+    // 已认证且无需重新同意协议时，自动进入面板；
+    // 若服务端要求重新同意，则保持在本页等待协议弹窗确认。
+    if (!isLoading && isAuthenticated && !consentRequired) {
       router.replace('/dashboard');
     }
-  }, [isAuthenticated, isLoading, router, agreementAccepted]);
+  }, [isAuthenticated, isLoading, router, consentRequired]);
 
   return (
     <PageShell

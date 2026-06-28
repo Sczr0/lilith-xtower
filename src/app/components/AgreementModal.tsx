@@ -61,9 +61,10 @@ export function AgreementModal({ html, onAgree, onClose }: AgreementModalProps) 
             <Dialog.Content
               className="relative w-full max-w-xl bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden focus:outline-none"
               onPointerDownOutside={(e) => e.preventDefault()}
+              onEscapeKeyDown={(e) => e.preventDefault()}
             >
           {/* Header */}
-          <header className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+          <header className="flex items-center p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -77,16 +78,6 @@ export function AgreementModal({ html, onAgree, onClose }: AgreementModalProps) 
                 为保障您的知情权与数据权益，请勾选确认后继续。
               </Dialog.Description>
             </div>
-            <Dialog.Close asChild>
-              <button
-                className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                aria-label="关闭用户协议弹窗"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </Dialog.Close>
           </header>
 
           {/* Content */}
@@ -124,7 +115,7 @@ export function AgreementModal({ html, onAgree, onClose }: AgreementModalProps) 
               <button
                 className="px-5 py-2.5 rounded-lg bg-gray-500 hover:bg-gray-600 text-white transition-colors"
               >
-                取消
+                不同意
               </button>
             </Dialog.Close>
             <button
@@ -150,9 +141,10 @@ export function AgreementModal({ html, onAgree, onClose }: AgreementModalProps) 
           <Dialog.Content
             className="relative w-full max-w-4xl max-h-[80vh] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden focus:outline-none"
             onPointerDownOutside={(e) => e.preventDefault()}
+            onEscapeKeyDown={(e) => e.preventDefault()}
           >
         {/* Header */}
-        <header className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+        <header className="flex items-center p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -168,16 +160,6 @@ export function AgreementModal({ html, onAgree, onClose }: AgreementModalProps) 
               </Dialog.Description>
             </div>
           </div>
-          <Dialog.Close asChild>
-            <button
-              className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              aria-label="关闭用户协议弹窗"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </Dialog.Close>
         </header>
 
         {/* Content */}
@@ -213,7 +195,7 @@ export function AgreementModal({ html, onAgree, onClose }: AgreementModalProps) 
                 <button
                   className="flex-1 sm:flex-none px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white font-semibold rounded-lg transition-colors"
                 >
-                  暂不登录
+                  不同意
                 </button>
               </Dialog.Close>
               <button

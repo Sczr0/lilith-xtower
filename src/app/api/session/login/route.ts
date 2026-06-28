@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { buildAuthRequestBody } from '@/app/lib/auth/authRequest';
 import { toCredentialSummary } from '@/app/lib/auth/credentialSummary';
+import { getConsentStatus } from '@/app/lib/auth/consent';
 import { exchangeBackendToken } from '@/app/lib/auth/phi-session';
 import { ensureAuthSessionKey, getAuthSession } from '@/app/lib/auth/session';
 import { getSeekendApiBaseUrl } from '@/app/lib/auth/upstream';
@@ -165,8 +166,19 @@ export async function POST(request: NextRequest) {
 
     await session.save();
 
+    const consent = getConsentStatus(session);
     return NextResponse.json(
-      { success: true, credential: toCredentialSummary(credential), taptapVersion },
+      {
+        success: true,
+        credential: toCredentialSummary(credential),
+        taptapVersion,
+        requiredAgreementVersion: consent.requiredAgreementVersion,
+        requiredPrivacyVersion: consent.requiredPrivacyVersion,
+        acceptedAgreementVersion: consent.acceptedAgreementVersion,
+        acceptedPrivacyVersion: consent.acceptedPrivacyVersion,
+        // 刚建立的会话尚未同意任何版本，故必然需要确认。
+        consentRequired: consent.consentRequired,
+      },
       { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch (error) {

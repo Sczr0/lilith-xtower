@@ -39,11 +39,15 @@ describe('api/session', () => {
 
     expect(res.status).toBe(200)
     expect(res.headers.get('cache-control')).toBe('no-store')
-    await expect(res.json()).resolves.toEqual({
-      isAuthenticated: false,
-      credential: null,
-      taptapVersion: null,
-    })
+    const body = await res.json()
+    expect(body.isAuthenticated).toBe(false)
+    expect(body.credential).toBe(null)
+    expect(body.taptapVersion).toBe(null)
+    expect(body.consentRequired).toBe(false)
+    expect(body.acceptedAgreementVersion).toBe(null)
+    expect(body.acceptedPrivacyVersion).toBe(null)
+    expect(typeof body.requiredAgreementVersion).toBe('string')
+    expect(typeof body.requiredPrivacyVersion).toBe('string')
   })
 
   it('returns 502 when backend validation upstream fails', async () => {
@@ -54,12 +58,10 @@ describe('api/session', () => {
 
     expect(res.status).toBe(502)
     expect(res.headers.get('cache-control')).toBe('no-store')
-    await expect(res.json()).resolves.toEqual({
-      isAuthenticated: false,
-      credential: null,
-      taptapVersion: null,
-      error: '会话校验失败，请稍后重试',
-    })
+    const body = await res.json()
+    expect(body.isAuthenticated).toBe(false)
+    expect(body.consentRequired).toBe(false)
+    expect(body.error).toBe('会话校验失败，请稍后重试')
   })
 
   it('returns authenticated status only after backend validation success', async () => {
@@ -81,5 +83,9 @@ describe('api/session', () => {
       tokenMasked: '****',
     })
     expect(body.taptapVersion).toBe('cn')
+    // 未同意任何版本时，consentRequired 应为 true。
+    expect(body.consentRequired).toBe(true)
+    expect(body.acceptedAgreementVersion).toBe(null)
+    expect(body.acceptedPrivacyVersion).toBe(null)
   })
 })

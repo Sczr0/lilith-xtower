@@ -34,6 +34,8 @@ type AuthState = {
   credential: AuthCredentialSummary | null;
   isLoading: boolean;
   error: string | null;
+  /** 服务端判定需要重新同意协议时为 true，前端据此弹出协议确认。 */
+  consentRequired: boolean;
 };
 
 interface AuthContextType extends AuthState {
@@ -97,6 +99,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     credential: null,
     isLoading: true,
     error: null,
+    consentRequired: false,
   });
   const [showAgreement, setShowAgreement] = useState(false);
   const [agreementHtml, setAgreementHtml] = useState<string>('');
@@ -148,7 +151,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
           credential: payload.credential,
           isLoading: false,
           error: null,
+          consentRequired: payload.consentRequired ?? false,
         });
+
+        // 已登录但协议版本落后：弹出协议确认（跨设备/清缓存后也能拦住）。
+        if (payload.isAuthenticated && payload.consentRequired) {
+          setAgreementHtml('');
+          setShowAgreement(true);
+        }
       })
       .catch((error) => {
         const message = error instanceof Error ? error.message : '初始化认证状态失败';
@@ -157,6 +167,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           credential: null,
           isLoading: false,
           error: message,
+          consentRequired: false,
         });
       });
   }, [isInitialized]);
@@ -180,6 +191,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         credential: null,
         isLoading: false,
         error: null,
+        consentRequired: false,
       });
 
       if (reason === 'banned') {
@@ -212,7 +224,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
   }, [performClientLogout]);
 
-  const proceedLogin = useCallback(
+  const login = useCallback(
     async (credential: AuthCredential, capToken?: string) => {
       try {
         setAuthState((prev) => ({ ...prev, isLoading: true, error: null }));
@@ -225,7 +237,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
         });
 
         const data = (await res.json().catch(() => null)) as
-          | { success: true; credential: AuthCredentialSummary; taptapVersion: string }
+          | {
+              success: true;
+              credential: AuthCredentialSummary;
+              taptapVersion: string;
+              consentRequired?: boolean;
+            }
           | { success: false; message: string; code?: string }
           | null;
 
@@ -238,65 +255,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
         banHandlingRef.current = false;
         sessionStorage.removeItem(BANNED_DETAIL_KEY);
 
+        const consentRequired = data.consentRequired ?? false;
+
         setAuthState({
           isAuthenticated: true,
           credential: data.credential,
           isLoading: false,
           error: null,
+          consentRequired,
         });
 
-        triggerPostLoginPreload();
-        router.replace('/dashboard');
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : '登录失败';
-        setAuthState((prev) => ({ ...prev, isLoading: false, error: errorMessage }));
-        throw error;
-      }
-    },
-    [router],
-  );
-
-  const login = useCallback(
-    async (credential: AuthCredential, capToken?: string) => {
-      const agreementAccepted = localStorage.getItem(AGREEMENT_ACCEPTED_KEY);
-      if (agreementAccepted) {
-        await proceedLogin(credential, capToken);
-        return;
-      }
-
-      try {
-        setAuthState((prev) => ({ ...prev, isLoading: true, error: null }));
-
-        const taptapVersion = AuthStorage.getTapTapVersion();
-        const res = await fetch('/api/session/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ credential, taptapVersion, capToken }),
-        });
-
-        const data = (await res.json().catch(() => null)) as
-          | { success: true; credential: AuthCredentialSummary; taptapVersion: string }
-          | { success: false; message: string }
-          | null;
-
-        if (!res.ok || !data || data.success !== true) {
-          throw new Error(
-            data && 'message' in data && data.message ? data.message : `登录失败（${res.status}）`,
-          );
+        // 服务端判定需要同意协议时，弹出确认；否则直接进入面板。
+        if (consentRequired) {
+          setAgreementHtml('');
+          setShowAgreement(true);
+        } else {
+          // 仅为 UI 提示用途（菜单引导等）保留本地记号，不作为拦截依据。
+          localStorage.setItem(AGREEMENT_ACCEPTED_KEY, 'true');
+          triggerPostLoginPreload();
+          router.replace('/dashboard');
         }
-
-        banHandlingRef.current = false;
-        sessionStorage.removeItem(BANNED_DETAIL_KEY);
-
-        setAuthState({
-          isAuthenticated: true,
-          credential: data.credential,
-          isLoading: false,
-          error: null,
-        });
-
-        setAgreementHtml('');
-        setShowAgreement(true);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : '登录失败';
         setAuthState({
@@ -304,17 +282,39 @@ export function AuthProvider({ children }: AuthProviderProps) {
           credential: null,
           isLoading: false,
           error: errorMessage,
+          consentRequired: false,
         });
       }
     },
-    [proceedLogin],
+    [router],
   );
 
-  const handleAgree = useCallback(() => {
-    setShowAgreement(false);
-    localStorage.setItem(AGREEMENT_ACCEPTED_KEY, 'true');
-    triggerPostLoginPreload();
-    router.replace('/dashboard');
+  const handleAgree = useCallback(async () => {
+    try {
+      const res = await fetch('/api/session/consent', {
+        method: 'POST',
+        headers: { Accept: 'application/json' },
+      });
+      const data = (await res.json().catch(() => null)) as
+        | { success: true; consentRequired?: boolean }
+        | { success: false; message?: string }
+        | null;
+
+      if (!res.ok || !data || data.success !== true) {
+        throw new Error(data && 'message' in data && data.message ? data.message : '记录同意状态失败');
+      }
+
+      setShowAgreement(false);
+      setAuthState((prev) => ({ ...prev, consentRequired: false }));
+      // UI 提示用途（菜单引导等）。
+      localStorage.setItem(AGREEMENT_ACCEPTED_KEY, 'true');
+      triggerPostLoginPreload();
+      router.replace('/dashboard');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '记录同意状态失败';
+      setAuthState((prev) => ({ ...prev, error: errorMessage }));
+      // 保留弹窗开启状态，等待用户重试。
+    }
   }, [router]);
 
   const handleCloseAgreement = useCallback(() => {
@@ -327,6 +327,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       credential: null,
       isLoading: false,
       error: '您需要同意用户协议才能使用本服务',
+      consentRequired: false,
     });
   }, []);
 
