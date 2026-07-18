@@ -35,10 +35,7 @@ export default async function Home() {
         },
         potentialAction: {
           '@type': 'SearchAction',
-          target: {
-            '@type': 'EntryPoint',
-            urlTemplate: `${SITE_URL}/qa?q={search_term_string}`,
-          },
+          target: `${SITE_URL}/qa?q={search_term_string}`,
           'query-input': 'required name=search_term_string',
         },
       },
