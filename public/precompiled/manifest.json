@@ -1,14 +1,14 @@
 {
   "pages": {
     "agreement": {
-      "html": "agreement.7e4256be.html",
-      "toc": "agreement.7e4256be.toc.json",
-      "sig": "agreement.8008922c.sig.json"
+      "html": "agreement.76fb3537.html",
+      "toc": "agreement.76fb3537.toc.json",
+      "sig": "agreement.d5cbe96f.sig.json"
     },
     "privacy": {
-      "html": "privacy.2a61e947.html",
-      "toc": "privacy.2a61e947.toc.json",
-      "sig": "privacy.e62f4a40.sig.json"
+      "html": "privacy.b2287808.html",
+      "toc": "privacy.b2287808.toc.json",
+      "sig": "privacy.edede672.sig.json"
     },
     "open-platform-agreement": {
       "html": "open-platform-agreement.f1d13ef9.html",
@@ -21,8 +21,8 @@
     }
   },
   "agreement": {
-    "html": "agreement.7e4256be.html",
-    "toc": "agreement.7e4256be.toc.json",
-    "sig": "agreement.8008922c.sig.json"
+    "html": "agreement.76fb3537.html",
+    "toc": "agreement.76fb3537.toc.json",
+    "sig": "agreement.d5cbe96f.sig.json"
   }
 }

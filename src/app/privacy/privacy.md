@@ -1,13 +1,15 @@
 -----BEGIN PGP SIGNED MESSAGE-----
 Hash: SHA256
 
-**最后更新日期：2026年5月13日** | **生效日期：2026年5月13日**
+**最后更新日期：2026年7月30日** | **生效日期：2026年7月30日**
 
 #### 1. 引言
 
-欢迎您使用由 **「塔弦」空间站**（以下简称"开发者"或"我们"）开发并运营的 **"Phigros 成绩查询与图片生成器"**（以下简称"本服务"）。
+欢迎您使用由 **「塔弦」空间站**（以下简称"我们"或"开发者"）开发并运营的"**Phigros Query**"（以下简称"**本服务**"）。
 
 **本服务由开发者个人独立开发和运营，与任何个人、组织或机构均无隶属、从属、关联、授权、合作或代理关系。**
+
+**在使用本服务前，请您认真阅读，并充分理解本协议全部内容，特别是以加粗等方式显著标识的条款。**
 
 本《隐私协议》（以下简称"本隐私协议"）系您与开发者之间，就您在使用本服务过程中涉及的个人信息的**收集、使用、存储、共享及保护**等事项所订立的具有法律约束力的协议，亦属于《用户协议》中所述的"具体协议"之一。
 
@@ -43,11 +45,11 @@ Hash: SHA256
 
 我们可能处理的信息主要包括以下几类：
 
-- - - **（1）登录凭证信息：**
+**（1）登录凭证信息：**
 
-当您通过 TapTap 授权或联合查分 API 登录时，我们会接收您提供的 SessionToken、APIID、平台 ID 等（统称"登录凭证"），用于访问您的 Phigros 云存档。该凭证仅用于建立查询会话，不用于其他目的。
+当您通过 TapTap 授权或联合查分 API 登录时，我们会接收您提供的 SessionToken、APIID、平台 ID 等（下统称"登录凭证"），用于访问您的 Phigros 云存档。该凭证仅用于建立查询会话，不用于其他目的。
 
-- - - **（2）操作记录与请求元数据：**
+**（2）操作记录与请求元数据：**
 
 当您访问或使用本服务时，我们与第三方基础设施/统计服务可能会处理访问时间、IP 地址、User-Agent（浏览器/设备信息）、页面 URL（含路径与查询参数）等信息，用于服务运行、安全防护、性能分析、统计与问题排查。
 
@@ -55,29 +57,29 @@ Hash: SHA256
 
 您理解并同意，Cloudflare、EdgeOne、ESA、Umami、阿里云 RUM 等第三方基础设施/统计/性能监控服务可能会基于其产品机制与合规要求记录访问日志，我们无法完全控制其日志留存与存储位置，具体以其隐私政策/服务条款为准。
 
-- - - **（3）生成内容相关数据：**
+**（3）生成内容相关数据：**
 
 当您发起成绩查询、生成图片或其他内容时，我们会在服务器内临时处理相应的 Phigros 成绩数据，以便输出结果。该处理通常为"即用即弃"，不保存原始云存档文件。
 
-- - - **（4）排行榜与公开档案数据：**
+**（4）排行榜与公开档案数据：**
 
 为提供全站排名及公开档案查询服务，在您开启"公开设置/公开档案"相关功能期间，系统将同步并在我们的数据库中长期保存您的部分非敏感游戏数据，包括但不限于：**RKS（潜力值）、RKS 组成、Best Top 3、AP Top 3、成绩摘要**以及您设置的**用户别名**（如启用）。此类数据不包含账号凭证，无法用于登录您的游戏账号。
 
-- - - **（5）赞助者列表数据：**
+**（5）赞助者列表数据：**
 
 若您访问本服务的"赞助者"页面，我们会通过爱发电（Afdian）开放 API 获取赞助者列表数据（如昵称、头像、赞助套餐名称、累计金额等）并展示。该数据来源与展示规则以爱发电平台的设置与政策为准。
 
 **2.2 数据使用方式**
 
-- - - **登录凭证：** 用于验证授权并访问您的 Phigros 云存档数据；
+**登录凭证：** 用于验证授权并访问您的 Phigros 云存档数据；
 
-- - - **Phigros 云存档数据：** 运行时被解析用于生成结果或图片，处理完成后即释放，不存储原始文件。
+**Phigros 云存档数据：** 运行时被解析用于生成结果或图片，处理完成后即释放，不存储原始文件。
 
-- - - **操作记录与请求元数据：** 用于服务运行、安全分析、性能优化、统计与问题排查。我们不会将其作为账号体系使用，也不会以此直接识别您的真实身份。
+**操作记录与请求元数据：** 用于服务运行、安全分析、性能优化、统计与问题排查。我们不会将其作为账号体系使用，也不会以此直接识别您的真实身份。
 
-- - - **排行榜与公开档案数据：** 用于生成全站排名、公开档案展示、反作弊与服务运营分析；当您关闭公开设置后，我们将停止入库与同步，并将对外访问入口关闭（详见第 4、5 节）。
+**排行榜与公开档案数据：** 用于生成全站排名、公开档案展示、反作弊与服务运营分析；当您关闭公开设置后，我们将停止入库与同步，并将对外访问入口关闭（详见第 4、5 节）。
 
-- - - **赞助者列表数据：** 用于展示赞助者鸣谢与赞助信息，不用于推送营销或对您进行画像。
+**赞助者列表数据：** 用于展示赞助者鸣谢与赞助信息，不用于推送营销或对您进行画像。
 
 #### 3. 我们如何使用 Cookie 和同类技术
 
@@ -85,11 +87,11 @@ Hash: SHA256
 
 本服务会使用浏览器本地存储（如 localStorage）保存部分设置与状态，以提升使用体验，包括但不限于：
 
-- - - **偏好设置：** 深色/浅色模式、TapTap 版本选择、列表显示偏好等纯前端交互设置。
+**偏好设置：** 深色/浅色模式、TapTap 版本选择、列表显示偏好等纯前端交互设置。
 
-- - - **数据缓存：** 在本地缓存部分查询结果（如成绩列表、筛选条件）以减少网络请求。
+**数据缓存：** 在本地缓存部分查询结果（如成绩列表、筛选条件）以减少网络请求。
 
-- - - **协议同意状态：** 记录您是否已确认阅读并同意本服务的《用户协议》与《隐私协议》。
+**协议同意状态：** 记录您是否已确认阅读并同意本服务的《用户协议》与《隐私协议》。
 
 另外，我们将**登录凭证**加密后，通过更安全的 HttpOnly Cookie 进行维护。
 
@@ -97,9 +99,9 @@ Hash: SHA256
 
 为保证本服务正常运行与统计分析，我们及第三方服务商可能会使用 Cookie 或同类技术。
 
-- - - **身份验证（Session Cookie）：** 我们使用 **HttpOnly Cookie** 存储您的登录会话标识。该 Cookie 仅用于在您与服务器交互时验证身份。
+**身份验证（Session Cookie）：** 我们使用 **HttpOnly Cookie** 存储您的登录会话标识。该 Cookie 仅用于在您与服务器交互时验证身份。
 
-- - - **第三方服务：** 本服务接入的 Umami 不使用 cookie；Cloudflare、阿里云 RUM 等第三方服务是否使用 Cookie 及其留存规则，以其各自隐私政策/服务条款为准。
+**第三方服务：** 本服务接入的 Umami 不使用 cookie；Cloudflare、阿里云 RUM 等第三方服务是否使用 Cookie 及其留存规则，以其各自隐私政策/服务条款为准。
 
 #### 4. 我们如何披露您的个人信息
 
@@ -147,7 +149,7 @@ Hash: SHA256
 
 **5.4 用户授权与撤回**
 
-当您授权我们访问您的 Phigros 云存档时，表示您同意我们按本隐私协议所述方式处理您的数据。
+当您开始使用本服务时，表示您同意我们按本隐私协议所述方式处理您的数据。
 
 您可随时通过更换 SessionToken、撤销授权或停止使用本服务来撤回授权。撤回不影响撤回前基于授权已进行的合法处理活动。
 
@@ -191,7 +193,7 @@ Hash: SHA256
 
 处理原因：当你选择联合查分 API 登录并获取成绩数据时，这是必需的服务
 
-隐私政策：无
+隐私政策：https://www.phib19.top/privacy
 
 8.2.3 Cloudflare
 
@@ -203,7 +205,7 @@ Hash: SHA256
 
 隐私政策：https://www.cloudflare.com/zh-cn/privacypolicy/
 
-8.2.4 EdgeOne
+8.2.4 ESA
 
 用途：提供中国大陆用户的 CDN 加速服务
 
@@ -211,7 +213,7 @@ Hash: SHA256
 
 处理原因：这是 CDN 服务的技术必需数据，用于路由请求、缓存内容和安全防护
 
-腾讯云隐私保护声明：https://cloud.tencent.com/document/product/301/11470
+隐私权政策：https://terms.aliyun.com/legal-agreement/terms/suit_bu1_ali_cloud/suit_bu1_ali_cloud201902141711_54837.html?spm=a1zaa.8161610.0.0.165a5461pidui0
 
 8.2.5 Umami
 
@@ -241,7 +243,7 @@ Hash: SHA256
 
 **9.2 数据处理位置与可能的跨境即时处理**
 
-本服务使用 Cloudflare 和 EdgeOne 提供全球 CDN 加速，用户的请求数据可能被路由至位于全球各地区的边缘节点进行即时处理，以实现低延迟响应和 DDoS 防护。这种路由是由 CDN 技术架构自动决定的，并非开发者主动进行的数据跨境传输。Cloudflare 和 EdgeOne 等 CDN 服务商可能按其合规与安全要求记录访问日志，日志的留存地点和期限以第三方政策为准。
+本服务使用 Cloudflare 和 ESA 提供全球 CDN 加速，用户的请求数据可能被路由至位于全球各地区的边缘节点进行即时处理，以实现低延迟响应和 DDoS 防护。这种路由是由 CDN 技术架构自动决定的，并非开发者主动进行的数据跨境传输。Cloudflare 和 ESA 等 CDN 服务商可能按其合规与安全要求记录访问日志，日志的留存地点和期限以第三方政策为准。
 
 本服务使用的 **Umami Cloud** 统计服务服务器位于欧盟境内，相关统计数据存储与处理受欧盟 GDPR 管辖。
 
@@ -259,20 +261,20 @@ Hash: SHA256
 
 如您对本隐私协议有任何疑问、意见或投诉，或希望对排行榜/公开档案历史记录进行彻底删除处理，可通过以下方式与我们联系：
 
-- - - **联系邮箱：** xtower@xtower.site（建议邮件标题包含【隐私/删除/公开档案】等关键词）
+**联系邮箱：** lilith@xtower.site（建议邮件标题包含【隐私/删除/公开档案】等关键词）
 
 我们将在收到您的来信后，在合理时间内进行处理或回复。
 -----BEGIN PGP SIGNATURE-----
 
-iQGzBAEBCAAdFiEELLqNPkwXwRaxvR3OAM+CMkOXAy8FAmoFk3gACgkQAM+CMkOX
-Ay8lRwwAndHQXdgk6RyEhc0eppPCIBkYhjYUHv3fJFqj90QH++CoEP/7T+kYpVTG
-qIz7hcYLCP62Yd7JfqWqrm6OdrhdqZmumV0wOneQx0DERb2Bg2ek4t8nsR1xGZS1
-nzig/3nm1hJGaTYaLMVQsc1L9hhy8HUi7MR6M19dQvFN9DCFGKrS/qCtjNx051h8
-cxpGs2VohnOy6Z5dxRjEUh+e1k0AEuvlOhc22dV2xqB4uxqTJF1XlEtwwg5ayVXI
-6YssGicz+j8wOcrLzsOjAX5hgT+UyRWc7fS108R3JasUDDmO4Y7YJop0uXo7d/07
-Orp96C5z1sJibIa9s3oJxbO0W6l5QgzrRCQXSyVU6mBZnGXKIejApu5Z48tSJfO4
-6JnP/tSyJs2HoO3G+MoWquhDj5M/sopMe5W9owAHqN9oORsun+lfHRDHtiwN+Pf5
-tpTXpT8whoz1Lrt8iL89ddCQBtB4bUXqo7ByV4Ubl/xU1Rdl8POacnDSqZ6YS5eq
-ub10XN88
-=cBai
+iQHPBAEBCAA5FiEELLqNPkwXwRaxvR3OAM+CMkOXAy8FAmpqhtobFIAAAAAABAAO
+bWFudTIsMi41KzEuMTIsMiwxAAoJEADPgjJDlwMvCEAMALIX9m3Jes9bsQDBRhMJ
+ndMmultdbQ3jQrswwzp8FGuBPGUisX7vJWDylzSlg7XgXul7QoV18UAWr7fPUXB9
+F2ber6M4IpWdC83gy3bBtBOP/130X+5rdoJQdQ7UXPxPvAh86oHRx6tGzDH7O9KA
+dxAUvRL6+jk6/9ulP6X0F2cyPuAtDSKBZhBRkZW3xDZJSSRO6c/gdhwoNwXSUcqC
+qghOKB35roCg2vjBcHx4YU092h57x4kKeoIQaT0VI/WeY4j+AMH0HdquPGyMYKmM
+aQUVhe0r3pCDoQ1cD9gGi4q8RitCGxhTfsiCsXTaetzyf4GCwVSaASyY7+8uhXb6
+4lkB+Mb697S39kBmL/4IGPzAGCIz8zeSlSKokRLGR0CqomXzyaEBh9/Y0s3uPLbq
+w9UGUV+CQjqEdFV+kCuULa39co1ZRo5fYgpIrg2qyK1Xj7CV+8EiTUPeHNyweGsO
+s0sN+QVlOxyngHvBsowVtol9Q3kMNjJBF1eV0Qc+AzeZNQ==
+=omGn
 -----END PGP SIGNATURE-----
