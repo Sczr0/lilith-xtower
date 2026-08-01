@@ -7,6 +7,16 @@ interface SignatureBarProps {
   signatureInfo: PrecompiledSignatureInfo;
 }
 
+/**
+ * 协议签署密钥的公钥信息（与 public/ 下公钥文件一致）。
+ * 更新公钥时请同步修改此处与 public/Sczr0_*.asc 文件。
+ */
+const SIGNING_KEY_FINGERPRINT = '2CBA8D3E4C17C116B1BD1DCE00CF82324397032F';
+// gpg 标准显示格式：每 4 位一组
+const SIGNING_KEY_FINGERPRINT_DISPLAY = '2CBA 8D3E 4C17 C116 B1BD 1DCE 00CF 8232 4397 032F';
+const SIGNING_KEY_UID = 'Sczr0 <sczr0710@163.com>';
+const SIGNING_KEY_PUBLIC_URL = '/Sczr0_0x2CBA8D3E4C17C116B1BD1DCE00CF82324397032F.asc';
+
 function getSignatureStatusText(signatureInfo: PrecompiledSignatureInfo): string {
   if (signatureInfo.status !== 'signed') return '未签名';
   if (signatureInfo.verified === true) return '已签名（校验通过）';
@@ -89,6 +99,31 @@ export function SignatureBar({ signatureInfo }: SignatureBarProps) {
             {copyState === 'ok' ? '已复制' : copyState === 'fail' ? '复制失败' : '复制签名'}
           </button>
         </div>
+      </div>
+
+      {/* 核验公钥：完整指纹 + 下载链接 */}
+      <div className="mt-3 flex flex-col gap-1.5 rounded-md border border-gray-200 dark:border-neutral-800 bg-gray-50/70 dark:bg-neutral-950/30 p-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="font-medium text-gray-700 dark:text-gray-200">核验公钥</span>
+          <code className="font-mono text-[11px] break-all text-gray-700 dark:text-gray-200">
+            {SIGNING_KEY_FINGERPRINT_DISPLAY}
+          </code>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <a
+            href={SIGNING_KEY_PUBLIC_URL}
+            download
+            title={`公钥指纹: ${SIGNING_KEY_FINGERPRINT}`}
+            aria-label={`下载公钥（指纹 ${SIGNING_KEY_FINGERPRINT}）`}
+            className="inline-flex items-center rounded-md border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1 text-xs text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-50 dark:hover:bg-neutral-800 transition-colors"
+          >
+            下载公钥 (.asc)
+          </a>
+          <span className="text-gray-500 dark:text-gray-400">{SIGNING_KEY_UID}</span>
+        </div>
+        <p className="text-[11px] text-gray-500 dark:text-gray-400">
+          提示：导入公钥前，请与外部渠道（如 GitHub 仓库、keyserver）发布的公钥指纹比对，确认一致后再进行签名核验。
+        </p>
       </div>
 
       {open && signatureText ? (

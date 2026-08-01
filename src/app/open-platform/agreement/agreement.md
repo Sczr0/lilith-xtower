@@ -1,7 +1,7 @@
 -----BEGIN PGP SIGNED MESSAGE-----
 Hash: SHA256
 
-**最后更新日期：2026年4月29日** | **生效日期：2026年4月29日**
+**最后更新日期：2026年8月2日** | **生效日期：2026年8月2日**
 
 #### 1. 引言
 
@@ -239,20 +239,20 @@ TapTap 或 Pigeon Games 有权**随时变更或关闭 Phigros 云存档**，开�
 
 如您对本协议的内容有任何疑问、意见或建议，或在使用本服务过程中遇到与本协议相关的问题，可通过以下方式与开发者联系：
 
-**电子邮箱：** xtower@xtower.site
+**电子邮箱：** lilith@xtower.site
 
 开发者将在收到您的来信后，在合理时间内进行处理或回复。
 -----BEGIN PGP SIGNATURE-----
 
-iQGzBAEBCAAdFiEELLqNPkwXwRaxvR3OAM+CMkOXAy8FAmnxnrEACgkQAM+CMkOX
-Ay8E/wv+ItoFU+Rd1Bc6Nm6hsyikQfGLhqNZIQWgV8/pJ0nirZz9PR5ll2kUYfT4
-tDO2fNyfGsHdZMC9J8AsqZ7mhJ/jhbHeGBh9xPt4jrdv/UvLqYYiDiW4VPXdFQEI
-t8U1AoTnTwax9q4cL1HOaW6Zjqk4OKQKloanPkwhRtGIZZ7rZxlodKE2DD3ko9Yd
-W0CnjrFHXk2mTJG9EG+wt5ojFI002mJTnYmkpB5TXJJme3SdWVVF9dyNJCIlNzr2
-ZmfKcpo0LRwdvaWkPnAGdXynN7F1+s9EpW/eQP1o/MF9hOpMMTyffZqf2+bZP/BX
-rP/8hSoQLZrBXokylN1vZn/EVPJr8thCyXjBgjoiQP8SuubHrYg0ZDKidBPwDyQC
-WnRH6N1HreZ1n3T8LEhWnUGg3dMaGFXVT/l5aZ9du9z0WZK2CZiiVcRU39YAMj9y
-CNcFvCe8HxAChE+/qBPhEW4FJYwXcyVITsbCGhmha7loQBoblvlBYMctKMuJ6+IQ
-l685HW5Q
-=8XIU
+iQHPBAEBCAA5FiEELLqNPkwXwRaxvR3OAM+CMkOXAy8FAmpug4YbFIAAAAAABAAO
+bWFudTIsMi41KzEuMTIsMiwxAAoJEADPgjJDlwMvEjYMAJfNZi3+p8yBaU6wBNae
+Jifmzym39Cwq/1UdohFB1Cptc0wPQ++k9ICS/fx39f1qq6PhkBCeajiAyKtiNGML
+yO8MsCsemRchT3EGVfwmtWzVDAd15GwBcXMTDM5Ak/1LbJYptfMbyB3k/Xg8R70j
+GB6Q8YSq8wsYQQCQISXZCLeYRD9zBlZMvdQpTJZk+F4UclVQnBMl7LfgHRA++6m8
+sVPxU2Piz9Top5spCDMv3uh8NtFbNKDpcAgn8PpmfVHGO8Q8xZQSnErDJV3d8CjH
+3qx9N+43UvbaG0LcYl5bIPJqnCTq2hs4KeiWODU6HBJh4cDGlRXHBtqo9ATCNGdg
+AL8jpxzyj7BZgxs/E0faqIbiSLYxygQnDizDOfl7EQQjnVGS2zjcCkW5rX3oChTK
+RKS7kwp4H6puC32MIyD9f+OXC1A/bCsw9NqKK0Fs+g8DxIvXqSyhAASZESxMoKT2
+fiF7nOJ5It8rVARAp44MNEF6qGDzX0uEKES6PtZ+oppAhg==
+=F/yi
 -----END PGP SIGNATURE-----
