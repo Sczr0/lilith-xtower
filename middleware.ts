@@ -14,6 +14,7 @@ const PUBLIC_HTML_CACHE: Record<string, string> = {
   '/about': 'public, max-age=0, s-maxage=600, stale-while-revalidate=86400',
   '/sponsors': 'public, max-age=0, s-maxage=600, stale-while-revalidate=86400',
   '/contribute': 'public, max-age=0, s-maxage=600, stale-while-revalidate=86400',
+  '/songs': 'public, max-age=0, s-maxage=600, stale-while-revalidate=86400',
   '/qa': 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400',
   '/agreement': 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400',
   '/privacy': 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400',

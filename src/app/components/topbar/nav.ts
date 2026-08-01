@@ -36,6 +36,7 @@ export function buildSiteNavItems(enableOpenPlatformNav: boolean): NavItem[] {
     { href: '/about', label: '关于' },
     { href: '/sponsors', label: '赞助者' },
     { href: '/qa', label: '常见问题' },
+    { href: '/songs', label: '曲目信息' },
     { href: '/contribute', label: '投稿与反馈' },
     { href: '/dashboard', label: '仪表盘' },
   ];

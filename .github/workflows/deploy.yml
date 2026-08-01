@@ -131,6 +131,11 @@ jobs:
                 sudo chown -R $USER:$USER "$DEPLOY_PATH"
             fi
             
+            # 确保会话撤销记录目录存在（部署目录外，rsync --delete 不会清掉）
+            # 路径与 src/app/lib/auth/sessionRevocation.ts 默认值一致，可用 AUTH_SESSION_REVOCATION_FILE 覆盖
+            sudo mkdir -p /var/lib/lilith-xtower
+            sudo chown -R $USER:$USER /var/lib/lilith-xtower
+            
             # 保留上一版用于快速回滚
             BACKUP_PATH="${DEPLOY_PATH}_previous"
             if [ -d "$DEPLOY_PATH" ] && [ -n "$(ls -A "$DEPLOY_PATH" 2>/dev/null)" ]; then

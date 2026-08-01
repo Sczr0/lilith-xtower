@@ -3,10 +3,9 @@ module.exports = {
     {
       name: 'lilith-xtower',
       script: 'server.js',
-      // 2H2G 服务器资源有限，且有后端服务，建议设置为 1 或 'max' (如果只有这一个主要服务)
-      // 如果内存紧张，请显式设置为 1
-      instances: 'max', 
-      exec_mode: 'cluster', // 集群模式支持零停机重载 (pm2 reload)
+      // 显式单实例（2H2G 单机）：
+      instances: 1,
+      exec_mode: 'cluster', // 单实例 + cluster 保留零停机重载 (pm2 reload) 能力
       env: {
         NODE_ENV: 'production',
         PORT: 3000,

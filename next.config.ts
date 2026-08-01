@@ -10,6 +10,15 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react", "@radix-ui/react-select"],
   },
+  async redirects() {
+    return [
+      {
+        source: "/info",
+        destination: "/songs",
+        statusCode: 301,
+      },
+    ];
+  },
   async rewrites() {
     return {
       beforeFiles: [],
@@ -110,6 +119,15 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/api/content/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400",
+          },
+        ],
+      },
+      {
+        source: "/api/songs",
         headers: [
           {
             key: "Cache-Control",

@@ -16,6 +16,10 @@
             "destination": "/api/qa"
         },
         {
+            "source": "/api/songs",
+            "destination": "/api/songs"
+        },
+        {
             "source": "/api/rum",
             "destination": "/api/rum"
         },
@@ -85,6 +89,15 @@
         },
         {
             "source": "/api/content/*",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
+                }
+            ]
+        },
+        {
+            "source": "/api/songs",
             "headers": [
                 {
                     "key": "Cache-Control",

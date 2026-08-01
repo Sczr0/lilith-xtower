@@ -23,6 +23,7 @@ const routeConfigs: RouteConfig[] = [
   },
   { path: '/sponsors', priority: 0.5, changeFrequency: 'monthly', source: 'src/app/sponsors/page.tsx' },
   { path: '/contribute', priority: 0.4, changeFrequency: 'monthly', source: 'src/app/contribute/page.tsx' },
+  { path: '/songs', priority: 0.6, changeFrequency: 'weekly', source: 'src/app/songs/page.tsx' },
   { path: '/agreement', priority: 0.3, changeFrequency: 'yearly', source: 'src/app/agreement/page.tsx' },
   { path: '/privacy', priority: 0.3, changeFrequency: 'yearly', source: 'src/app/privacy/page.tsx' },
 ]

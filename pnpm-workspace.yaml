@@ -1,6 +1,13 @@
 packages:
   - "."
 
+overrides:
+  vite: ^7.3.5
+  sharp: ^0.35.0
+  postcss: ^8.5.24
+  brace-expansion: ^1.1.17
+  esbuild: ^0.28.1
+
 allowBuilds:
   esbuild: true
   javascript-obfuscator: true
