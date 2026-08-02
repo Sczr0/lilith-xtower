@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeAll } from 'vitest';
 
-import { verifyCapToken, resetCapCircuitForTest } from '../api/withCap';
+import { verifyCapToken, resetCapCircuitForTest } from '../withCap';
 
 describe('verifyCapToken', () => {
   beforeAll(() => {

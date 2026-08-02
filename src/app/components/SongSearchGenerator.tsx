@@ -7,6 +7,7 @@ import { useGenerationBusy, useGenerationManager, useGenerationResult } from '..
 import { MultipleMatchesError, searchSongId, type SongCandidate } from '../lib/api/song';
 import { LoadingPlaceholder, LoadingSpinner } from './LoadingIndicator';
 import { useClientValue } from '../hooks/useClientValue';
+import { describeRenderStage, useSvgToWatermarkedPng } from '../hooks/useSvgToWatermarkedPng';
 
 // 支持通过 showDescription 隐藏组件内的描述，避免与外层重复
 export function SongSearchGenerator({ showTitle = true, showDescription = true }: { showTitle?: boolean; showDescription?: boolean }) {
@@ -32,6 +33,11 @@ export function SongSearchGenerator({ showTitle = true, showDescription = true }
   const [candidates, setCandidates] = useState<SongCandidate[] | null>(null);
   const [selectedCandidate, setSelectedCandidate] = useState<SongCandidate | null>(null);
 
+  // ── 渲染管线（后端 SVG → 客户端带水印 PNG）──
+  const { renderSvgToPng, startLoading, renderState, renderProgress } = useSvgToWatermarkedPng({
+    debugTag: 'SongExport',
+  });
+
   useEffect(() => {
     return () => {
       if (imageUrl) {
@@ -42,10 +48,12 @@ export function SongSearchGenerator({ showTitle = true, showDescription = true }
 
   const generateImage = async (id: string) => {
     try {
-      // 使用验证后的歌曲ID调用图片生成接口
-      await startTask('song', () =>
-        ImageAPI.generateSongImage(id)
-      );
+      // 获取 SVG 模板 → 客户端渲染为带水印 PNG（渲染失败回退后端 PNG，保证功能可用）
+      await startTask('song', async () => {
+        startLoading();
+        const svgText = await ImageAPI.generateSongSVG(id);
+        return renderSvgToPng(svgText, () => ImageAPI.generateSongImage(id, 'png'));
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : '查询失败';
       setError(message);
@@ -208,7 +216,7 @@ export function SongSearchGenerator({ showTitle = true, showDescription = true }
         </div>
       ) : isLoading ? (
         // 查询请求等候阶段的加载动画占位
-          <LoadingPlaceholder text="正在查询并生成图片..." />
+        <LoadingPlaceholder text={describeRenderStage(renderState, renderProgress) ?? '正在查询并生成图片...'} />
       ) : (
         <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-8 text-center text-sm text-gray-500 dark:text-gray-400">
           输入歌曲关键词后点击查询，图片将显示在这里。

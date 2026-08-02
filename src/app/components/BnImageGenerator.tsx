@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { ImageAPI, BestNTheme, type ImageFormat } from '../lib/api/image';
-import { useGenerationBusy, useGenerationManager, useGenerationResult } from '../contexts/GenerationContext';
+import { useGenerationBusy, useGenerationManager } from '../contexts/GenerationContext';
 import { StyledSelect } from './ui/Select';
 import { LoadingPlaceholder, LoadingSpinner } from './LoadingIndicator';
-import { SVGRenderer, rewriteSvgImageUrlsToSameOriginProxy, injectSvgStyle, type RenderProgress } from '../utils/svgRenderer';
+import { describeRenderStage, useSvgToWatermarkedPng } from '../hooks/useSvgToWatermarkedPng';
 
 const DEFAULT_N = 27;
 
@@ -41,15 +41,12 @@ export function BnImageGenerator({
   const { startTask, clearResult } = useGenerationManager();
   const isLoading = useGenerationBusy('best-n');
 
-  // ── 渲染状态 ──
-  const [renderState, setRenderState] = useState<'idle' | 'loading-svg' | 'rendering' | 'done' | 'error'>('idle');
+  // ── 渲染状态（公共管线）──
+  const { renderSvgToPng, startLoading, clear: clearRender, renderState, renderProgress, watermarkStatus } =
+    useSvgToWatermarkedPng({ debug: debugExport, debugTag: 'BestNExport' });
   const [pngUrl, setPngUrl] = useState<string | null>(null);
-  const [renderProgress, setRenderProgress] = useState<RenderProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [watermarkStatus, setWatermarkStatus] = useState<'none' | 'embedded' | 'skipped'>('none');
 
-  // 保存原始 SVG 文本用于水印签名提取
-  const svgTextRef = useRef<string | null>(null);
   // 保存 PNG Blob 用于下载
   const pngBlobRef = useRef<Blob | null>(null);
 
@@ -73,11 +70,11 @@ export function BnImageGenerator({
     }
 
     setError(null);
-    setRenderState('loading-svg');
+    // 释放旧预览 URL
+    if (pngUrl) URL.revokeObjectURL(pngUrl);
     setPngUrl(null);
-    setWatermarkStatus('none');
     pngBlobRef.current = null;
-    svgTextRef.current = null;
+    startLoading();
 
     try {
       // ── 1. 从后端拉取 SVG（始终请求 SVG，即使最终要 PNG）──
@@ -86,79 +83,18 @@ export function BnImageGenerator({
       });
 
       const svgText = await svgBlob.text();
-      
-      // 注入字体修复 CSS（与旧版 SVG 预览保持一致，抑制 canvas 合成粗体）
-      const cssFix = [
-        '* { font-synthesis: none; }',
-        '.text-score, .text-difficulty-badge, .text-fc-ap-badge, .text-rank-tag { font-weight: 600 !important; }',
-        'svg { text-rendering: geometricPrecision; }',
-      ].join('\n');
-      const fixedSvgText = injectSvgStyle(svgText, cssFix);
-      
-      svgTextRef.current = fixedSvgText;
 
-      setGeneratedN(parsed);
-      setRenderState('rendering');
-      setWatermarkStatus('none');
-
-      // ── 2. 渲染 SVG → 带水印的 PNG ──
-      const baseUrl = typeof window !== 'undefined' ? window.location.href : undefined;
-
-      const renderWithMode = async (
-        sourceSvg: string,
-        embedMode: 'data' | 'object',
-        allowProxy: boolean,
-      ): Promise<Blob> => {
-        return SVGRenderer.renderToImage(sourceSvg, {
-          format: 'png',
-          scale: 2,
-          quality: 0.95,
-          embedImages: embedMode,
-          embedImageConcurrency: 32,
-          embedImageMaxCount: 500,
-          baseUrl,
-          fontPackId: 'source-han-sans-saira-hybrid-5446',
-          embedFonts: 'data',
-          embedFontMaxFiles: 400,
-          allowProxyFallback: allowProxy,
-          debug: debugExport,
-          debugTag: 'BestNExport',
-          waitBeforeDrawMs: 0,
-          watermark: {
-            svgText: sourceSvg,
-            enabled: true,
-          },
-        }, (p) => setRenderProgress(p));
-      };
-
-      let pngBlob: Blob;
-      try {
-        pngBlob = await renderWithMode(fixedSvgText, 'data', false);
-      } catch (directError) {
-        if (debugExport) console.warn('[BestNExport] direct render failed, retry with proxy:', directError);
-        const proxiedSvg = rewriteSvgImageUrlsToSameOriginProxy(fixedSvgText, {
-          baseUrl,
-          allowedHosts: ['somnia.xtower.site'],
-        });
-        svgTextRef.current = proxiedSvg;
-        pngBlob = await renderWithMode(proxiedSvg, 'object', true);
-      }
-
+      // ── 2. 渲染 SVG → 带水印的 PNG（公共管线）──
+      const pngBlob = await renderSvgToPng(svgText);
       pngBlobRef.current = pngBlob;
+      setGeneratedN(parsed);
 
       // ── 3. 生成预览 URL ──
-      if (pngUrl) URL.revokeObjectURL(pngUrl);
       const url = URL.createObjectURL(pngBlob);
       setPngUrl(url);
-      setWatermarkStatus('embedded');
-      setRenderState('done');
-      setRenderProgress(null);
-
     } catch (err) {
       const message = err instanceof Error ? err.message : '生成失败';
       setError(message);
-      setRenderState('error');
-      setRenderProgress(null);
     }
   };
 
@@ -178,30 +114,14 @@ export function BnImageGenerator({
     if (pngUrl) URL.revokeObjectURL(pngUrl);
     setPngUrl(null);
     pngBlobRef.current = null;
-    svgTextRef.current = null;
-    setRenderState('idle');
-    setRenderProgress(null);
-    setWatermarkStatus('none');
+    clearRender();
     clearResult('best-n');
   };
 
   // ── UI ──
 
   const renderStageText = () => {
-    if (renderState === 'loading-svg') return '正在从服务器获取成绩数据…';
-    if (renderState === 'rendering') {
-      if (renderProgress) {
-        switch (renderProgress.stage) {
-          case 'loading-fonts': return '加载字体中…';
-          case 'fetching-images': return `下载封面图 (${renderProgress.progress}%)…`;
-          case 'rendering': return '渲染图片…';
-          case 'encoding': return '编码输出…';
-          case 'complete': return '完成！';
-        }
-      }
-      return '渲染中…';
-    }
-    return null;
+    return describeRenderStage(renderState, renderProgress) ?? '正在生成图片...';
   };
 
   return (
@@ -307,8 +227,8 @@ export function BnImageGenerator({
             </div>
           )}
         </div>
-      ) : isLoading || renderState !== 'idle' ? (
-        <LoadingPlaceholder text={renderStageText() ?? '正在生成图片...'} />
+      ) : renderState !== 'idle' && renderState !== 'error' ? (
+        <LoadingPlaceholder text={renderStageText()} />
       ) : (
         <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-8 text-center text-sm text-gray-500 dark:text-gray-400">
           生成后的图片将显示在这里

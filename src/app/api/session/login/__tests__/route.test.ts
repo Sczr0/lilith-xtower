@@ -43,7 +43,7 @@ describe('api/session/login', () => {
 
     mockBuildAuthRequestBody.mockReturnValue({} as never);
     mockGetSeekendApiBaseUrl.mockReturnValue('https://upstream.example');
-    mockExchangeBackendToken.mockResolvedValue({ accessToken: 'backend-token', expiresIn: 3600 });
+    mockExchangeBackendToken.mockResolvedValue({ accessToken: 'backend-token', expiresIn: 3600, tokenType: 'Bearer' });
     globalThis.fetch = vi.fn(async () => new Response('{}', { status: 200 })) as unknown as typeof fetch;
   });
 

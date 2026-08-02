@@ -36,7 +36,7 @@ describe('RotatingTips random seed init', () => {
     const seed = 123456789
     const spy = vi
       .spyOn(globalThis.crypto, 'getRandomValues')
-      .mockImplementation((arr: ArrayBufferView) => {
+      .mockImplementation((arr) => {
         ;(arr as Uint32Array)[0] = seed
         return arr
       })

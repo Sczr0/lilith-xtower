@@ -34,6 +34,7 @@ describe('backendSessionGuard', () => {
   it('refreshes token and saves session when backend token is valid', async () => {
     const session = {
       backendAccessToken: 'old-token',
+      backendExpAt: 0,
       save: vi.fn(),
       destroy: vi.fn(),
     }

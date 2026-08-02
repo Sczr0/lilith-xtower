@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { StyledSelect } from './ui/Select';
 import { MultipleMatchesError, searchSongId, type SongCandidate } from '../lib/api/song';
 import { LoadingSpinner } from './LoadingIndicator';
+import { ImageAPI } from '../lib/api/image';
+import { useSvgToWatermarkedPng } from '../hooks/useSvgToWatermarkedPng';
 
 interface ScoreEntry {
   id: string;
@@ -14,7 +16,6 @@ interface ScoreEntry {
 }
 
 import { DIFFICULTY_BADGE } from '../lib/constants/difficultyColors';
-import { extractProblemMessage } from '../lib/api/problem';
 
 const MAX_SCORES = 36;
 const SCORE_STORAGE_KEY_NAME = 'playerScoreRender_playerName';
@@ -48,8 +49,12 @@ function normalizeSavedScores(raw: unknown): ScoreEntry[] {
 export function PlayerScoreRenderer() {
   const [playerName, setPlayerName] = useState('');
   const [scoresList, setScoresList] = useState<ScoreEntry[]>([]);
-  const [isRendering, setIsRendering] = useState(false);
   const [resultImage, setResultImage] = useState<string | null>(null);
+
+  // ── 渲染管线（后端 SVG → 客户端带水印 PNG）──
+  const { renderSvgToPng, startLoading, renderState } = useSvgToWatermarkedPng({
+    debugTag: 'PlayerBnExport',
+  });
 
   // 表单输入状态
   const [songName, setSongName] = useState('');
@@ -234,39 +239,27 @@ export function PlayerScoreRenderer() {
       return;
     }
 
-    setIsRendering(true);
+    startLoading();
     setResultImage(null);
 
+    const buildInput = () => ({
+      nickname: playerName.trim(),
+      scores: scoresList.map((s) => ({
+        song: s.song_name,
+        difficulty: s.difficulty,
+        acc: s.acc,
+        score: s.score,
+      })),
+    });
+
     try {
-      const response = await fetch('/api/image/bn/user', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          nickname: playerName.trim(),
-          scores: scoresList.map((s) => ({
-            song: s.song_name,
-            difficulty: s.difficulty,
-            acc: s.acc,
-            score: s.score,
-          })),
-        }),
-      });
-
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null);
-        throw new Error(extractProblemMessage(payload, '渲染失败'));
-      }
-
-      const imageBlob = await response.blob();
-      const imageUrl = URL.createObjectURL(imageBlob);
-      setResultImage(imageUrl);
+      // 获取 SVG 模板 → 客户端渲染为带水印 PNG（渲染失败回退后端 PNG，保证功能可用）
+      const svgText = await ImageAPI.generateUserBnSVG(buildInput());
+      const pngBlob = await renderSvgToPng(svgText, () => ImageAPI.generateUserBnImage(buildInput(), 'png'));
+      setResultImage(URL.createObjectURL(pngBlob));
     } catch (error) {
       const message = error instanceof Error ? error.message : '渲染失败';
       alert(`错误: ${message}`);
-    } finally {
-      setIsRendering(false);
     }
   };
 
@@ -495,10 +488,10 @@ export function PlayerScoreRenderer() {
             </button>
             <button
               onClick={renderScores}
-              disabled={isRendering || scoresList.length === 0 || !playerName.trim()}
+              disabled={renderState !== 'idle' || scoresList.length === 0 || !playerName.trim()}
               className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium py-2 px-4 rounded-lg transition-colors"
             >
-              {isRendering ? '渲染中...' : '渲染成绩'}
+              {renderState !== 'idle' ? '渲染中...' : '渲染成绩'}
             </button>
           </div>
         </section>
