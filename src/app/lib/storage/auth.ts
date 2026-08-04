@@ -1,5 +1,7 @@
 'use client';
 
+import { LOGIN_CACHED_KEY } from '../constants/storageKeys';
+
 const TAPTAP_VERSION_KEY = 'phigros_taptap_version';
 
 /**
@@ -42,6 +44,41 @@ export class AuthStorage {
       localStorage.removeItem(TAPTAP_VERSION_KEY);
     } catch (error) {
       console.error('清除TapTap版本失败:', error);
+    }
+  }
+
+  /**
+   * 记录“最近一次成功登录”的缓存标记（布尔值，仅 UI 提示用途，不作为鉴权依据）。
+   * 用于首页“立即开始”按钮在会话状态加载完成前即可判定去向，避免误入登录页。
+   */
+  static setCachedLogin(value: boolean): void {
+    try {
+      localStorage.setItem(LOGIN_CACHED_KEY, value ? '1' : '0');
+    } catch (error) {
+      console.error('保存登录缓存失败:', error);
+    }
+  }
+
+  /**
+   * 读取登录缓存标记
+   */
+  static getCachedLogin(): boolean {
+    try {
+      return localStorage.getItem(LOGIN_CACHED_KEY) === '1';
+    } catch (error) {
+      console.error('读取登录缓存失败:', error);
+      return false;
+    }
+  }
+
+  /**
+   * 清除登录缓存标记
+   */
+  static clearCachedLogin(): void {
+    try {
+      localStorage.removeItem(LOGIN_CACHED_KEY);
+    } catch (error) {
+      console.error('清除登录缓存失败:', error);
     }
   }
 }

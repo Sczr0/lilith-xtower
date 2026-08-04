@@ -10,9 +10,10 @@ import React, {
   type ReactNode,
 } from 'react';
 import dynamic from 'next/dynamic';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 import { RotatingTips } from '../components/RotatingTips';
+import { SessionExpiredModal } from '../components/SessionExpiredModal';
 import { AuthAPI } from '../lib/api/auth';
 import {
   detectGlobalBanFromResponse,
@@ -94,6 +95,7 @@ function clearUserLocalCaches(): void {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [authState, setAuthState] = useState<AuthState>({
     isAuthenticated: false,
     credential: null,
@@ -102,6 +104,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     consentRequired: false,
   });
   const [showAgreement, setShowAgreement] = useState(false);
+  const [showSessionExpired, setShowSessionExpired] = useState(false);
   const [agreementHtml, setAgreementHtml] = useState<string>('');
   const [isInitialized, setIsInitialized] = useState(false);
   const banHandlingRef = useRef(false);
@@ -129,6 +132,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
           | null;
         if (!res.ok || !payload) {
           throw new Error(payload?.error || `获取会话失败（${res.status}）`);
+        }
+
+        // 本地缓存标记已登录、但服务端会话校验未通过（过期/被吊销）：
+        // 清除缓存并弹窗引导重新登录。登录页/封禁页本身信息已足够，不重复弹窗。
+        if (!payload.isAuthenticated && AuthStorage.getCachedLogin()) {
+          AuthStorage.clearCachedLogin();
+          if (pathname !== '/login' && pathname !== '/banned') {
+            setShowSessionExpired(true);
+          }
         }
 
         if (payload.isAuthenticated) {
@@ -170,7 +182,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           consentRequired: false,
         });
       });
-  }, [isInitialized]);
+  }, [isInitialized, pathname]);
 
   const performClientLogout = useCallback(
     (reason: 'manual' | 'banned', detail?: string | null) => {
@@ -186,6 +198,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       fetch('/api/session/logout', { method: 'POST' }).catch(() => {});
       clearUserLocalCaches();
+      AuthStorage.clearCachedLogin();
       setAuthState({
         isAuthenticated: false,
         credential: null,
@@ -265,6 +278,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
           consentRequired,
         });
 
+        // 记录本地登录缓存（UI 提示用途），便于首页“立即开始”直接进入仪表盘。
+        AuthStorage.setCachedLogin(true);
+
         // 服务端判定需要同意协议时，弹出确认；否则直接进入面板。
         if (consentRequired) {
           setAgreementHtml('');
@@ -308,6 +324,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setAuthState((prev) => ({ ...prev, consentRequired: false }));
       // UI 提示用途（菜单引导等）。
       localStorage.setItem(AGREEMENT_ACCEPTED_KEY, 'true');
+      AuthStorage.setCachedLogin(true);
       triggerPostLoginPreload();
       router.replace('/dashboard');
     } catch (error) {
@@ -322,6 +339,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     fetch('/api/session/logout', { method: 'POST' }).catch(() => {});
     sessionStorage.removeItem(BANNED_DETAIL_KEY);
     clearUserLocalCaches();
+    AuthStorage.clearCachedLogin();
     setAuthState({
       isAuthenticated: false,
       credential: null,
@@ -366,6 +384,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       {children}
       {showAgreement && (
         <AgreementModal html={agreementHtml} onAgree={handleAgree} onClose={handleCloseAgreement} />
+      )}
+      {showSessionExpired && (
+        <SessionExpiredModal
+          onReLogin={() => router.replace('/login')}
+          onDismiss={() => setShowSessionExpired(false)}
+        />
       )}
     </AuthContext.Provider>
   );
