@@ -108,9 +108,15 @@ export function SongInfoTable({ songs }: { songs: SongInfo[] }) {
             })}
           </div>
 
-          {/* 桌面端：表格 */}
-          <div className="hidden md:block overflow-x-auto -mx-4 sm:mx-0">
-            <table className="text-sm">
+          {/* 桌面端：表格（table-fixed 定宽比例 + 省略号截断，保证谱师列首屏可见） */}
+          <div className="hidden md:block">
+            <table className="text-sm w-full table-fixed">
+              <colgroup>
+                <col className="w-[32%]" />
+                <col className="w-[24%]" />
+                <col className="w-[24%]" />
+                <col className="w-[20%]" />
+              </colgroup>
               <thead>
                 <tr className="text-left text-xs text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-neutral-700">
                   <th className="px-3 py-2 font-medium">曲目/曲目ID</th>
@@ -128,14 +134,20 @@ export function SongInfoTable({ songs }: { songs: SongInfo[] }) {
                       className="border-b border-gray-100 dark:border-neutral-800/70 last:border-0 hover:bg-gray-50 dark:hover:bg-neutral-800/40 transition-colors"
                     >
                       <td className="px-3 py-2.5">
-                        <div className="font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">{song.name}</div>
-                        <div className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">{song.id}</div>
+                        <div className="font-medium text-gray-900 dark:text-gray-100 truncate" title={song.name}>
+                          {song.name}
+                        </div>
+                        <div className="text-xs text-gray-400 dark:text-gray-500 truncate" title={song.id}>
+                          {song.id}
+                        </div>
                       </td>
-                      <td className="px-2 py-2.5 text-gray-600 dark:text-gray-400 whitespace-nowrap">{song.composer || '-'}</td>
-                      <td className="px-2 py-2.5 text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                      <td className="px-2 py-2.5 text-gray-600 dark:text-gray-400 truncate" title={song.composer || undefined}>
+                        {song.composer || '-'}
+                      </td>
+                      <td className="px-2 py-2.5 text-gray-600 dark:text-gray-400 truncate" title={song.illustrator || undefined}>
                         {song.illustrator || '-'}
                       </td>
-                      <td className="px-2 py-2.5 text-center text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                      <td className="px-2 py-2.5 text-center text-gray-600 dark:text-gray-400 truncate" title={designer || undefined}>
                         {designer || <span className="text-gray-300 dark:text-gray-600">-</span>}
                       </td>
                     </tr>
