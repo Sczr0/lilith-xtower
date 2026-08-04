@@ -6,14 +6,21 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { AuthProvider, useAuth } from '../AuthContext';
 import { AuthStorage } from '../../lib/storage/auth';
 
+const { pathnameMock } = vi.hoisted(() => ({ pathnameMock: { current: '/' } }));
+
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: vi.fn(), push: vi.fn(), prefetch: vi.fn() }),
-  usePathname: () => '/',
+  usePathname: () => pathnameMock.current,
 }));
 
+// AgreementModal 经 next/dynamic 懒加载，渲染为可探测标记，用于断言弹窗显隐。
 vi.mock('next/dynamic', () => ({
   __esModule: true,
-  default: () => () => null,
+  default: () => {
+    const DynamicPlaceholder = () => <div data-testid="dynamic-modal" />;
+    DynamicPlaceholder.displayName = 'DynamicPlaceholder';
+    return DynamicPlaceholder;
+  },
 }));
 
 function jsonResponse(payload: unknown, status = 200): Response {
@@ -30,6 +37,7 @@ const AUTHED_PAYLOAD = {
   taptapVersion: 'cn',
   consentRequired: false,
 };
+const AUTHED_PAYLOAD_WITH_CONSENT = { ...AUTHED_PAYLOAD, consentRequired: true };
 
 function AuthStateProbe() {
   const { isAuthenticated, isLoading, login } = useAuth();
@@ -46,6 +54,7 @@ function AuthStateProbe() {
 describe('AuthContext 登录缓存与异常弹窗', () => {
   beforeEach(() => {
     localStorage.clear();
+    pathnameMock.current = '/';
   });
 
   afterEach(() => {
@@ -120,5 +129,68 @@ describe('AuthContext 登录缓存与异常弹窗', () => {
 
     expect(await screen.findByText('authed')).toBeTruthy();
     expect(AuthStorage.getCachedLogin()).toBe(true);
+  });
+});
+
+describe('AuthContext 协议确认弹窗', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    pathnameMock.current = '/';
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  it('协议版本落后时：非阅读页弹出协议确认', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(AUTHED_PAYLOAD_WITH_CONSENT)));
+
+    render(
+      <AuthProvider>
+        <AuthStateProbe />
+      </AuthProvider>,
+    );
+
+    expect(await screen.findByText('authed')).toBeTruthy();
+    expect(screen.getByTestId('dynamic-modal')).toBeTruthy();
+  });
+
+  it.each(['/agreement', '/privacy'])('协议版本落后时：%s 阅读页不弹协议确认', async (readPath) => {
+    pathnameMock.current = readPath;
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(AUTHED_PAYLOAD_WITH_CONSENT)));
+
+    render(
+      <AuthProvider>
+        <AuthStateProbe />
+      </AuthProvider>,
+    );
+
+    expect(await screen.findByText('authed')).toBeTruthy();
+    expect(screen.queryByTestId('dynamic-modal')).toBeNull();
+  });
+
+  it('在阅读页读完协议后：离开页面时恢复协议确认拦截', async () => {
+    pathnameMock.current = '/agreement';
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(AUTHED_PAYLOAD_WITH_CONSENT)));
+
+    const { rerender } = render(
+      <AuthProvider>
+        <AuthStateProbe />
+      </AuthProvider>,
+    );
+
+    expect(await screen.findByText('authed')).toBeTruthy();
+    expect(screen.queryByTestId('dynamic-modal')).toBeNull();
+
+    // 模拟用户从阅读页导航到其他页面
+    pathnameMock.current = '/';
+    rerender(
+      <AuthProvider>
+        <AuthStateProbe />
+      </AuthProvider>,
+    );
+
+    expect(screen.getByTestId('dynamic-modal')).toBeTruthy();
   });
 });

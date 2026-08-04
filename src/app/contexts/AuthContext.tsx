@@ -96,6 +96,8 @@ function clearUserLocalCaches(): void {
 export function AuthProvider({ children }: AuthProviderProps) {
   const router = useRouter();
   const pathname = usePathname();
+  // 协议阅读页不弹协议确认弹窗，允许用户先查看最新版本；离开后弹窗恢复拦截。
+  const isAgreementReadPage = pathname === '/agreement' || pathname === '/privacy';
   const [authState, setAuthState] = useState<AuthState>({
     isAuthenticated: false,
     credential: null,
@@ -167,6 +169,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         });
 
         // 已登录但协议版本落后：弹出协议确认（跨设备/清缓存后也能拦住）。
+        // 协议阅读页（/agreement、/privacy）在渲染处放行，允许先查看最新版本。
         if (payload.isAuthenticated && payload.consentRequired) {
           setAgreementHtml('');
           setShowAgreement(true);
@@ -382,7 +385,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   return (
     <AuthContext.Provider value={value}>
       {children}
-      {showAgreement && (
+      {showAgreement && !isAgreementReadPage && (
         <AgreementModal html={agreementHtml} onAgree={handleAgree} onClose={handleCloseAgreement} />
       )}
       {showSessionExpired && (
