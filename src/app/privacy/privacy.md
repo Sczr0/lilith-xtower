@@ -1,7 +1,7 @@
 -----BEGIN PGP SIGNED MESSAGE-----
 Hash: SHA256
 
-**最后更新日期：2026年7月30日** | **生效日期：2026年7月30日**
+**最后更新日期：2026年8月8日** | **生效日期：2026年8月8日**
 
 #### 1. 引言
 
@@ -69,6 +69,10 @@ Hash: SHA256
 
 若您访问本服务的"赞助者"页面，我们会通过爱发电（Afdian）开放 API 获取赞助者列表数据（如昵称、头像、赞助套餐名称、累计金额等）并展示。该数据来源与展示规则以爱发电平台的设置与政策为准。
 
+**（6）问题反馈与诊断信息：**
+
+当您通过「遇到问题？」提交问题反馈，或页面发生错误时，我们可能会自动采集并处理浏览器端生成的诊断信息，包括：所在页面、构建版本、浏览器/系统信息、登录状态、最近的页面操作与请求轨迹（仅路径与状态码）、错误摘要与堆栈。该信息**不包含**登录凭证、密码、表单输入内容等敏感数据；您可在反馈弹窗中查看并复制完整诊断信息。诊断信息仅用于定位与修复问题、改进服务稳定性，不用于识别您的真实身份。
+
 **2.2 数据使用方式**
 
 **登录凭证：** 用于验证授权并访问您的 Phigros 云存档数据；
@@ -80,6 +84,8 @@ Hash: SHA256
 **排行榜与公开档案数据：** 用于生成全站排名、公开档案展示、反作弊与服务运营分析；当您关闭公开设置后，我们将停止入库与同步，并将对外访问入口关闭（详见第 4、5 节）。
 
 **赞助者列表数据：** 用于展示赞助者鸣谢与赞助信息，不用于推送营销或对您进行画像。
+
+**问题反馈与诊断信息：** 用于定位与修复问题、改进服务稳定性，仅在处理问题的必要范围内使用。
 
 #### 3. 我们如何使用 Cookie 和同类技术
 
@@ -189,7 +195,7 @@ Hash: SHA256
 
 用途：获取 Phigros 云存档，成绩数据
 
-可能处理的数据：您的APIID、APK Key、Phigros 云存档
+可能处理的数据：您的 APIID、APK Key、Phigros 云存档
 
 处理原因：当你选择联合查分 API 登录并获取成绩数据时，这是必需的服务
 
@@ -235,6 +241,16 @@ Hash: SHA256
 
 隐私政策：https://afdian.com/privacy
 
+8.2.7 Axiom
+
+用途：日志采集与分析（Web Vitals 性能指标、前端错误与诊断信息）
+
+可能处理的数据：诊断信息（页面、构建版本、浏览器/系统、登录状态、最近操作与错误摘要）、User-Agent、IP 地址、请求元数据
+
+处理原因：这是性能监测与问题排查的技术必需数据
+
+隐私政策：https://axiom.co/docs/legal/privacy
+
 #### 9. 您的个人信息如何在全球范围转移
 
 **9.1 数据存储与持久化**
@@ -266,15 +282,15 @@ Hash: SHA256
 我们将在收到您的来信后，在合理时间内进行处理或回复。
 -----BEGIN PGP SIGNATURE-----
 
-iQHPBAEBCAA5FiEELLqNPkwXwRaxvR3OAM+CMkOXAy8FAmpqhtobFIAAAAAABAAO
-bWFudTIsMi41KzEuMTIsMiwxAAoJEADPgjJDlwMvCEAMALIX9m3Jes9bsQDBRhMJ
-ndMmultdbQ3jQrswwzp8FGuBPGUisX7vJWDylzSlg7XgXul7QoV18UAWr7fPUXB9
-F2ber6M4IpWdC83gy3bBtBOP/130X+5rdoJQdQ7UXPxPvAh86oHRx6tGzDH7O9KA
-dxAUvRL6+jk6/9ulP6X0F2cyPuAtDSKBZhBRkZW3xDZJSSRO6c/gdhwoNwXSUcqC
-qghOKB35roCg2vjBcHx4YU092h57x4kKeoIQaT0VI/WeY4j+AMH0HdquPGyMYKmM
-aQUVhe0r3pCDoQ1cD9gGi4q8RitCGxhTfsiCsXTaetzyf4GCwVSaASyY7+8uhXb6
-4lkB+Mb697S39kBmL/4IGPzAGCIz8zeSlSKokRLGR0CqomXzyaEBh9/Y0s3uPLbq
-w9UGUV+CQjqEdFV+kCuULa39co1ZRo5fYgpIrg2qyK1Xj7CV+8EiTUPeHNyweGsO
-s0sN+QVlOxyngHvBsowVtol9Q3kMNjJBF1eV0Qc+AzeZNQ==
-=omGn
+iQHPBAEBCAA5FiEELLqNPkwXwRaxvR3OAM+CMkOXAy8FAmp3MkgbFIAAAAAABAAO
+bWFudTIsMi41KzEuMTIsMiwxAAoJEADPgjJDlwMvHHwL+gOfeddM2416Nk54Tyv1
+04kOg2XAE1bI43Mkhi+2+Y9whU8Zx53gDRlGc3EBj47uK+vEYHySzB38pojWZoe6
+zsf22V+F3cLRhXKfm7bAyCIgwslvsCEXy/yiy31Pzqx/ea/ZhxIuy7e3T94esk6E
+UcEs171Fx9Z+nhQFKgH9/Mm7tlTXzVRj9wft5mfW8m1N09xZFBzdSwfOBZTubGTa
+cuIB2uQIeivg9zezwKon3KaPY1rZI0FwBJUpqPzQj9L6pviJ2ElX+Vs2LkuhbEfu
+K/x03j5EO8bk3CkgCZhiqQ/3GnuFoEKpaa7h5pj0HI5UNXI2oVgLJ9C/6pGTz0eG
+5g24mSjN5BmFHLDt4FG7O66DxFvZ/pdzpsNQGpPvam1q1iVyqYdD0Yz+5uLGiz9q
+1vmMI+aTS4WCMpUnCiPmkSL16jJ++EMir0YycPF6khXGNEwEVHXLRekLtP8anklj
+F4/6cw3VZmaFpLH9jvBWS8sVKQ90kFPlJj/yCWwrjmBwSQ==
+=RaOZ
 -----END PGP SIGNATURE-----

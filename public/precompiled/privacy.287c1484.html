@@ -1,4 +1,4 @@
-<p><strong>最后更新日期：2026年7月30日</strong> | <strong>生效日期：2026年7月30日</strong></p>
+<p><strong>最后更新日期：2026年8月8日</strong> | <strong>生效日期：2026年8月8日</strong></p>
 <h4 data-heading-id="heading-0" id="heading-0">1. 引言</h4>
 <p>欢迎您使用由 <strong>「塔弦」空间站</strong>（以下简称"我们"或"开发者"）开发并运营的"<strong>Phigros Query</strong>"（以下简称"<strong>本服务</strong>"）。</p>
 <p><strong>本服务由开发者个人独立开发和运营，与任何个人、组织或机构均无隶属、从属、关联、授权、合作或代理关系。</strong></p>
@@ -44,12 +44,15 @@
 <p>为提供全站排名及公开档案查询服务，在您开启"公开设置/公开档案"相关功能期间，系统将同步并在我们的数据库中长期保存您的部分非敏感游戏数据，包括但不限于：<strong>RKS（潜力值）、RKS 组成、Best Top 3、AP Top 3、成绩摘要</strong>以及您设置的<strong>用户别名</strong>（如启用）。此类数据不包含账号凭证，无法用于登录您的游戏账号。</p>
 <p><strong>（5）赞助者列表数据：</strong></p>
 <p>若您访问本服务的"赞助者"页面，我们会通过爱发电（Afdian）开放 API 获取赞助者列表数据（如昵称、头像、赞助套餐名称、累计金额等）并展示。该数据来源与展示规则以爱发电平台的设置与政策为准。</p>
+<p><strong>（6）问题反馈与诊断信息：</strong></p>
+<p>当您通过「遇到问题？」提交问题反馈，或页面发生错误时，我们可能会自动采集并处理浏览器端生成的诊断信息，包括：所在页面、构建版本、浏览器/系统信息、登录状态、最近的页面操作与请求轨迹（仅路径与状态码）、错误摘要与堆栈。该信息<strong>不包含</strong>登录凭证、密码、表单输入内容等敏感数据；您可在反馈弹窗中查看并复制完整诊断信息。诊断信息仅用于定位与修复问题、改进服务稳定性，不用于识别您的真实身份。</p>
 <p><strong>2.2 数据使用方式</strong></p>
 <p><strong>登录凭证：</strong> 用于验证授权并访问您的 Phigros 云存档数据；</p>
 <p><strong>Phigros 云存档数据：</strong> 运行时被解析用于生成结果或图片，处理完成后即释放，不存储原始文件。</p>
 <p><strong>操作记录与请求元数据：</strong> 用于服务运行、安全分析、性能优化、统计与问题排查。我们不会将其作为账号体系使用，也不会以此直接识别您的真实身份。</p>
 <p><strong>排行榜与公开档案数据：</strong> 用于生成全站排名、公开档案展示、反作弊与服务运营分析；当您关闭公开设置后，我们将停止入库与同步，并将对外访问入口关闭（详见第 4、5 节）。</p>
 <p><strong>赞助者列表数据：</strong> 用于展示赞助者鸣谢与赞助信息，不用于推送营销或对您进行画像。</p>
+<p><strong>问题反馈与诊断信息：</strong> 用于定位与修复问题、改进服务稳定性，仅在处理问题的必要范围内使用。</p>
 <h4 data-heading-id="heading-2" id="heading-2">3. 我们如何使用 Cookie 和同类技术</h4>
 <p><strong>3.1 本地存储</strong></p>
 <p>本服务会使用浏览器本地存储（如 localStorage）保存部分设置与状态，以提升使用体验，包括但不限于：</p>
@@ -104,7 +107,7 @@
 <p>隐私政策：<a href="/go?url=https%3A%2F%2Fwww.taptap.com%2Fprivacy-policy%2F" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">https://www.taptap.com/privacy-policy/</a></p>
 <p>8.2.2 联合查分 API</p>
 <p>用途：获取 Phigros 云存档，成绩数据</p>
-<p>可能处理的数据：您的APIID、APK Key、Phigros 云存档</p>
+<p>可能处理的数据：您的 APIID、APK Key、Phigros 云存档</p>
 <p>处理原因：当你选择联合查分 API 登录并获取成绩数据时，这是必需的服务</p>
 <p>隐私政策：<a href="/go?url=https%3A%2F%2Fwww.phib19.top%2Fprivacy" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">https://www.phib19.top/privacy</a></p>
 <p>8.2.3 Cloudflare</p>
@@ -127,6 +130,11 @@
 <p>可能处理的数据：赞助昵称、头像、赞助套餐名称、累计金额</p>
 <p>处理原因：这是赞助相关能力的技术必需数据，用于展示赞助者鸣谢与赞助信息</p>
 <p>隐私政策：<a href="/go?url=https%3A%2F%2Fafdian.com%2Fprivacy" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">https://afdian.com/privacy</a></p>
+<p>8.2.7 Axiom</p>
+<p>用途：日志采集与分析（Web Vitals 性能指标、前端错误与诊断信息）</p>
+<p>可能处理的数据：诊断信息（页面、构建版本、浏览器/系统、登录状态、最近操作与错误摘要）、User-Agent、IP 地址、请求元数据</p>
+<p>处理原因：这是性能监测与问题排查的技术必需数据</p>
+<p>隐私政策：<a href="/go?url=https%3A%2F%2Faxiom.co%2Fdocs%2Flegal%2Fprivacy" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">https://axiom.co/docs/legal/privacy</a></p>
 <h4 data-heading-id="heading-8" id="heading-8">9. 您的个人信息如何在全球范围转移</h4>
 <p><strong>9.1 数据存储与持久化</strong></p>
 <p>本服务用于排行榜与公开档案的数据长期保存于我们的数据库中，直至您关闭公开设置并申请删除，或服务终止。</p>
