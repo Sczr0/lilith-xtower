@@ -37,10 +37,6 @@ export function BNImage({ svgContent, n, onClear }: BNImageProps) {
     () => extractSvgSignature(svgContent),
     [svgContent],
   );
-  const signedDate = useMemo(() => {
-    if (!signature) return null;
-    return new Date(signature.timestamp * 1000);
-  }, [signature]);
 
   // 可见验证码
   const verifyBadge = useMemo(() => extractVerifyBadge(svgContent), [svgContent]);
@@ -48,6 +44,8 @@ export function BNImage({ svgContent, n, onClear }: BNImageProps) {
   // 真正调用后端验证签名
   useEffect(() => {
     if (!svgContent || !signature) {
+      // 无签名时重置为 idle（受控重置：内容变化即回到初始态）
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 按 props 同步重置状态
       setVerifyState('idle');
       return;
     }

@@ -24,7 +24,15 @@ export function PromoBannerSlot() {
     // 只根据网络状况判断，不依赖内存/CPU，避免低端设备有良好网络时误判
     if (typeof window === 'undefined') return false;
     try {
-      const conn = (navigator as any).connection;
+      interface NavigatorWithConnection extends Navigator {
+        connection?: {
+          saveData?: boolean;
+          effectiveType?: string;
+          downlink?: number;
+          rtt?: number;
+        };
+      }
+      const conn = (navigator as NavigatorWithConnection).connection;
       const profile = resolvePreloadProfile({
         saveData: !!conn?.saveData,
         prefersReducedData: !!window.matchMedia?.('(prefers-reduced-data: reduce)').matches,

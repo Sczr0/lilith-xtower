@@ -189,6 +189,8 @@ export function ServiceStats({ variant = 'default', showTitle = true, showDescri
   useEffect(() => {
     const cached = serviceStatsCache.get();
     if (cached) {
+      // 缓存先渲染：优先展示缓存，再异步刷新（刻意的同步初始化）
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 客户端缓存的一次性 hydration
       setStats(cached);
     } else {
       void loadStats();
@@ -197,6 +199,8 @@ export function ServiceStats({ variant = 'default', showTitle = true, showDescri
 
   useEffect(() => {
     if (!stats || hasRequestedTrends) return;
+    // “趋势已请求”标记：同步置位避免 effect 重复触发请求
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 一次性请求守卫标记
     setHasRequestedTrends(true);
     void loadTrends(stats.timezone);
   }, [hasRequestedTrends, loadTrends, stats]);

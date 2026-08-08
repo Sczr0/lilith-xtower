@@ -82,6 +82,8 @@ export default function SponsorsList({ initialPerPage = 12, initialData, initial
       return;
     }
 
+    // 首屏触发赞助列表加载（load 内部会同步设置 loading 态）
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- effect 触发一次性数据加载
     void load(1, initialPerPage);
   }, [initialData, initialPerPage, load]);
 

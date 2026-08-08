@@ -182,6 +182,8 @@ export function LeaderboardPanel() {
     try {
       const storedAlias = localStorage.getItem(LEADERBOARD_ALIAS_STORAGE_KEY);
       if (storedAlias) {
+        // 本地存储初始化：SSR 阶段不可读 localStorage，只能在 effect 中同步回填表单
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- 客户端专属存储的一次性初始化
         setSavedAlias(storedAlias);
         setAliasInput(storedAlias);
       }
@@ -253,6 +255,8 @@ export function LeaderboardPanel() {
   }, [topPageSize]);
 
   useEffect(() => {
+    // 首屏触发榜单加载（loadTop 内部会同步设置 loading 态）
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- effect 触发一次性数据加载
     loadTop(true).catch(() => {});
   }, [loadTop]);
 

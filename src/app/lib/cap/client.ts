@@ -39,7 +39,7 @@ let lastSolveFailedAt = 0;
 function applyCapGlobals(): void {
   // 生产环境下静音 Cap 内部日志，避免 instr_timeout 等错误信息刷屏
   if (process.env.NODE_ENV === 'production') {
-    (window as any).CAP_SILENT = true;
+    (window as unknown as { CAP_SILENT?: boolean }).CAP_SILENT = true;
   }
 }
 

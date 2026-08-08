@@ -12,6 +12,8 @@ export function ThemeToggle() {
   const effectiveTheme = (theme === 'system' ? resolvedTheme : theme) as 'light' | 'dark' | undefined;
 
   React.useEffect(() => {
+    // hydration 挂载标记：首帧渲染主题占位，挂载后切换到真实主题（React 官方标准做法）
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- hydration mounted flag
     setMounted(true);
   }, []);
 

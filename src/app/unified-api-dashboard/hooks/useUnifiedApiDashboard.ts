@@ -201,12 +201,16 @@ export function useUnifiedApiDashboard(): UnifiedApiDashboardModel {
     // 说明：绑定成功后把 internal_id 回填到 api_user_id（不覆盖用户已手动输入的内容）
     const internalId = bindState.data?.data?.internal_id ? String(bindState.data.data.internal_id).trim() : '';
     if (!internalId) return;
+    // 受控重置：绑定结果变化即回填输入框（仅当输入框为空时）
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 外部结果驱动的受控回填
     setApiUserId((prev) => (prev.trim() ? prev : internalId));
   }, [bindState.data?.data?.internal_id]);
 
   useEffect(() => {
     // 说明：根据本站登录凭证，向本站后端请求生成去敏 userId（本站ID）
     if (!isAuthenticated) {
+      // 受控重置：登录态变化即重置 userId 状态
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 登录态驱动的受控重置
       setSiteUserIdState({ loading: false, error: '请先登录本站以生成 userId', data: null });
       return;
     }

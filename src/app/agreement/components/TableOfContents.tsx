@@ -46,7 +46,8 @@ export function TableOfContents({ content, toc, activeSection, variant = 'sideba
   }, [content, toc]);
 
   useEffect(() => {
-    // 内容发生变更后收起移动端折叠面板
+    // 内容发生变更后收起移动端折叠面板（受控 UI 重置，属刻意的同步初始化）
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 内容变化即重置折叠态
     setIsOpen(false);
   }, [content, toc]);
 

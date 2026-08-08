@@ -16,6 +16,8 @@ export default function BannedPage() {
   useEffect(() => {
     const stored = sessionStorage.getItem(BANNED_DETAIL_KEY);
     if (stored?.trim()) {
+      // 会话级详情初始化：SSR 阶段不可读 sessionStorage，只能在 effect 中同步回填
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 客户端专属存储的一次性初始化
       setDetail(stored.trim());
     }
   }, []);

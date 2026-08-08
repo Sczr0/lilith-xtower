@@ -17,13 +17,6 @@ function _m32(s: number): number {
   return z
 }
 
-/** 将 4 字节 Uint8Array 转为 u32 seed */
-function _b2u(b: Uint8Array, offset: number): number {
-  return (
-    ((b[offset]! << 24) | (b[offset + 1]! << 16) | (b[offset + 2]! << 8) | b[offset + 3]!) >>> 0
-  )
-}
-
 /** 将任意 Uint8Array 通过 SplitMix64 压缩为单个 32-bit seed */
 function _h2s(data: Uint8Array): number {
   let h = 0x811c9dc5 >>> 0

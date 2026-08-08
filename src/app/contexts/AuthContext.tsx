@@ -121,6 +121,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   useEffect(() => {
     if (isInitialized) return;
+    // 初始化守卫 flag：同步置位避免 effect 重复执行（一次性初始化标记）
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 一次性初始化守卫
     setIsInitialized(true);
 
     fetch('/api/session', {

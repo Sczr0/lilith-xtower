@@ -103,8 +103,8 @@ export function useServiceReachability({ shouldPoll, url = DEFAULT_URL, onReacha
       backoffIndexRef.current = Math.min(idx + 1, delays.length - 1);
       schedule(delay);
     };
-    // onReachable 可能随渲染变化，重新赋值保持闭包最新
-  }, [onReachable, schedule, stop]);
+    // onReachable/url 可能随渲染变化，重新赋值保持闭包最新
+  }, [onReachable, schedule, stop, url]);
 
   useEffect(() => {
     if (!shouldPoll) {

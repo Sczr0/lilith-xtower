@@ -336,6 +336,8 @@ export function LilithLabsPanel() {
   }, []);
 
   useEffect(() => {
+    // 首屏触发数据加载（loadRecords 内部会同步设置 loading 态）
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- effect 触发一次性数据加载
     void loadRecords();
   }, [loadRecords]);
 

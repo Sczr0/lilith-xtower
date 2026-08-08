@@ -86,6 +86,9 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
     const snapshot = rksFiltersCache.get(ownerKey);
     if (!snapshot) return;
 
+    // 过滤器缓存 hydration：按用户一次性回填全部筛选状态
+    //（hydratedFiltersOwnerKeyRef 保证只执行一次；属于刻意的同步初始化）
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 客户端缓存的一次性 hydration
     setSearchQuery(snapshot.searchQuery);
     setFilterDifficulty(snapshot.filterDifficulty);
     setSortBy(snapshot.sortBy);
@@ -118,23 +121,6 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
     if (saveFiltersTimerRef.current) {
       window.clearTimeout(saveFiltersTimerRef.current);
     }
-
-    const snapshot: RksFiltersSnapshot = {
-      searchQuery,
-      filterDifficulty,
-      sortBy,
-      sortOrder,
-      minRks,
-      maxRks,
-      minAcc,
-      maxAcc,
-      minDifficultyValue,
-      maxDifficultyValue,
-      minScore,
-      maxScore,
-      onlyPositiveRks,
-      limitCount,
-    };
 
     saveFiltersTimerRef.current = window.setTimeout(() => {
       const snapshot: RksFiltersSnapshot = {
@@ -175,6 +161,7 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
     minScore,
     onlyPositiveRks,
     ownerKey,
+    rksFiltersCache,
     searchQuery,
     sortBy,
     sortOrder,
@@ -212,6 +199,8 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
     if (ownerKey) {
       const cached = rksRecordsCache.get(ownerKey);
       if (cached) {
+        // 缓存先渲染：优先展示缓存，再异步刷新（刻意的同步初始化）
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- 客户端缓存的一次性 hydration
         setRecords(cached);
         hasCachedRecords = true;
         setLastUpdatedSource('cache');

@@ -82,18 +82,6 @@ export function extractPngTextChunk(pngBuffer: ArrayBuffer, keyword: string): st
 }
 
 /**
- * 在 PNG Blob 中注入 tEXt 块（在 IDAT 之前）
- * 返回新的 Blob
- */
-export function injectPngTextChunk(pngBlob: Blob, keyword: string, text: string): Blob {
-  // 先转为 ArrayBuffer
-  return new Blob(
-    [pngBlob],
-    { type: 'image/png' },
-  )
-}
-
-/**
  * 同步版本：将 PNG ArrayBuffer 注入 tEXt 块，返回新的 ArrayBuffer
  */
 export function injectPngTextChunkSync(pngBuffer: ArrayBuffer, keyword: string, text: string): ArrayBuffer {

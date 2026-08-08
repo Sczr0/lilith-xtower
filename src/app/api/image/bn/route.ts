@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 
 import { withAuth } from '@/app/lib/api/withAuth'
 import { getSeekendApiBaseUrl } from '@/app/lib/auth/upstream'

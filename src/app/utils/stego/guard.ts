@@ -39,7 +39,6 @@ export function _startDebugGuard(): void {
   _dbgCheckId = setInterval(() => {
     const start = performance.now()
     // debugger 语句在 DevTools 打开时会触发断点，显著增加执行时间
-    // eslint-disable-next-line no-debugger
     debugger
     const elapsed = performance.now() - start
     if (elapsed > 100) {

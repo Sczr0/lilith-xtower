@@ -79,6 +79,8 @@ export function OpenPlatformAuthPanel() {
   }, [refreshMe]);
 
   useEffect(() => {
+    // 首屏刷新当前登录态（refreshMe 内部会同步设置 busy 态）
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- effect 触发一次性数据加载
     void refreshMe();
   }, [refreshMe]);
 

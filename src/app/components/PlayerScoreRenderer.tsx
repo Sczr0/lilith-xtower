@@ -73,6 +73,8 @@ export function PlayerScoreRenderer() {
     const savedScores = localStorage.getItem(SCORE_STORAGE_KEY_SCORES);
 
     if (savedPlayerName) {
+      // 本地存储初始化：SSR 阶段不可读 localStorage，只能在 effect 中同步回填
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 客户端专属存储的一次性初始化
       setPlayerName(savedPlayerName);
     }
 
