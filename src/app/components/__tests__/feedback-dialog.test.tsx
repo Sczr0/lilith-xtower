@@ -17,6 +17,21 @@ import { FeedbackDialog } from '../FeedbackDialog';
 const submitFeedbackMock = vi.mocked(submitFeedback);
 const useAuthMock = vi.mocked(useAuth);
 
+/** 构造完整的 AuthContextType 假值（FeedbackDialog 只读其中认证相关字段） */
+function authValue(overrides: { isAuthenticated?: boolean; isLoading?: boolean } = {}) {
+  return {
+    isAuthenticated: true,
+    isLoading: false,
+    credential: null,
+    error: null,
+    consentRequired: false,
+    login: vi.fn(),
+    logout: vi.fn(),
+    validateCurrentCredential: vi.fn(),
+    ...overrides,
+  } as never;
+}
+
 describe('FeedbackDialog', () => {
   beforeEach(() => {
     submitFeedbackMock.mockResolvedValue({ success: true, message: '提交成功！感谢你的反馈~' });
@@ -25,7 +40,7 @@ describe('FeedbackDialog', () => {
   afterEach(() => {
     cleanup();
     vi.clearAllMocks();
-    useAuthMock.mockReturnValue({ isAuthenticated: true, isLoading: false });
+    useAuthMock.mockReturnValue(authValue());
   });
 
   it('点击触发按钮后打开弹窗', async () => {
@@ -85,7 +100,7 @@ describe('FeedbackDialog', () => {
   });
 
   it('未登录时禁用提交并提示登录', async () => {
-    useAuthMock.mockReturnValue({ isAuthenticated: false, isLoading: false });
+    useAuthMock.mockReturnValue(authValue({ isAuthenticated: false }));
 
     render(<FeedbackDialog />);
     fireEvent.click(screen.getByRole('button', { name: '遇到问题？' }));

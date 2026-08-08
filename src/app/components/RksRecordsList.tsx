@@ -180,27 +180,6 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
     sortOrder,
   ]);
 
-  useEffect(() => {
-    let hasCachedRecords = false;
-    // 先读缓存渲染（按用户隔离）
-    if (ownerKey) {
-      const cached = rksRecordsCache.get(ownerKey);
-      if (cached) {
-        setRecords(cached);
-        hasCachedRecords = true;
-        setLastUpdatedSource('cache');
-        // ts 信息在 ownerKeyCache 内部管理，这里用当前时间作为近似
-        setLastUpdatedAt(Date.now());
-      }
-    }
-
-    if (credential) {
-      void loadRecords({ showLoading: !hasCachedRecords });
-    }
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [credential]);
-
   const loadRecords = async (options?: { showLoading?: boolean }) => {
     if (!credential) {
       setError('未找到登录凭证，请重新登录。');
@@ -226,6 +205,27 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    let hasCachedRecords = false;
+    // 先读缓存渲染（按用户隔离）
+    if (ownerKey) {
+      const cached = rksRecordsCache.get(ownerKey);
+      if (cached) {
+        setRecords(cached);
+        hasCachedRecords = true;
+        setLastUpdatedSource('cache');
+        // ts 信息在 ownerKeyCache 内部管理，这里用当前时间作为近似
+        setLastUpdatedAt(Date.now());
+      }
+    }
+
+    if (credential) {
+      void loadRecords({ showLoading: !hasCachedRecords });
+    }
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [credential]);
 
   const resetFilters = () => {
     setSearchQuery('');

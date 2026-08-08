@@ -42,64 +42,69 @@ export function useServiceReachability({ shouldPoll, url = DEFAULT_URL, onReacha
     }, delay);
   }, [clearTimer]);
 
-  tickRef.current = async () => {
-    if (isPollingRef.current) return;
-    if (document.hidden) {
-      // 说明：延迟到页面可见时再尝试
-      schedule(2000);
-      return;
-    }
-    if (navigator && typeof navigator.onLine === "boolean" && !navigator.onLine) {
-      // 说明：离线状态下等待网络恢复
-      schedule(3000);
-      return;
-    }
-
-    isPollingRef.current = true;
-    abortRef.current?.abort();
-    const ac = new AbortController();
-    abortRef.current = ac;
-
-    // 超时控制
-    const timeoutId = window.setTimeout(() => ac.abort(), 4000);
-
-    try {
-      const res = await fetch(url, {
-        method: "GET",
-        cache: "no-store",
-        headers: { Accept: "application/json" },
-        signal: ac.signal,
-      });
-
-      // 仅当明确拿到 2xx 且 status: ok 时认为可用
-      if (res.ok) {
-        let ok = false;
-        try {
-          const data = await res.json();
-          ok = data && (data.status === "ok" || data.ok === true);
-        } catch {
-          ok = false;
-        }
-        if (ok) {
-          stop();
-          onReachable?.();
-          return;
-        }
+  // tickRef 的赋值必须在 effect 中进行：render 期间写 ref 违反
+  // react-hooks/refs 规则（ref 不应参与渲染）
+  useEffect(() => {
+    tickRef.current = async () => {
+      if (isPollingRef.current) return;
+      if (document.hidden) {
+        // 说明：延迟到页面可见时再尝试
+        schedule(2000);
+        return;
       }
-    } catch {
-      // 忽略，走退避
-    } finally {
-      window.clearTimeout(timeoutId);
-      isPollingRef.current = false;
-    }
+      if (navigator && typeof navigator.onLine === "boolean" && !navigator.onLine) {
+        // 说明：离线状态下等待网络恢复
+        schedule(3000);
+        return;
+      }
 
-    // 失败：指数退避直至封顶
-    const delays = delaysRef.current;
-    const idx = backoffIndexRef.current;
-    const delay = delays[Math.min(idx, delays.length - 1)];
-    backoffIndexRef.current = Math.min(idx + 1, delays.length - 1);
-    schedule(delay);
-  };
+      isPollingRef.current = true;
+      abortRef.current?.abort();
+      const ac = new AbortController();
+      abortRef.current = ac;
+
+      // 超时控制
+      const timeoutId = window.setTimeout(() => ac.abort(), 4000);
+
+      try {
+        const res = await fetch(url, {
+          method: "GET",
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+          signal: ac.signal,
+        });
+
+        // 仅当明确拿到 2xx 且 status: ok 时认为可用
+        if (res.ok) {
+          let ok = false;
+          try {
+            const data = await res.json();
+            ok = data && (data.status === "ok" || data.ok === true);
+          } catch {
+            ok = false;
+          }
+          if (ok) {
+            stop();
+            onReachable?.();
+            return;
+          }
+        }
+      } catch {
+        // 忽略，走退避
+      } finally {
+        window.clearTimeout(timeoutId);
+        isPollingRef.current = false;
+      }
+
+      // 失败：指数退避直至封顶
+      const delays = delaysRef.current;
+      const idx = backoffIndexRef.current;
+      const delay = delays[Math.min(idx, delays.length - 1)];
+      backoffIndexRef.current = Math.min(idx + 1, delays.length - 1);
+      schedule(delay);
+    };
+    // onReachable 可能随渲染变化，重新赋值保持闭包最新
+  }, [onReachable, schedule, stop]);
 
   useEffect(() => {
     if (!shouldPoll) {

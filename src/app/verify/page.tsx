@@ -6,7 +6,6 @@ import { PageShell } from '../components/PageShell';
 import { SiteHeader } from '../components/SiteHeader';
 import { SiteFooter } from '../components/SiteFooter';
 import { verifySvgSignature, extractSvgSignature } from '../utils/svgRenderer';
-import type { SvgSignature } from '../utils/svgRenderer';
 
 type VerifyState = 'idle' | 'loading' | 'svg-valid' | 'svg-invalid' | 'png-found' | 'png-none' | 'error';
 
@@ -67,42 +66,8 @@ export default function VerifyPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // ── 判断文件类型并分发 ──
-  const handleFile = useCallback(async (file: File) => {
-    setErrorMsg(null)
-    setSvgResult(null)
-    setSvgMeta(null)
-    setVerifyBadge(null)
-    setPngMeta(null)
-
-    const ext = file.name.split('.').pop()?.toLowerCase()
-    const isSvg = ext === 'svg' || file.type === 'image/svg+xml'
-    const isPng = ext === 'png' || file.type === 'image/png'
-
-    if (!isSvg && !isPng) {
-      setState('error')
-      setErrorMsg('请上传 SVG 或 PNG 格式的文件')
-      return
-    }
-
-    setState('loading')
-
-    try {
-      const text = await file.text()
-
-      if (isSvg) {
-        await verifySvg(text)
-      } else if (isPng) {
-        await verifyPng(file)
-      }
-    } catch (err) {
-      setState('error')
-      setErrorMsg(err instanceof Error ? err.message : '文件读取失败')
-    }
-  }, [])
-
   // ── SVG：通过后端 HMAC 验证 ──
-  const verifySvg = async (svgText: string) => {
+  const verifySvg = useCallback(async (svgText: string) => {
     setSvgMeta(null)
     setVerifyBadge(null)
 
@@ -151,10 +116,10 @@ export default function VerifyPage() {
       setState('error')
       setErrorMsg(err instanceof Error ? err.message : '验证请求失败')
     }
-  }
+  }, [])
 
   // ── PNG：客户端提取隐写水印 ──
-  const verifyPng = async (file: File) => {
+  const verifyPng = useCallback(async (file: File) => {
     // 读取 PNG 原始字节
     const pngBuffer = await file.arrayBuffer()
 
@@ -232,7 +197,41 @@ export default function VerifyPage() {
     }
 
     setState('png-none')
-  }
+  }, [])
+
+  // ── 判断文件类型并分发 ──
+  const handleFile = useCallback(async (file: File) => {
+    setErrorMsg(null)
+    setSvgResult(null)
+    setSvgMeta(null)
+    setVerifyBadge(null)
+    setPngMeta(null)
+
+    const ext = file.name.split('.').pop()?.toLowerCase()
+    const isSvg = ext === 'svg' || file.type === 'image/svg+xml'
+    const isPng = ext === 'png' || file.type === 'image/png'
+
+    if (!isSvg && !isPng) {
+      setState('error')
+      setErrorMsg('请上传 SVG 或 PNG 格式的文件')
+      return
+    }
+
+    setState('loading')
+
+    try {
+      const text = await file.text()
+
+      if (isSvg) {
+        await verifySvg(text)
+      } else if (isPng) {
+        await verifyPng(file)
+      }
+    } catch (err) {
+      setState('error')
+      setErrorMsg(err instanceof Error ? err.message : '文件读取失败')
+    }
+  }, [verifySvg, verifyPng])
 
   // ── 拖放 ──
   const handleDrop = useCallback((e: React.DragEvent) => {
