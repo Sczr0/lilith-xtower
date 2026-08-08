@@ -11,6 +11,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { Suspense } from "react";
 import Script from "next/script";
 import WebVitals from "./components/WebVitals";
+import { DiagnosticsInit } from "./components/DiagnosticsInit";
 import { TipsProvider } from "./components/TipsProvider";
 import { BrandFontLoader } from "./components/BrandFontLoader";
 import { SITE_URL } from "./utils/site-url";
@@ -99,6 +100,7 @@ export default async function RootLayout({
             <PrivacyNotice />
             <Suspense fallback={null}>
               <AuthProvider>
+                <DiagnosticsInit />
                 <MaintenanceProvider>
                   <GenerationProvider>
                     {children}

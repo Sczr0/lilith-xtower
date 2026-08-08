@@ -34,6 +34,8 @@ export async function submitFeedback(formData: FormData) {
   const author = authorRaw.trim() ? authorRaw.trim().slice(0, 30) : '匿名用户';
   const contactRaw = formData.get('contact')?.toString() ?? '';
   const contact = contactRaw.trim() ? contactRaw.trim().slice(0, 50) : '无';
+  // 问题报告自动携带的诊断信息（由前端采集，纯文本，无敏感信息）
+  const diagnostics = (formData.get('diagnostics')?.toString() ?? '').trim().slice(0, 2000);
 
   // 基础校验：不能为空且长度限制
   if (content.length === 0) {
@@ -46,7 +48,8 @@ export async function submitFeedback(formData: FormData) {
     return { success: false, message: `内容过长（限${limit}字）` };
   }
 
-  // 规则：除 Tip 投稿外，其余分类必须提供联系方式
+  // 规则：除 Tip 投稿外，其余分类必须提供联系方式；
+  // 例外：'report'（问题报告）已自动携带诊断信息，不强制联系方式
   const requiresContact = category === 'bug' || category === 'feature' || category === 'other';
   if (requiresContact && contactRaw.trim().length === 0) {
     return {
@@ -66,15 +69,16 @@ export async function submitFeedback(formData: FormData) {
     tip: '新 Tip 投稿',
     bug: 'Bug 反馈',
     feature: '功能建议',
-    other: '其他反馈'
+    other: '其他反馈',
+    report: '问题反馈',
   };
   const title = titles[category] || '新反馈';
 
-  // 组装飞书消息体
+  // 组装飞书消息体（诊断信息非空时附在末尾，便于直接定位）
   const feishuBody = {
     msg_type: 'text',
     content: {
-      text: `🕘【${title}】\n\n内容：${content}\n提交人：${author}\n联系方式：${contact}\n来源：你的 Phigros 站点`,
+      text: `🕘【${title}】\n\n内容：${content}\n提交人：${author}\n联系方式：${contact}${diagnostics ? `\n\n诊断信息：\n${diagnostics}` : ''}\n来源：你的 Phigros 站点`,
     },
   };
 

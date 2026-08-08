@@ -1,12 +1,36 @@
 import type { NextConfig } from "next";
+import { execSync } from "node:child_process";
 import bundleAnalyzer from "@next/bundle-analyzer";
 import { withAxiom } from "next-axiom";
+
+// 构建版本号：优先 git 短提交，非 git 环境回退日期（诊断信息/页脚展示用）
+function resolveBuildId(): string {
+  try {
+    const rev = execSync("git rev-parse --short HEAD", {
+      stdio: ["ignore", "pipe", "ignore"],
+    })
+      .toString()
+      .trim();
+    if (rev) return rev;
+  } catch {
+    // 忽略：非 git 环境
+  }
+  return new Date().toISOString().slice(0, 10).replace(/-/g, "");
+}
+
+const BUILD_ID = resolveBuildId();
 
 const outputMode: NextConfig["output"] =
   process.platform === "win32" ? undefined : "standalone";
 
 const nextConfig: NextConfig = {
   output: outputMode,
+  // 静态资源 URL 附带构建版本，部署后旧缓存自动失效
+  generateBuildId: async () => BUILD_ID,
+  env: {
+    // 供客户端（诊断信息块/页脚）读取当前构建版本
+    NEXT_PUBLIC_BUILD_ID: BUILD_ID,
+  },
   experimental: {
     optimizePackageImports: ["lucide-react", "@radix-ui/react-select"],
   },

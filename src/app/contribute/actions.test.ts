@@ -145,4 +145,74 @@ describe('submitFeedback', () => {
     const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>;
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
+
+  it('report category works without contact and carries title', async () => {
+    headersMock.mockResolvedValue({
+      get(name: string) {
+        if (name.toLowerCase() === 'x-forwarded-for') return '4.4.4.4'
+        return null
+      },
+    } as unknown as Headers)
+
+    const form = new FormData();
+    form.set('content', '图片生成一直转圈');
+    form.set('category', 'report');
+
+    const result = await submitFeedback(form);
+    expect(result.success).toBe(true);
+
+    const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>;
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(body.content.text).toContain('【问题反馈】');
+  });
+
+  it('appends diagnostics to feishu message', async () => {
+    headersMock.mockResolvedValue({
+      get(name: string) {
+        if (name.toLowerCase() === 'x-forwarded-for') return '5.5.5.5'
+        return null
+      },
+    } as unknown as Headers)
+
+    const form = new FormData();
+    form.set('content', '图片生成一直转圈');
+    form.set('category', 'report');
+    form.set('diagnostics', '【诊断信息】Phigros Query vabc1234\n页面: /dashboard');
+
+    const result = await submitFeedback(form);
+    expect(result.success).toBe(true);
+
+    const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>;
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(body.content.text).toContain('诊断信息：');
+    expect(body.content.text).toContain('【诊断信息】Phigros Query vabc1234');
+  });
+
+  it('truncates diagnostics to 2000 chars and omits empty diagnostics', async () => {
+    headersMock.mockResolvedValue({
+      get(name: string) {
+        if (name.toLowerCase() === 'x-forwarded-for') return '6.6.6.6'
+        return null
+      },
+    } as unknown as Headers)
+
+    const longForm = new FormData();
+    longForm.set('content', '内容');
+    longForm.set('category', 'report');
+    longForm.set('diagnostics', 'd'.repeat(5000));
+    await submitFeedback(longForm);
+
+    const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>;
+    const longBody = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(longBody.content.text).toContain('d'.repeat(2000));
+    expect(longBody.content.text).not.toContain('d'.repeat(2001));
+
+    const plainForm = new FormData();
+    plainForm.set('content', '内容');
+    plainForm.set('category', 'report');
+    await submitFeedback(plainForm);
+
+    const plainBody = JSON.parse(fetchMock.mock.calls[1][1].body as string);
+    expect(plainBody.content.text).not.toContain('诊断信息：');
+  });
 });

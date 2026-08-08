@@ -1,5 +1,7 @@
 import Link from 'next/link';
 
+import { APP_BUILD_ID } from '../lib/diagnostics/collector';
+import { FeedbackDialog } from './FeedbackDialog';
 import { cx } from './ui/styles';
 
 export type SiteFooterVariant = 'links' | 'rights' | 'none';
@@ -34,7 +36,11 @@ export function SiteFooter({ variant = 'links', text, className }: SiteFooterPro
           ·{' '}
           <Link href="/privacy" className="hover:text-blue-600 dark:hover:text-blue-400">
             隐私协议
-          </Link>
+          </Link>{' '}
+          · <FeedbackDialog variant="link" label="遇到问题？" /> ·{' '}
+          <span className="tabular-nums" title="构建版本（诊断信息用）">
+            v{APP_BUILD_ID}
+          </span>
         </>
       ) : (
         <p>{text ?? '© 2025-2026 Phigros Query. All Rights Reserved.'}</p>
