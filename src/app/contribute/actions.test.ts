@@ -146,26 +146,6 @@ describe('submitFeedback', () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
-  it('report category works without contact and carries title', async () => {
-    headersMock.mockResolvedValue({
-      get(name: string) {
-        if (name.toLowerCase() === 'x-forwarded-for') return '4.4.4.4'
-        return null
-      },
-    } as unknown as Headers)
-
-    const form = new FormData();
-    form.set('content', '图片生成一直转圈');
-    form.set('category', 'report');
-
-    const result = await submitFeedback(form);
-    expect(result.success).toBe(true);
-
-    const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>;
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
-    expect(body.content.text).toContain('【问题反馈】');
-  });
-
   it('appends diagnostics to feishu message', async () => {
     headersMock.mockResolvedValue({
       get(name: string) {
@@ -176,7 +156,8 @@ describe('submitFeedback', () => {
 
     const form = new FormData();
     form.set('content', '图片生成一直转圈');
-    form.set('category', 'report');
+    form.set('category', 'bug');
+    form.set('contact', 'qq:123');
     form.set('diagnostics', '【诊断信息】Phigros Query vabc1234\n页面: /dashboard');
 
     const result = await submitFeedback(form);
@@ -198,7 +179,8 @@ describe('submitFeedback', () => {
 
     const longForm = new FormData();
     longForm.set('content', '内容');
-    longForm.set('category', 'report');
+    longForm.set('category', 'bug');
+    longForm.set('contact', 'qq:123');
     longForm.set('diagnostics', 'd'.repeat(5000));
     await submitFeedback(longForm);
 
@@ -209,7 +191,8 @@ describe('submitFeedback', () => {
 
     const plainForm = new FormData();
     plainForm.set('content', '内容');
-    plainForm.set('category', 'report');
+    plainForm.set('category', 'bug');
+    plainForm.set('contact', 'qq:123');
     await submitFeedback(plainForm);
 
     const plainBody = JSON.parse(fetchMock.mock.calls[1][1].body as string);

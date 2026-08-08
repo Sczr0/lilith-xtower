@@ -60,25 +60,13 @@ export default async function PrivacyPage() {
           </div>
         </div>
       ) : (
-        <>
-          <div className="mx-auto max-w-7xl px-4">
-            <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-gray-700 dark:border-blue-500/40 dark:bg-blue-500/10 dark:text-gray-200">
-              <p className="font-medium">诊断信息说明</p>
-              <p className="mt-1">
-                为帮助定位问题，当您通过「遇到问题？」反馈问题或页面出错时，站点可能自动附带诊断信息（页面、
-                构建版本、浏览器/系统、登录状态、最近操作与错误摘要）。诊断信息不含登录凭证等敏感内容，
-                您可在反馈弹窗中查看并复制完整内容。
-              </p>
-            </div>
-          </div>
-          <AgreementContent
-            htmlContent={htmlContent}
-            tocItems={tocItems}
-            title="隐私协议"
-            subtitle="请在使用服务前仔细阅读以下隐私条款。"
-            signatureInfo={signatureInfo}
-          />
-        </>
+        <AgreementContent
+          htmlContent={htmlContent}
+          tocItems={tocItems}
+          title="隐私协议"
+          subtitle="请在使用服务前仔细阅读以下隐私条款。"
+          signatureInfo={signatureInfo}
+        />
       )}
     </PageShell>
   );

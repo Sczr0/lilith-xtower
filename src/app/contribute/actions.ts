@@ -48,8 +48,7 @@ export async function submitFeedback(formData: FormData) {
     return { success: false, message: `内容过长（限${limit}字）` };
   }
 
-  // 规则：除 Tip 投稿外，其余分类必须提供联系方式；
-  // 例外：'report'（问题报告）已自动携带诊断信息，不强制联系方式
+  // 规则：除 Tip 投稿外，其余分类必须提供联系方式
   const requiresContact = category === 'bug' || category === 'feature' || category === 'other';
   if (requiresContact && contactRaw.trim().length === 0) {
     return {
@@ -69,8 +68,7 @@ export async function submitFeedback(formData: FormData) {
     tip: '新 Tip 投稿',
     bug: 'Bug 反馈',
     feature: '功能建议',
-    other: '其他反馈',
-    report: '问题反馈',
+    other: '其他反馈'
   };
   const title = titles[category] || '新反馈';
 

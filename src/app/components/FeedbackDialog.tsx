@@ -83,7 +83,7 @@ export function FeedbackDialog({
   const handleSubmit = (formData: FormData) => {
     setResult(null);
     startTransition(async () => {
-      formData.set('category', 'report');
+      formData.set('category', 'bug');
       formData.set('diagnostics', formatDiagnosticsBlock(snapshot ?? getDiagnosticsSnapshot()));
       const res = await submitFeedback(formData);
       setResult({ type: res.success ? 'success' : 'error', text: res.message });
@@ -150,13 +150,14 @@ export function FeedbackDialog({
 
               <div>
                 <label htmlFor="feedback-contact" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  联系方式（可选）
+                  联系方式（必填）
                 </label>
                 <input
                   id="feedback-contact"
                   name="contact"
                   maxLength={50}
-                  placeholder="QQ / 邮箱（方便需要时联系你，仅管理员可见）"
+                  required
+                  placeholder="QQ / 邮箱（仅管理员可见，请标注具体平台）"
                   className={inputStyles({ className: 'py-2.5' })}
                 />
               </div>

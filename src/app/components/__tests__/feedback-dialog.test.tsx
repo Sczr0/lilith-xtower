@@ -49,7 +49,7 @@ describe('FeedbackDialog', () => {
     expect(await screen.findByRole('dialog', { name: '遇到问题？' })).toBeTruthy();
   });
 
-  it('提交时自动携带 report 分类与诊断信息', async () => {
+  it('提交时自动携带 bug 分类、联系方式与诊断信息', async () => {
     render(<FeedbackDialog />);
     fireEvent.click(screen.getByRole('button', { name: '遇到问题？' }));
     await screen.findByRole('dialog', { name: '遇到问题？' });
@@ -57,15 +57,28 @@ describe('FeedbackDialog', () => {
     fireEvent.change(screen.getByLabelText('问题描述（限 500 字）'), {
       target: { value: '图片生成一直转圈' },
     });
+    fireEvent.change(screen.getByLabelText('联系方式（必填）'), {
+      target: { value: 'qq:123' },
+    });
     fireEvent.submit(document.querySelector('form#feedback-form')!);
 
     await waitFor(() => expect(submitFeedbackMock).toHaveBeenCalledTimes(1));
     const formData = submitFeedbackMock.mock.calls[0][0];
-    expect(formData.get('category')).toBe('report');
+    expect(formData.get('category')).toBe('bug');
     expect(formData.get('content')).toBe('图片生成一直转圈');
+    expect(formData.get('contact')).toBe('qq:123');
     const diagnostics = String(formData.get('diagnostics'));
     expect(diagnostics).toContain('【诊断信息】');
     expect(diagnostics).toContain('页面:');
+  });
+
+  it('联系方式为必填（与服务端 bug 分类规则一致）', async () => {
+    render(<FeedbackDialog />);
+    fireEvent.click(screen.getByRole('button', { name: '遇到问题？' }));
+    await screen.findByRole('dialog', { name: '遇到问题？' });
+
+    const contactInput = screen.getByLabelText('联系方式（必填）') as HTMLInputElement;
+    expect(contactInput.required).toBe(true);
   });
 
   it('提交成功后显示成功提示', async () => {
@@ -75,6 +88,9 @@ describe('FeedbackDialog', () => {
 
     fireEvent.change(screen.getByLabelText('问题描述（限 500 字）'), {
       target: { value: '排行榜加载慢' },
+    });
+    fireEvent.change(screen.getByLabelText('联系方式（必填）'), {
+      target: { value: 'qq:123' },
     });
     fireEvent.submit(document.querySelector('form#feedback-form')!);
 
