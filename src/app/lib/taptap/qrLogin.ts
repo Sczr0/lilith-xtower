@@ -81,6 +81,12 @@ export type QrCodeData = {
   interval: number;
   expiresIn: number;
   deviceId: string;
+  /**
+   * 授权流程 ID（仅经 /api/internal/taptap 代理时由服务端下发）。
+   * poll_token / profile / leancloud 必须携带该 ID，服务端据此绑定 token 与 profile。
+   * 非代理（Node 直连）路径无此字段，恒为空串。
+   */
+  flowId: string;
 };
 
 const generateDeviceId = () => `web-${Date.now()}-${Math.floor(Math.random() * 114514)}`;
@@ -143,6 +149,7 @@ export async function requestTapTapDeviceCode(
     interval: data.interval ?? 1,
     expiresIn: data.expires_in ?? 300,
     deviceId,
+    flowId: '',
   };
 }
 
@@ -153,6 +160,7 @@ export async function pollTapTapToken(
   intervalMs: number,
   timeoutMs: number,
   signal?: AbortSignal,
+  flowId?: string,
 ): Promise<TokenResponse> {
   const config = TAP_CONFIG[version];
   const start = Date.now();
@@ -163,7 +171,7 @@ export async function pollTapTapToken(
     if (USE_PROXY) {
       const res = await proxyFetch<{ status: 'pending' | 'waiting' | 'denied' | 'ok'; token?: TokenResponse; msg?: string }>(
         'poll_token',
-        { version, deviceCode, deviceId },
+        { version, flowId, deviceCode, deviceId },
         signal,
       );
       if (res.status === 'ok' && res.token) return res.token;
@@ -206,11 +214,12 @@ export async function fetchTapTapProfile(
   version: TapTapVersion,
   token: TokenResponse,
   signal?: AbortSignal,
+  flowId?: string,
 ): Promise<TapTapProfile> {
   if (!token.access_token) throw new Error('缺少 access_token，无法获取用户信息');
 
   if (USE_PROXY) {
-    return proxyFetch<TapTapProfile>('profile', { version, token }, signal);
+    return proxyFetch<TapTapProfile>('profile', { version, flowId }, signal);
   }
 
   const config = TAP_CONFIG[version];
@@ -232,10 +241,14 @@ export async function loginLeanCloudWithTapTap(
   profile: TapTapProfile,
   token: TokenResponse,
   signal?: AbortSignal,
+  flowId?: string,
 ): Promise<string> {
   if (USE_PROXY) {
     const res = await proxyFetch<{ sessionToken: string }>('leancloud', {
       version,
+      flowId,
+      // 说明：经代理时服务端只使用其自身持有的 token/profile（按 flowId 绑定），
+      // 此处仍携带仅供展示/兼容；服务端会忽略这些字段。
       profile,
       token,
     }, signal);
@@ -337,12 +350,13 @@ export async function completeTapTapQrLogin(
     qr.interval * 1000,
     timeoutMs,
     options?.signal,
+    qr.flowId,
   );
   if (options?.signal?.aborted) throw new DOMException('Aborted', 'AbortError');
 
-  const profile = await fetchTapTapProfile(version, token, options?.signal);
+  const profile = await fetchTapTapProfile(version, token, options?.signal, qr.flowId);
   if (options?.signal?.aborted) throw new DOMException('Aborted', 'AbortError');
 
-  const sessionToken = await loginLeanCloudWithTapTap(version, profile, token, options?.signal);
+  const sessionToken = await loginLeanCloudWithTapTap(version, profile, token, options?.signal, qr.flowId);
   return { sessionToken, profile, token };
 }

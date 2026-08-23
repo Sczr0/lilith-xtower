@@ -1,8 +1,10 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { URL } from 'url';
+
 import { TapTapVersion } from '@/app/lib/types/auth';
 import { getTapConfig, TapTapProfile, QrCodeData } from '@/app/lib/taptap/qrLogin';
+import { resolveClientIp, slidingWindowAllow } from '@/app/lib/api/rateLimit';
 
 type TokenResponse = {
   access_token?: string;
@@ -44,6 +46,7 @@ type TokenApiResponse = {
 type TapRequestBody = {
   action: Action;
   version?: TapTapVersion;
+  flowId?: string;
   deviceCode?: string;
   deviceId?: string;
   token?: TokenResponse;
@@ -54,34 +57,145 @@ type TapRequestBody = {
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+// —— 按 action 的 IP 限流（滑动窗口，单实例） ——
+const RATE_LIMITS: Record<Action, { limit: number; windowMs: number }> = {
+  device_code: { limit: 10, windowMs: 60_000 }, // 二维码获取：低频
+  poll_token: { limit: 240, windowMs: 60_000 }, // 轮询：间隔 1s 时 120 秒最多 ~120 次
+  profile: { limit: 30, windowMs: 60_000 },
+  leancloud: { limit: 10, windowMs: 60_000 }, // 登录落库：低频
+};
+
+function rateLimitKey(ip: string, action: Action): string {
+  return `taptap:${ip}:${action}`;
+}
+
+// —— 授权流程状态绑定 ——
+// 安全说明：poll_token / profile / leancloud 必须携带 device_code 阶段下发的 flowId。
+// token 与 profile 由服务端在流程内获取并持有，leancloud 登录只使用服务端持有的
+// 状态（忽略客户端传入的 profile/token），杜绝“自造 token + 伪造他人 openid”的注入路径。
+type FlowState = {
+  version: TapTapVersion;
+  deviceId: string;
+  createdAt: number;
+  token?: TokenResponse;
+  profile?: TapTapProfile;
+  used?: boolean;
+};
+
+const FLOW_TTL_MS = 10 * 60 * 1000;
+const FLOW_SWEEP_INTERVAL = 64;
+const flows = new Map<string, FlowState>();
+let flowOpCount = 0;
+
+function createFlow(version: TapTapVersion, deviceId: string): string {
+  const flowId = crypto.randomUUID();
+  flows.set(flowId, { version, deviceId, createdAt: Date.now() });
+  return flowId;
+}
+
+function getFlow(flowId: string | undefined): FlowState | null {
+  if (!flowId) return null;
+  const flow = flows.get(flowId);
+  if (!flow) return null;
+  if (Date.now() - flow.createdAt > FLOW_TTL_MS) {
+    flows.delete(flowId);
+    return null;
+  }
+  return flow;
+}
+
+function sweepFlows(): void {
+  const now = Date.now();
+  for (const [id, flow] of flows) {
+    if (now - flow.createdAt > FLOW_TTL_MS) flows.delete(id);
+  }
+}
+
+function trackFlowOp(): void {
+  flowOpCount += 1;
+  if (flowOpCount >= FLOW_SWEEP_INTERVAL) {
+    flowOpCount = 0;
+    sweepFlows();
+  }
+}
+
 export async function POST(req: NextRequest) {
+  const ip = resolveClientIp(req);
+
   try {
-    const body = (await req.json()) as TapRequestBody;
+    const body = (await req.json().catch(() => ({}))) as TapRequestBody;
     const action: Action = body.action;
-    const version: TapTapVersion = body.version || 'cn';
+    const version: TapTapVersion = body.version === 'global' ? 'global' : 'cn';
+
+    if (!action || !(action in RATE_LIMITS)) {
+      return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
+    }
+
+    const { limit, windowMs } = RATE_LIMITS[action];
+    if (!slidingWindowAllow(rateLimitKey(ip, action), limit, windowMs)) {
+      return NextResponse.json({ error: '请求过于频繁，请稍后重试' }, { status: 429 });
+    }
+
     const config = getTapConfig(version);
 
     if (action === 'device_code') {
       const data = await requestDeviceCodeServer(config);
-      return NextResponse.json(data);
+      const flowId = createFlow(version, data.deviceId);
+      trackFlowOp();
+      return NextResponse.json({ ...data, flowId });
     }
 
-  if (action === 'poll_token') {
-    if (!body.deviceCode || !body.deviceId) {
-      return NextResponse.json({ error: 'deviceCode/deviceId required' }, { status: 400 });
-    }
-    const data = await pollTokenOnceServer(config, body.deviceCode, body.deviceId);
+    if (action === 'poll_token') {
+      const flow = getFlow(body.flowId);
+      if (!flow || flow.used) {
+        return NextResponse.json({ error: '授权流程无效或已过期' }, { status: 400 });
+      }
+      if (!body.deviceCode || !body.deviceId || body.deviceId !== flow.deviceId) {
+        return NextResponse.json({ error: 'deviceCode/deviceId 与授权流程不匹配' }, { status: 400 });
+      }
+      const data = await pollTokenOnceServer(config, body.deviceCode, body.deviceId);
+      if (data.status === 'ok' && data.token) {
+        flow.token = data.token;
+      }
+      trackFlowOp();
       return NextResponse.json(data);
     }
 
     if (action === 'profile') {
-      const data = await fetchProfileServer(config, body.token as TokenResponse);
+      const flow = getFlow(body.flowId);
+      if (!flow || flow.used) {
+        return NextResponse.json({ error: '授权流程无效或已过期' }, { status: 400 });
+      }
+      if (!flow.token) {
+        // 必须先完成 poll_token（拿到 TapTap 真实 token）才能取资料
+        return NextResponse.json({ error: '授权尚未完成' }, { status: 400 });
+      }
+      // 忽略客户端传入的 token，使用服务端持有的 token 获取资料
+      const data = await fetchProfileServer(config, flow.token);
+      flow.profile = data;
+      trackFlowOp();
       return NextResponse.json(data);
     }
 
     if (action === 'leancloud') {
-      const sessionToken = await loginLeanCloudServer(config, body.profile as TapTapProfile, body.token as TokenResponse);
-      return NextResponse.json({ sessionToken });
+      const flow = getFlow(body.flowId);
+      if (!flow || flow.used) {
+        return NextResponse.json({ error: '授权流程无效或已过期' }, { status: 400 });
+      }
+      if (!flow.token || !flow.profile) {
+        return NextResponse.json({ error: '授权尚未完成' }, { status: 400 });
+      }
+      // 一次性：登录成功后流程作废，防止同一 flowId 被复用
+      flow.used = true;
+      trackFlowOp();
+      try {
+        const sessionToken = await loginLeanCloudServer(config, flow.profile, flow.token);
+        return NextResponse.json({ sessionToken });
+      } catch (err) {
+        // 上游瞬时失败时允许重试：恢复 flow 可用状态
+        flow.used = false;
+        throw err;
+      }
     }
 
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
@@ -92,7 +206,7 @@ export async function POST(req: NextRequest) {
 }
 
 async function requestDeviceCodeServer(config: ReturnType<typeof getTapConfig>): Promise<QrCodeData> {
-  const deviceId = `web-${Date.now()}-${Math.floor(Math.random() * 114514)}`;
+  const deviceId = `web-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
   const form = new URLSearchParams({
     client_id: config.clientId,
     response_type: 'device_code',
@@ -227,7 +341,7 @@ async function loginLeanCloudServer(
 }
 
 function generateMacHeaderServer(token: TokenResponse, method: 'GET' | 'POST', url: URL) {
-  const nonce = Math.floor(Math.random() * 1_000_000).toString();
+  const nonce = crypto.randomBytes(16).toString('hex');
   const timestamp = Math.floor(Date.now() / 1000);
   const normalized = `${timestamp}\n${nonce}\n${method}\n${url.pathname}${url.search}\n${url.host}\n443\n\n`;
   const hmacAlgo = token.mac_algorithm === 'hmac-sha-256' ? 'sha256' : 'sha1';

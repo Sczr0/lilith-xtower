@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import type { AuthCredential, TapTapVersion } from '@/app/lib/types/auth'
 import { guardBackendSession } from '@/app/lib/auth/backendSessionGuard'
 import { ensureAuthSessionKey, getAuthSession } from '@/app/lib/auth/session'
+import { slidingWindowAllow } from '@/app/lib/api/rateLimit'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -19,20 +20,8 @@ type RevealCredentialResponse =
 const REVEAL_RATE_WINDOW_MS = 10 * 60 * 1000
 const REVEAL_RATE_MAX = 5
 
-type RateBucket = { timestamps: number[] }
-const revealRateLimiter = new Map<string, RateBucket>()
-
 function allowReveal(sessionKey: string): boolean {
-  const now = Date.now()
-  const bucket = revealRateLimiter.get(sessionKey) ?? { timestamps: [] }
-  const next = bucket.timestamps.filter((ts) => now - ts < REVEAL_RATE_WINDOW_MS)
-  if (next.length >= REVEAL_RATE_MAX) {
-    revealRateLimiter.set(sessionKey, { timestamps: next })
-    return false
-  }
-  next.push(now)
-  revealRateLimiter.set(sessionKey, { timestamps: next })
-  return true
+  return slidingWindowAllow(`reveal:${sessionKey}`, REVEAL_RATE_MAX, REVEAL_RATE_WINDOW_MS)
 }
 
 /**

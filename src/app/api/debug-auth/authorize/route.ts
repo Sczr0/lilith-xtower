@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { timingSafeEqual } from 'node:crypto'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -7,6 +8,14 @@ const COOKIE_NAME = 'phigros_debug_auth'
 const COOKIE_MAX_AGE_SECONDS = 10 * 60
 
 type JsonResponse = { success: true } | { success: false; error: string }
+
+/** 恒定时间字符串比较：长度不等时先短路，避免 timingSafeEqual 抛错。 */
+function safeEqual(a: string, b: string): boolean {
+  const ba = Buffer.from(a, 'utf8')
+  const bb = Buffer.from(b, 'utf8')
+  if (ba.length !== bb.length) return false
+  return timingSafeEqual(ba, bb)
+}
 
 function isDebugAuthEnabled(): boolean {
   // 说明：为避免误开启后被外部探测，生产环境需显式设置 DEBUG_AUTH_ENABLED=1 才允许启用。
@@ -56,7 +65,7 @@ export async function POST(request: Request) {
   }
 
   const key = await readKeyFromRequest(request)
-  const ok = key === requiredKey
+  const ok = safeEqual(key, requiredKey)
 
   const accept = request.headers.get('accept') || ''
   const wantsHtml = accept.includes('text/html')

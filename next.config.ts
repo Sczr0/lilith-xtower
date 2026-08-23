@@ -48,10 +48,8 @@ const nextConfig: NextConfig = {
       beforeFiles: [],
       afterFiles: [],
       fallback: [
-        {
-          source: "/api/:path*",
-          destination: "https://seekend.xtower.site/api/v1/:path*",
-        },
+        // 说明：/api/* 的统一转发由 app/api/[...path]/route.ts 承担（带前缀白名单）。
+        // 这里不再配置 /api/:path* 泛匹配，避免绕过白名单形成全量代理面。
         {
           source: "/health",
           destination: "https://seekend.xtower.site/health",

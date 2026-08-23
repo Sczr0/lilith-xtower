@@ -67,7 +67,9 @@ describe('api/session/login', () => {
 
     expect(response.status).toBe(403);
     expect(body.code).toBe('FORBIDDEN');
-    expect(body.detail).toBe('管理员自定义封禁文案');
+    // 说明：上游 detail 不再回显，仅透传受控错误码与固定文案
+    expect(body.detail).toBeUndefined();
+    expect(body.message).toBe('用户已被全局封禁');
     expect(mockGetAuthSession).not.toHaveBeenCalled();
   });
 
@@ -91,6 +93,7 @@ describe('api/session/login', () => {
 
     expect(response.status).toBe(401);
     expect(body.code).toBeUndefined();
-    expect(body.message).toBe('用户已被全局封禁');
+    // 说明：上游 detail 不再回显，统一使用受控文案
+    expect(body.message).toBe('登录凭证已过期或无效，请重新登录');
   });
 });

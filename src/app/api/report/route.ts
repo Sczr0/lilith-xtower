@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { Logger } from 'next-axiom';
+import { resolveClientIp, slidingWindowAllow } from '@/app/lib/api/rateLimit';
 
 export const runtime = 'nodejs';
 
@@ -17,30 +18,9 @@ const MAX_STACK = 8000;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX = 60;
 
-/** 基于 IP 的滑动窗口限流（单实例有效；多实例部署需替换为 Redis/KV） */
-const rateLimiter = new Map<string, number[]>();
-
+/** 基于 IP 的滑动窗口限流（共享实现，含过期桶自动清理；单实例有效） */
 export function allowReport(key: string): boolean {
-  const now = Date.now();
-  const bucket = rateLimiter.get(key) ?? [];
-  const next = bucket.filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS);
-  if (next.length >= RATE_LIMIT_MAX) {
-    rateLimiter.set(key, next);
-    return false;
-  }
-  next.push(now);
-  rateLimiter.set(key, next);
-  return true;
-}
-
-function resolveClientIp(req: NextRequest): string {
-  const cf = req.headers.get('cf-connecting-ip')?.trim();
-  if (cf) return cf;
-  const real = req.headers.get('x-real-ip')?.trim();
-  if (real) return real;
-  const forwarded = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
-  if (forwarded) return forwarded;
-  return 'unknown';
+  return slidingWindowAllow(`report:${key}`, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
 }
 
 export async function POST(req: NextRequest) {

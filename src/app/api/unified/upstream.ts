@@ -40,8 +40,12 @@ function isLoopbackHost(host: string): boolean {
 
 function shouldEnableLocalProbe(req: NextRequest): boolean {
   const mode = parseEnvSwitch01('UNIFIED_API_LOCAL_PROBE');
-  if (mode === 'force_on') return true;
   if (mode === 'force_off') return false;
+  if (mode === 'force_on') return true;
+
+  // 生产环境默认禁用本地探针：auto 模式仅在开发/本机（Host 回环）下启用，
+  // 防止线上意外把请求转发到 127.0.0.1 本地服务（SSRF 面）。
+  if (process.env.NODE_ENV === 'production') return false;
 
   const host = req.headers.get('host') ?? req.nextUrl.host;
   if (!host) return false;

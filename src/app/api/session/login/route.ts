@@ -7,6 +7,7 @@ import { exchangeBackendToken } from '@/app/lib/auth/phi-session';
 import { ensureAuthSessionKey, getAuthSession } from '@/app/lib/auth/session';
 import { getSeekendApiBaseUrl } from '@/app/lib/auth/upstream';
 import { verifyCapToken } from '@/app/lib/api/withCap';
+import { resolveClientIp, slidingWindowAllow } from '@/app/lib/api/rateLimit';
 import type { AuthCredential, TapTapVersion } from '@/app/lib/types/auth';
 
 export const runtime = 'nodejs';
@@ -14,6 +15,10 @@ export const dynamic = 'force-dynamic';
 
 const GLOBAL_BAN_STATUS = 403;
 const GLOBAL_BAN_CODE = 'FORBIDDEN';
+
+/** 登录接口 IP 限流（滑动窗口，单实例）：30 次/分钟/IP。 */
+const LOGIN_RATE_LIMIT = 30;
+const LOGIN_RATE_WINDOW_MS = 60_000;
 
 type LoginRequestBody = {
   credential?: unknown;
@@ -89,6 +94,15 @@ function parseCredential(value: unknown): AuthCredential | null {
 
 export async function POST(request: NextRequest) {
   try {
+    // IP 限流：先于一切业务逻辑执行
+    const ip = resolveClientIp(request);
+    if (!slidingWindowAllow(`session-login:${ip}`, LOGIN_RATE_LIMIT, LOGIN_RATE_WINDOW_MS)) {
+      return NextResponse.json(
+        { success: false, message: '请求过于频繁，请稍后重试' },
+        { status: 429, headers: { 'Cache-Control': 'no-store' } },
+      );
+    }
+
     const body = (await request.json().catch(() => ({}))) as LoginRequestBody;
     const credential = parseCredential(body.credential);
     if (!credential) {
@@ -124,19 +138,19 @@ export async function POST(request: NextRequest) {
     });
 
     if (!response.ok) {
-      const { code, detail } = await parseUpstreamError(response);
+      const { code } = await parseUpstreamError(response);
 
       if (response.status === GLOBAL_BAN_STATUS && code === GLOBAL_BAN_CODE) {
-        const message = detail ?? '用户已被全局封禁';
+        // 说明：仅回传受控错误码，不回显上游 detail（避免泄露内部信息/封禁判定细节）。
         return NextResponse.json(
-          { success: false, code: GLOBAL_BAN_CODE, detail: message, message },
+          { success: false, code: GLOBAL_BAN_CODE, message: '用户已被全局封禁' },
           { status: GLOBAL_BAN_STATUS, headers: { 'Cache-Control': 'no-store' } },
         );
       }
 
       const isClientError = response.status >= 400 && response.status < 500;
       const message = isClientError
-        ? detail ?? '登录凭证已过期或无效，请重新登录'
+        ? '登录凭证已过期或无效，请重新登录'
         : '服务器暂时无法访问，请稍后再试';
       return NextResponse.json(
         { success: false, message },
