@@ -205,7 +205,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function requestDeviceCodeServer(config: ReturnType<typeof getTapConfig>): Promise<QrCodeData> {
+async function requestDeviceCodeServer(config: ReturnType<typeof getTapConfig>): Promise<Omit<QrCodeData, 'flowId'>> {
   const deviceId = `web-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
   const form = new URLSearchParams({
     client_id: config.clientId,
