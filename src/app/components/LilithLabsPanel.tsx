@@ -23,27 +23,10 @@ const AP_ACC_THRESHOLD = 100;
 const EPS = 1e-6;
 
 type ViewMode = 'efficiency' | 'potential';
-type DisplayPool = LilithPool | 'archive';
-
-type DisplaySuggestion = Omit<LilithRecommendationItem, 'pool'> & {
-  pool: DisplayPool;
-  fromArchiveFallback: boolean;
-};
+type DisplaySuggestion = LilithRecommendationItem;
 
 function buildSingleQueryHref(songName: string): string {
   return `/dashboard?tab=single-query&song=${encodeURIComponent(songName)}`;
-}
-
-function normalizeFiniteNumber(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  return null;
-}
-
-function clampTargetAcc(value: number): number {
-  if (!Number.isFinite(value)) return NaN;
-  if (value < 0) return 0;
-  if (value > 100) return 100;
-  return value;
 }
 
 function formatImbalanceRatio(
@@ -57,15 +40,9 @@ function formatImbalanceRatio(
   return formatFixedNumber(ratio, 3);
 }
 
-function computeRksByAcc(acc: number, constant: number): number {
-  if (!Number.isFinite(acc) || !Number.isFinite(constant) || constant <= 0) return 0;
-  if (acc < 70) return 0;
-
-  return constant * Math.pow((acc - 55) / 45, 2);
-}
-
 function getTargetLabelText(label: CandidateTargetLabel): string {
   switch (label) {
+    case 'stable': return '稳推';
     case 'push_line': return '踩线';
     case 'plus_1': return '+1%';
     case 'plus_2': return '+2%';
@@ -76,6 +53,8 @@ function getTargetLabelText(label: CandidateTargetLabel): string {
 
 function getTargetLabelClassName(label: CandidateTargetLabel): string {
   switch (label) {
+    case 'stable':
+      return 'border-teal-200 bg-teal-50 text-teal-700 dark:border-teal-800/60 dark:bg-teal-900/30 dark:text-teal-300';
     case 'push_line':
       return 'border-gray-300 bg-gray-100 text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300';
     case 'plus_1':
@@ -89,16 +68,7 @@ function getTargetLabelClassName(label: CandidateTargetLabel): string {
   }
 }
 
-function getPoolBadge(pool: DisplayPool) {
-  if (pool === 'archive') {
-    return {
-      label: '存档补全',
-      className:
-        'border-gray-200 bg-gray-50 text-gray-700 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-300',
-      reason: '基于存档补全建议位次，不保证直接抬升总 RKS。',
-    };
-  }
-
+function getPoolBadge(pool: LilithPool) {
   if (pool === 'dual') {
     return {
       label: '双池',
@@ -161,61 +131,16 @@ function getStructureStatusInfo(status: LilithStructureStatus) {
   };
 }
 
-function buildArchiveFallbackSuggestions(
-  records: RksRecord[],
-  selectedSourceIndex: Set<number>,
-): DisplaySuggestion[] {
-  const list: DisplaySuggestion[] = [];
-
-  records.forEach((record, index) => {
-    if (selectedSourceIndex.has(index)) return;
-    if (record.unreachable === true || record.already_phi === true) return;
-
-    const rawTargetAcc = normalizeFiniteNumber(record.push_acc);
-    if (rawTargetAcc === null) return;
-
-    const targetAcc = clampTargetAcc(rawTargetAcc);
-    if (!Number.isFinite(targetAcc) || targetAcc < 70) return;
-
-    const deltaAcc = targetAcc - record.acc;
-    if (!Number.isFinite(deltaAcc) || deltaAcc <= EPS) return;
-
-    const targetRks = computeRksByAcc(targetAcc, record.difficulty_value);
-    if (!Number.isFinite(targetRks) || targetRks <= record.rks + EPS) return;
-
-    const deltaSingle = targetRks - record.rks;
-    const deltaTotal = deltaSingle / 30;
-    const roi = deltaTotal / Math.max(0.01, deltaAcc);
-
-    list.push({
-      record,
-      sourceIndex: index,
-      targetAcc,
-      targetRks,
-      deltaAcc,
-      deltaTop27: 0,
-      deltaTop3Phi: 0,
-      deltaTotal,
-      roi,
-      pool: 'archive',
-      targetLabel: 'push_line',
-      fromArchiveFallback: true,
-    });
-  });
-
-  return list.sort((a, b) => {
-    if (a.deltaAcc !== b.deltaAcc) return a.deltaAcc - b.deltaAcc;
-    if (a.targetRks !== b.targetRks) return b.targetRks - a.targetRks;
-    return a.record.song_name.localeCompare(b.record.song_name, 'zh-CN');
-  });
-}
-
 /** 可展开的备选目标行 */
 function AlternativeTargetRow({ target }: { target: CandidateTarget }) {
   return (
     <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 items-center text-xs text-gray-600 dark:text-gray-400 py-1.5 border-t border-gray-100 dark:border-gray-700/50 first:border-t-0">
-      <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${getTargetLabelClassName(target.label)}`}>
+      <span
+        className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${getTargetLabelClassName(target.label)}`}
+        title={target.needsGodRun ? '超出稳定水平，需超常发挥才能达成' : undefined}
+      >
         {getTargetLabelText(target.label)}
+        {target.needsGodRun ? ' ⚡' : ''}
       </span>
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-x-2 gap-y-0.5">
         <span>ACC {formatFixedNumber(target.targetAcc, 2)}%</span>
@@ -249,6 +174,15 @@ function RecommendationCard({ item, index }: { item: DisplaySuggestion; index: n
             {'targetLabel' in item && (item as LilithRecommendationItem).targetLabel && (
               <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${getTargetLabelClassName((item as LilithRecommendationItem).targetLabel)}`}>
                 {getTargetLabelText((item as LilithRecommendationItem).targetLabel)}
+                {item.needsGodRun ? ' ⚡' : ''}
+              </span>
+            )}
+            {item.needsGodRun && (
+              <span
+                className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:border-amber-800/60 dark:bg-amber-900/30 dark:text-amber-300"
+                title="目标超出你的稳定水平，需要超常发挥（神经刀）才能达成；勾选「仅看稳定可达」可只看常态能练到的目标"
+              >
+                ⚡ 需超常发挥
               </span>
             )}
           </div>
@@ -320,6 +254,7 @@ export function LilithLabsPanel() {
   const [poolFilter, setPoolFilter] = useState<'all' | LilithPool>('all');
   const [easyOnly, setEasyOnly] = useState(false);
   const [noApOnly, setNoApOnly] = useState(false);
+  const [stableOnly, setStableOnly] = useState(false);
 
   const loadRecords = useCallback(async () => {
     setIsLoading(true);
@@ -406,10 +341,11 @@ export function LilithLabsPanel() {
     : recommendationResult.potentialAllCandidates;
 
   const suggestions = useMemo(() => {
-    const matchesFilters = (item: { pool: DisplayPool; deltaAcc: number; targetAcc: number; record: RksRecord }) => {
+    const matchesFilters = (item: DisplaySuggestion) => {
       if (poolFilter !== 'all' && item.pool !== poolFilter) return false;
       if (easyOnly && item.deltaAcc > EASY_DELTA_ACC_THRESHOLD) return false;
       if (noApOnly && (item.record.phi_only === true || item.targetAcc >= AP_ACC_THRESHOLD)) return false;
+      if (stableOnly && item.needsGodRun) return false;
       return true;
     };
 
@@ -424,32 +360,19 @@ export function LilithLabsPanel() {
     };
 
     for (const item of baseRecommendations) {
-      push({ ...item, fromArchiveFallback: false });
+      push(item);
       if (picked.length >= RECOMMENDATION_LIMIT) break;
     }
 
     if (picked.length < RECOMMENDATION_LIMIT) {
       for (const item of fallbackRecommendations) {
-        push({ ...item, fromArchiveFallback: false });
-        if (picked.length >= RECOMMENDATION_LIMIT) break;
-      }
-    }
-
-    if (picked.length < RECOMMENDATION_LIMIT && poolFilter === 'all') {
-      const archiveFallback = buildArchiveFallbackSuggestions(records, selectedSourceIndex);
-      for (const item of archiveFallback) {
         push(item);
         if (picked.length >= RECOMMENDATION_LIMIT) break;
       }
     }
 
     return picked;
-  }, [easyOnly, noApOnly, poolFilter, baseRecommendations, fallbackRecommendations, records]);
-
-  const archiveFallbackCount = useMemo(
-    () => suggestions.filter((item) => item.fromArchiveFallback).length,
-    [suggestions],
-  );
+  }, [easyOnly, noApOnly, poolFilter, stableOnly, baseRecommendations, fallbackRecommendations]);
 
   return (
     <div className="space-y-6">
@@ -592,6 +515,18 @@ export function LilithLabsPanel() {
             />
             仅看无需AP
           </label>
+          <label
+            className="inline-flex items-center gap-2 ml-1 text-xs text-gray-700 dark:text-gray-300"
+            title="只显示稳定可达的目标（不需要超常发挥/神经刀）"
+          >
+            <input
+              type="checkbox"
+              checked={stableOnly}
+              onChange={(event) => setStableOnly(event.target.checked)}
+              className="h-3.5 w-3.5 rounded border-gray-300 dark:border-gray-700 text-teal-600 focus:ring-teal-500"
+            />
+            仅看稳定可达
+          </label>
         </div>
 
         {error && (
@@ -620,8 +555,7 @@ export function LilithLabsPanel() {
               </p>
               <p className="mt-1">
                 当前视图：<span className="font-semibold text-gray-900 dark:text-gray-100">{viewMode === 'efficiency' ? '效率之选（ROI 优先）' : '潜力之选（Δ总RKS 优先）'}</span>
-                ，筛选后展示 <span className="font-semibold text-gray-900 dark:text-gray-100">{suggestions.length}</span> 条
-                {archiveFallbackCount > 0 ? `，其中存档补全 ${archiveFallbackCount} 条。` : '。'}
+                ，筛选后展示 <span className="font-semibold text-gray-900 dark:text-gray-100">{suggestions.length}</span> 条。
               </p>
             </div>
             {suggestions.map((item, index) => (

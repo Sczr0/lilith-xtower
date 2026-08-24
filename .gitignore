@@ -57,3 +57,5 @@ AGENTS.md
 nul
 # ZCode CLI 工作目录
 .zcode/
+
+survey_data

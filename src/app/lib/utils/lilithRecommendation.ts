@@ -39,10 +39,19 @@ const MIN_MEANINGFUL_DELTA = 0.001;
 const HIGH_CONST_SAMPLE_COUNT = 5;
 // 高定数锚点的 ACC 门槛：低于此 ACC 的记录视为"尝试但未胜任"，不作为水平锚点
 const HIGH_CONST_ACC_THRESHOLD = 97;
+// 阶段6: 稳定水平（可持续发挥）相关
+const STABLE_BUCKET_WIDTH = 0.5; // 定数分桶宽度
+const STABLE_BUCKET_MIN_SAMPLES = 3; // 桶内至少多少条记录才视为可靠
+const STABLE_NEAREST_MAX_GAP = 1.0; // 回退：最近可靠桶的最大定数距离
+const STABLE_MIN_ACC = 70; // 参与稳定估计的最低 ACC
+const STABLE_FILL_MARGIN = 1.0; // 补分判定：当前 ACC 低于稳定水平至少这么多才建议
+const GODRUN_ACC_GAP = 1.0; // 目标超过稳定水平这么多 → 标记"需超常发挥"
+const OVER_REACH_LINEAR_FACTOR = 0.8; // 超出稳定水平的线性成本系数
+const OVER_REACH_QUADRATIC_FACTOR = 1.5; // 超出稳定水平的二次成本系数
 
 export type LilithPool = 'top27' | 'top3phi' | 'dual';
 export type LilithStructureStatus = 'top27_low' | 'top3phi_low' | 'balanced' | 'insufficient';
-export type CandidateTargetLabel = 'push_line' | 'plus_1' | 'plus_2' | 'phi' | 'optimal';
+export type CandidateTargetLabel = 'stable' | 'push_line' | 'plus_1' | 'plus_2' | 'phi' | 'optimal';
 
 export interface CandidateTarget {
   targetAcc: number;
@@ -54,6 +63,10 @@ export interface CandidateTarget {
   roi: number;
   pool: LilithPool;
   label: CandidateTargetLabel;
+  /** 目标超出玩家稳定水平多少（ACC 百分点），0 表示稳定可达 */
+  overReach: number;
+  /** 目标是否需要超常发挥（神经刀）才能达成 */
+  needsGodRun: boolean;
 }
 
 export interface LilithRecommendationItem {
@@ -68,6 +81,8 @@ export interface LilithRecommendationItem {
   roi: number;
   pool: LilithPool;
   targetLabel: CandidateTargetLabel;
+  /** 目标是否需超常发挥（超出稳定水平 GODRUN_ACC_GAP 以上） */
+  needsGodRun: boolean;
   /** 该记录的所有候选目标（用于 UI 展开） */
   alternativeTargets?: CandidateTarget[];
 }
@@ -106,6 +121,8 @@ type LilithPlayerProfile = {
   // 阶段3: 双锚点
   highAccAnchor: number;
   highConstAnchor: number;
+  // 阶段6: 稳定ACC曲线（按定数估计玩家可持续水平，区别于峰值水平）
+  stableAccByConstant: (constant: number) => number;
 };
 
 function normalizeFiniteNumber(value: unknown): number | null {
@@ -174,6 +191,60 @@ function weightedMedianDifficultyValue(records: RksRecord[]): number {
   return items[items.length - 1].dv;
 }
 
+// 阶段6: 基于玩家自身记录估计"稳定ACC曲线"——每个定数区间常态能打到的 ACC，
+// 用分桶中位数（对神经刀/手滑等异常值稳健），样本不足时回退到最近可靠桶或全局中位数。
+function buildStableAccEstimator(records: RksRecord[]): (constant: number) => number {
+  const samples: Array<{ constant: number; acc: number }> = [];
+  for (const r of records) {
+    const constant = normalizeFiniteNumber(r.difficulty_value);
+    const acc = normalizeFiniteNumber(r.acc);
+    if (constant !== null && constant > 0 && acc !== null && acc >= STABLE_MIN_ACC && acc <= 100) {
+      samples.push({ constant, acc });
+    }
+  }
+  if (samples.length === 0) return () => 100;
+
+  const buckets = new Map<number, number[]>();
+  for (const s of samples) {
+    const key = Math.round(s.constant / STABLE_BUCKET_WIDTH) * STABLE_BUCKET_WIDTH;
+    const list = buckets.get(key) ?? [];
+    list.push(s.acc);
+    buckets.set(key, list);
+  }
+
+  const median = (arr: number[]): number => {
+    const sorted = [...arr].sort((a, b) => a - b);
+    const mid = sorted.length >> 1;
+    return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  };
+
+  const reliable = [...buckets.entries()]
+    .filter(([, arr]) => arr.length >= STABLE_BUCKET_MIN_SAMPLES)
+    .map(([key, arr]) => ({ key, median: median(arr) }))
+    .sort((a, b) => a.key - b.key);
+
+  const globalMedian = median(samples.map((s) => s.acc));
+
+  return (constant: number): number => {
+    const key = Math.round(constant / STABLE_BUCKET_WIDTH) * STABLE_BUCKET_WIDTH;
+    const direct = reliable.find((b) => b.key === key);
+    if (direct) return direct.median;
+
+    let nearest: number | null = null;
+    let bestGap = Infinity;
+    for (const b of reliable) {
+      const gap = Math.abs(b.key - key);
+      if (gap < bestGap) {
+        bestGap = gap;
+        nearest = b.median;
+      }
+    }
+    if (nearest !== null && bestGap <= STABLE_NEAREST_MAX_GAP) return nearest;
+
+    return globalMedian;
+  };
+}
+
 function buildPlayerProfile(records: RksRecord[]): LilithPlayerProfile {
   const bestPeak = records.reduce<RksRecord | null>((currentBest, record) => {
     if (!currentBest) return record;
@@ -223,6 +294,7 @@ function buildPlayerProfile(records: RksRecord[]): LilithPlayerProfile {
     closeRate,
     highAccAnchor,
     highConstAnchor,
+    stableAccByConstant: buildStableAccEstimator(records),
   };
 }
 
@@ -321,14 +393,32 @@ function computeAccDifficultyMultiplier(currentAcc: number, targetAcc: number): 
 export const __lilithRecommendationTestables = {
   computeAccDifficultyMultiplier,
   computeLegacyAccDifficultyMultiplier,
+  computeOverReachPenalty,
+  buildStableAccEstimator,
 };
 
-function computeEffectiveCost(currentAcc: number, targetAcc: number, levelPenalty: number): number {
+// 阶段6: 超出玩家稳定水平的成本惩罚——目标越高于稳定水平，成本越高。
+// 与绝对 ACC 幂律（所有人到 99% 都贵）正交，这是"相对玩家"的一维：
+// 超出稳定水平 3% 的踩线目标会被显著降权，避免推荐依赖神经刀。
+function computeOverReachPenalty(targetAcc: number, stableAcc: number): number {
+  if (!Number.isFinite(targetAcc) || !Number.isFinite(stableAcc)) return 1;
+  const overReach = Math.max(0, targetAcc - stableAcc);
+  if (overReach <= 0) return 1;
+  return 1 + OVER_REACH_LINEAR_FACTOR * overReach + OVER_REACH_QUADRATIC_FACTOR * overReach * overReach;
+}
+
+function computeEffectiveCost(
+  currentAcc: number,
+  targetAcc: number,
+  levelPenalty: number,
+  stableAcc: number,
+): number {
   const deltaAcc = targetAcc - currentAcc;
   if (!Number.isFinite(deltaAcc) || deltaAcc <= EPS) return 0;
 
   const accDifficultyMultiplier = computeAccDifficultyMultiplier(currentAcc, targetAcc);
-  return deltaAcc * Math.max(1, accDifficultyMultiplier) * Math.max(1, levelPenalty);
+  const overReachPenalty = computeOverReachPenalty(targetAcc, stableAcc);
+  return deltaAcc * Math.max(1, accDifficultyMultiplier) * Math.max(1, levelPenalty) * overReachPenalty;
 }
 
 // 单侧 ROI 缺失时仍返回稳定数值，避免面板层无法解释结构失衡方向。
@@ -550,57 +640,86 @@ function generateCandidateTargets(
   cache: BaselineCache,
   profile: LilithPlayerProfile,
 ): { best: LilithRecommendationItem; alternatives: CandidateTarget[] } | null {
-  const pushAcc = normalizeFiniteNumber(record.push_acc);
-  if (pushAcc === null) return null;
   if (record.unreachable === true) return null;
   if (record.already_phi === true) return null;
 
-  const pushAccClamped = clampTargetAcc(pushAcc);
-  if (!Number.isFinite(pushAccClamped) || pushAccClamped < 70) return null;
-  if (pushAccClamped - record.acc <= EPS) return null;
+  const acc = record.acc;
+  const stableAcc = profile.stableAccByConstant(record.difficulty_value);
+  const pushAcc = normalizeFiniteNumber(record.push_acc);
+  const pushAccClamped = pushAcc === null ? NaN : clampTargetAcc(pushAcc);
+  // 推分线语义：push_acc 是"让总分动一下的最低 ACC"，对已过推分线（榜内）的谱面会接近/等于当前 ACC，
+  // 此时不再当作推分目标，而是走下面的补分分支。
+  const hasPushTarget = Number.isFinite(pushAccClamped) && pushAccClamped >= 70 && pushAccClamped - acc > EPS;
 
   // 生成候选目标点
-  const candidateAccs: Array<{ acc: number; label: CandidateTargetLabel }> = [];
+  const candidateAccs: Array<{ acc: number; label: CandidateTargetLabel; needsGodRun: boolean }> = [];
 
-  // 1. 踩线点
-  candidateAccs.push({ acc: pushAccClamped, label: 'push_line' });
+  if (hasPushTarget) {
+    // 1. 稳推点：稳定水平与踩线取小。若稳定水平本身足以踩线，则稳推点=踩线点，由踩线点承担。
+    const stableTarget = Math.min(pushAccClamped, stableAcc);
+    if (stableTarget - acc > EPS && pushAccClamped - stableTarget > EPS) {
+      candidateAccs.push({ acc: stableTarget, label: 'stable', needsGodRun: false });
+    }
 
-  // 2. 超额 +1%
-  const plus1 = Math.min(pushAccClamped + 1, 100);
-  if (plus1 - pushAccClamped > EPS && plus1 - record.acc > EPS) {
-    candidateAccs.push({ acc: plus1, label: 'plus_1' });
-  }
+    // 2. 踩线点
+    candidateAccs.push({
+      acc: pushAccClamped,
+      label: 'push_line',
+      needsGodRun: pushAccClamped > stableAcc + GODRUN_ACC_GAP,
+    });
 
-  // 3. 超额 +2%
-  const plus2 = Math.min(pushAccClamped + 2, 100);
-  if (plus2 - plus1 > EPS && plus2 - record.acc > EPS) {
-    candidateAccs.push({ acc: plus2, label: 'plus_2' });
-  }
+    // 3. 超额 +1%
+    const plus1 = Math.min(pushAccClamped + 1, 100);
+    if (plus1 - pushAccClamped > EPS && plus1 - acc > EPS) {
+      candidateAccs.push({ acc: plus1, label: 'plus_1', needsGodRun: plus1 > stableAcc + GODRUN_ACC_GAP });
+    }
 
-  // 4. Phi 点（如果不是 unreachable 且踩线点不是 100）
-  if (pushAccClamped < 100 - EPS && 100 - record.acc > EPS) {
-    candidateAccs.push({ acc: 100, label: 'phi' });
-  }
+    // 4. 超额 +2%
+    const plus2 = Math.min(pushAccClamped + 2, 100);
+    if (plus2 - plus1 > EPS && plus2 - acc > EPS) {
+      candidateAccs.push({ acc: plus2, label: 'plus_2', needsGodRun: plus2 > stableAcc + GODRUN_ACC_GAP });
+    }
 
-  // 5. 解析最优点：在 [pushAcc, 100] 区间等距采样
-  const sampleLow = pushAccClamped;
-  const sampleHigh = 100;
-  if (sampleHigh - sampleLow > 0.5) {
-    const step = (sampleHigh - sampleLow) / (MULTI_TARGET_SAMPLE_COUNT + 1);
-    for (let i = 1; i <= MULTI_TARGET_SAMPLE_COUNT; i++) {
-      const sampleAcc = Math.min(sampleLow + step * i, 100);
-      // 避免与已有点太接近
-      const tooClose = candidateAccs.some((c) => Math.abs(c.acc - sampleAcc) < 0.2);
-      if (!tooClose && sampleAcc - record.acc > EPS) {
-        candidateAccs.push({ acc: sampleAcc, label: 'optimal' });
+    // 5. Phi 点（如果不是 unreachable 且踩线点不是 100）
+    if (pushAccClamped < 100 - EPS && 100 - acc > EPS) {
+      candidateAccs.push({ acc: 100, label: 'phi', needsGodRun: true });
+    }
+
+    // 6. 解析最优点：在 [pushAcc, 100] 区间等距采样
+    const sampleLow = pushAccClamped;
+    const sampleHigh = 100;
+    if (sampleHigh - sampleLow > 0.5) {
+      const step = (sampleHigh - sampleLow) / (MULTI_TARGET_SAMPLE_COUNT + 1);
+      for (let i = 1; i <= MULTI_TARGET_SAMPLE_COUNT; i++) {
+        const sampleAcc = Math.min(sampleLow + step * i, 100);
+        // 避免与已有点太接近
+        const tooClose = candidateAccs.some((c) => Math.abs(c.acc - sampleAcc) < 0.2);
+        if (!tooClose && sampleAcc - acc > EPS) {
+          candidateAccs.push({
+            acc: sampleAcc,
+            label: 'optimal',
+            needsGodRun: sampleAcc > stableAcc + GODRUN_ACC_GAP,
+          });
+        }
       }
     }
+  } else if (stableAcc - acc > STABLE_FILL_MARGIN) {
+    // 补分：已在榜内/已过推分线的谱面，当前 ACC 显著低于稳定水平。
+    // 这是最现实的提升——本来就在打这首，练到常态水平即可，不需要神经刀。
+    if (stableAcc < 100 - EPS) {
+      candidateAccs.push({ acc: stableAcc, label: 'stable', needsGodRun: false });
+    }
+    if (100 - acc > EPS) {
+      candidateAccs.push({ acc: 100, label: 'phi', needsGodRun: stableAcc < 100 - EPS });
+    }
   }
+
+  if (candidateAccs.length === 0) return null;
 
   // 评估每个候选目标
   const evaluatedTargets: CandidateTarget[] = [];
 
-  for (const { acc: targetAcc, label } of candidateAccs) {
+  for (const { acc: targetAcc, label, needsGodRun } of candidateAccs) {
     const targetRks = computeRksByAcc(targetAcc, record.difficulty_value);
     if (!Number.isFinite(targetRks) || targetRks <= record.rks + EPS) continue;
 
@@ -618,7 +737,7 @@ function generateCandidateTargets(
     if (!pool) continue;
 
     const levelPenalty = computePlayerLevelPenalty(record.difficulty_value, targetAcc, pool, profile);
-    const effectiveCost = computeEffectiveCost(record.acc, targetAcc, levelPenalty);
+    const effectiveCost = computeEffectiveCost(record.acc, targetAcc, levelPenalty, stableAcc);
     const roi = deltaTotal / Math.max(0.01, effectiveCost);
     if (!Number.isFinite(roi) || roi <= EPS) continue;
 
@@ -632,6 +751,8 @@ function generateCandidateTargets(
       roi,
       pool,
       label,
+      overReach: Math.max(0, targetAcc - stableAcc),
+      needsGodRun,
     });
   }
 
@@ -666,6 +787,7 @@ function generateCandidateTargets(
       roi: best.roi,
       pool: best.pool,
       targetLabel: best.label,
+      needsGodRun: best.needsGodRun,
       alternativeTargets: alternatives.length > 0 ? alternatives : undefined,
     },
     alternatives: evaluatedTargets,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { RksRecord } from '../../types/score';
+import type { CandidateTarget, LilithRecommendationItem } from '../lilithRecommendation';
 import {
   __lilithRecommendationTestables,
   buildLilithRecommendations,
@@ -33,6 +34,24 @@ function findRecommendation(result: ReturnType<typeof buildLilithRecommendations
   const item = result.allCandidates.find((candidate) => candidate.record.song_name === songName);
   if (!item) throw new Error(`recommendation not found: ${songName}`);
   return item;
+}
+
+function findTargetByLabel(
+  item: LilithRecommendationItem | undefined,
+  label: string,
+): CandidateTarget | LilithRecommendationItem | undefined {
+  if (!item) return undefined;
+  const all: Array<CandidateTarget | LilithRecommendationItem> = [item, ...(item.alternativeTargets ?? [])];
+  return all.find((target) => ('label' in target ? target.label : target.targetLabel) === label);
+}
+
+function findTargetByAcc(
+  item: LilithRecommendationItem | undefined,
+  acc: number,
+): CandidateTarget | LilithRecommendationItem | undefined {
+  if (!item) return undefined;
+  const all: Array<CandidateTarget | LilithRecommendationItem> = [item, ...(item.alternativeTargets ?? [])];
+  return all.find((target) => target.targetAcc === acc);
 }
 
 describe('resolveLilithStructureStatus', () => {
@@ -80,9 +99,9 @@ describe('buildLilithRecommendations', () => {
     // 但 deltaAcc 必须 > 0 且 deltaTotal > 0
     expect(result.recommendations[0].deltaAcc).toBeGreaterThan(0);
     expect(result.recommendations[0].deltaTotal).toBeGreaterThan(0);
-    // 多目标采样后，最优目标可能是 Phi（100%），使得 top3phi 也有候选
-    // 因此 status 可能是 'top3phi_low' 或 'balanced'，取决于最优目标落在哪个池
-    expect(['top3phi_low', 'balanced']).toContain(result.status);
+    // 阶段6：AP/Phi 目标会被"超出稳定水平"惩罚压低 ROI，
+    // 最优目标可能落在任一池，因此 status 只断言为合法值。
+    expect(['top27_low', 'top3phi_low', 'balanced', 'insufficient']).toContain(result.status);
   });
 
   it('respects recommendation limit', () => {
@@ -184,7 +203,8 @@ describe('buildLilithRecommendations', () => {
     const result = buildLilithRecommendations(records, { limit: 5 });
     const entrant = findRecommendation(result, 'NewEntrant');
 
-    expect(entrant.deltaTop27).toBeCloseTo(8.6, 6);
+    // 阶段6：最优目标变为"稳推"（95%，稳定水平），deltaTop27 = targetRks − 被挤掉的第27名(7.4)
+    expect(entrant.deltaTop27).toBeCloseTo(entrant.targetRks - 7.4, 6);
     expect(entrant.deltaTop27).toBeLessThan(entrant.targetRks);
   });
 
@@ -208,9 +228,12 @@ describe('buildLilithRecommendations', () => {
     const weakCloserResult = buildLilithRecommendations(weakCloserRecords, { limit: 5 });
     const strongCloserResult = buildLilithRecommendations(strongCloserRecords, { limit: 5 });
 
-    expect(findRecommendation(strongCloserResult, 'ClosurePhi').roi).toBeGreaterThan(
-      findRecommendation(weakCloserResult, 'ClosurePhi').roi,
-    );
+    // 阶段6：主推荐可能变成"稳推"目标而非 Phi，因此对比两者 100% 目标（push=100 时标签为 push_line）的 ROI
+    const weakPhi = findTargetByAcc(findRecommendation(weakCloserResult, 'ClosurePhi'), 100);
+    const strongPhi = findTargetByAcc(findRecommendation(strongCloserResult, 'ClosurePhi'), 100);
+    expect(weakPhi).toBeDefined();
+    expect(strongPhi).toBeDefined();
+    expect(strongPhi!.roi).toBeGreaterThan(weakPhi!.roi);
   });
 
   // ── 新增测试用例 ──
@@ -234,7 +257,7 @@ describe('buildLilithRecommendations', () => {
 
     // 主推荐的 targetLabel 应该存在
     expect(highConst.targetLabel).toBeDefined();
-    expect(['push_line', 'plus_1', 'plus_2', 'phi', 'optimal']).toContain(highConst.targetLabel);
+    expect(['stable', 'push_line', 'plus_1', 'plus_2', 'phi', 'optimal']).toContain(highConst.targetLabel);
   });
 
   it('dual anchor profile: low-const-high-acc vs high-const-low-acc players differ', () => {
@@ -370,7 +393,7 @@ describe('buildLilithRecommendations', () => {
 
     // 必须有 targetLabel
     expect(candidate.targetLabel).toBeDefined();
-    expect(['push_line', 'plus_1', 'plus_2', 'phi', 'optimal']).toContain(candidate.targetLabel);
+    expect(['stable', 'push_line', 'plus_1', 'plus_2', 'phi', 'optimal']).toContain(candidate.targetLabel);
 
     // push_acc=95 且 acc=92，应有多个备选目标（push_line, +1, +2, phi, 以及采样点）
     // alternativeTargets 可能存在也可能不存在（取决于采样结果）
@@ -378,7 +401,7 @@ describe('buildLilithRecommendations', () => {
       for (const alt of candidate.alternativeTargets) {
         expect(alt.targetAcc).toBeGreaterThan(0);
         expect(alt.roi).toBeGreaterThan(0);
-        expect(['push_line', 'plus_1', 'plus_2', 'phi', 'optimal']).toContain(alt.label);
+        expect(['stable', 'push_line', 'plus_1', 'plus_2', 'phi', 'optimal']).toContain(alt.label);
       }
     }
   });
@@ -420,5 +443,89 @@ describe('buildLilithRecommendations', () => {
     expect(comfyItem.roi).toBeGreaterThan(overLevelItem.roi);
     // 第一个推荐不应是 OverLevel
     expect(result.recommendations[0].record.song_name).not.toBe('OverLevel');
+  });
+});
+
+describe('稳定水平与补分（阶段6）', () => {
+  it('buildStableAccEstimator: 分桶中位数估计稳定ACC，样本不足回退到最近可靠桶', () => {
+    const { buildStableAccEstimator } = __lilithRecommendationTestables;
+    const records = [
+      createRecord({ song_name: 'S1', difficulty_value: 15, acc: 96 }),
+      createRecord({ song_name: 'S2', difficulty_value: 15, acc: 95 }),
+      createRecord({ song_name: 'S3', difficulty_value: 15, acc: 94 }),
+      createRecord({ song_name: 'S4', difficulty_value: 14.5, acc: 92 }),
+    ];
+    const est = buildStableAccEstimator(records);
+    // 15.0 桶有 3 条 → 中位数 95
+    expect(est(15.1)).toBe(95);
+    // 14.5 桶只有 1 条 → 回退到最近可靠桶（15.0，距离 0.5 ≤ 1.0）→ 95
+    expect(est(14.4)).toBe(95);
+  });
+
+  it('buildStableAccEstimator: 无可靠桶时回退到全局中位数', () => {
+    const { buildStableAccEstimator } = __lilithRecommendationTestables;
+    const records = [
+      createRecord({ song_name: 'S1', difficulty_value: 15, acc: 96 }),
+      createRecord({ song_name: 'S2', difficulty_value: 16, acc: 92 }),
+    ];
+    const est = buildStableAccEstimator(records);
+    // 两个桶各 1 条 → 全局中位数 (92+96)/2 = 94
+    expect(est(15.5)).toBe(94);
+  });
+
+  it('computeOverReachPenalty: 未超出稳定水平为 1，超出越多惩罚越大', () => {
+    const { computeOverReachPenalty } = __lilithRecommendationTestables;
+    expect(computeOverReachPenalty(95, 95)).toBe(1);
+    expect(computeOverReachPenalty(94, 95)).toBe(1);
+    expect(computeOverReachPenalty(96, 95)).toBeGreaterThan(1);
+    expect(computeOverReachPenalty(97, 95)).toBeGreaterThan(computeOverReachPenalty(96, 95));
+  });
+
+  it('对已在 Top27 但低于稳定水平的谱面生成补分（稳推）候选', () => {
+    const records: RksRecord[] = [
+      ...Array.from({ length: 26 }, (_, i) =>
+        createRecord({ song_name: `Top${i}`, difficulty_value: 15, acc: 95, push_acc: null, rks: 10 - i * 0.05 }),
+      ),
+      createRecord({ song_name: 'Underperform', difficulty_value: 15, acc: 90, push_acc: null, rks: 5 }),
+      createRecord({ song_name: 'Other', difficulty_value: 14, acc: 94, push_acc: null, rks: 4 }),
+    ];
+    const result = buildLilithRecommendations(records, { limit: 8 });
+    const fill = findRecommendation(result, 'Underperform');
+    expect(fill.targetLabel).toBe('stable');
+    expect(fill.needsGodRun).toBe(false);
+    expect(fill.deltaTotal).toBeGreaterThan(0);
+  });
+
+  it('踩线目标超出稳定水平时标记 needsGodRun，稳推目标不标记', () => {
+    const records: RksRecord[] = [
+      createRecord({ song_name: 'S1', difficulty_value: 15, acc: 94 }),
+      createRecord({ song_name: 'S2', difficulty_value: 15, acc: 93 }),
+      createRecord({ song_name: 'S3', difficulty_value: 15, acc: 92 }),
+      // 稳定水平≈92.5；踩线 96 超出稳定水平 3%+ → 需超常发挥
+      createRecord({ song_name: 'Frontier', difficulty_value: 15, acc: 92, push_acc: 96 }),
+    ];
+    const result = buildLilithRecommendations(records, { limit: 8 });
+    const frontier = findRecommendation(result, 'Frontier');
+    // 主推荐应是稳推目标（92.5，低于踩线但稳定可达）
+    expect(frontier.targetLabel).toBe('stable');
+    expect(frontier.needsGodRun).toBe(false);
+    // 备选里应有标记为需超常发挥的踩线/更远目标
+    expect(frontier.alternativeTargets?.some((t) => t.needsGodRun)).toBe(true);
+  });
+
+  it('补分（稳推）候选的 ROI 高于同谱面远超稳定水平的踩线目标', () => {
+    const records: RksRecord[] = [
+      createRecord({ song_name: 'S1', difficulty_value: 15, acc: 94 }),
+      createRecord({ song_name: 'S2', difficulty_value: 15, acc: 93 }),
+      createRecord({ song_name: 'S3', difficulty_value: 15, acc: 92 }),
+      createRecord({ song_name: 'Frontier', difficulty_value: 15, acc: 92, push_acc: 96 }),
+    ];
+    const result = buildLilithRecommendations(records, { limit: 8 });
+    const frontier = findRecommendation(result, 'Frontier');
+    const stableTarget = findTargetByLabel(frontier, 'stable');
+    const pushLineTarget = findTargetByLabel(frontier, 'push_line');
+    expect(stableTarget).toBeDefined();
+    expect(pushLineTarget).toBeDefined();
+    expect(stableTarget!.roi).toBeGreaterThan(pushLineTarget!.roi);
   });
 });
