@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useTheme } from 'next-themes';
+import { PartyPopper } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { ScoreAPI } from '../lib/api/score';
 import { formatFixedNumber, parseFiniteNumber } from '../lib/utils/number';
@@ -320,7 +321,7 @@ export function RksHistoryPanel({ showTitle = true }: RksHistoryPanelProps) {
         <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 text-center">
           <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">距最高</div>
           <div className={`text-2xl font-bold ${gap === 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-700 dark:text-gray-300'}`}>
-            {gap === 0 ? '🎉' : `-${formatFixedNumber(gap, 2)}`}
+            {gap === 0 ? <PartyPopper className="h-8 w-8" aria-hidden="true" /> : `-${formatFixedNumber(gap, 2)}`}
           </div>
         </div>
       </div>

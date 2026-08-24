@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { CheckCircle2, XCircle } from 'lucide-react';
 import { SVGRenderer, RenderOptions, RenderProgress, extractSvgSignature, verifySvgSignature } from '../utils/svgRenderer';
 import type { SvgSignature } from '../utils/svgRenderer';
 import { StyledSelect } from './ui/Select';
@@ -218,11 +219,9 @@ export function BNImage({ svgContent, n, onClear }: BNImageProps) {
       {verifyState === 'valid' && (
         <div className="rounded-lg border border-green-300 bg-green-50 dark:bg-green-900/20 dark:border-green-800 px-4 py-3">
           <div className="flex items-center gap-2">
-            <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+            <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400" aria-hidden="true" />
             <span className="text-sm font-medium text-green-700 dark:text-green-300">
-              ✓ 签名验证通过
+              签名验证通过
             </span>
           </div>
           <div className="mt-1 text-xs text-green-600 dark:text-green-400 space-y-0.5">
@@ -239,11 +238,9 @@ export function BNImage({ svgContent, n, onClear }: BNImageProps) {
       {verifyState === 'invalid' && (
         <div className="rounded-lg border border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-800 px-4 py-3">
           <div className="flex items-center gap-2">
-            <svg className="w-4 h-4 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+            <XCircle className="w-4 h-4 text-red-600 dark:text-red-400" aria-hidden="true" />
             <span className="text-sm font-medium text-red-700 dark:text-red-300">
-              ✗ 签名验证失败
+              签名验证失败
             </span>
           </div>
           {verifyDetail && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{verifyDetail}</p>}

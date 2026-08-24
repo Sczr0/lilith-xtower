@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
+import { AlertTriangle, CheckCircle2, CloudUpload, Info, XCircle } from 'lucide-react';
 import { PageShell } from '../components/PageShell';
 import { SiteHeader } from '../components/SiteHeader';
 import { SiteFooter } from '../components/SiteFooter';
@@ -292,9 +293,7 @@ export default function VerifyPage() {
             </div>
           ) : (
             <div className="space-y-2">
-              <svg className="mx-auto w-12 h-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
-              </svg>
+              <CloudUpload className="mx-auto w-12 h-12 text-gray-400" strokeWidth={1.5} aria-hidden="true" />
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 拖放或点击上传 <strong>SVG</strong> 或 <strong>PNG</strong> 图片
               </p>
@@ -310,11 +309,9 @@ export default function VerifyPage() {
         {state === 'svg-valid' && svgResult && (
           <div className="rounded-2xl border border-green-300 bg-green-50 dark:bg-green-900/20 dark:border-green-800 p-6 space-y-3">
             <div className="flex items-center gap-2">
-              <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+              <CheckCircle2 className="w-5 h-5 text-green-600" aria-hidden="true" />
               <span className="font-medium text-green-700 dark:text-green-300">
-                ✓ HMAC 签名验证通过 — 此 SVG 由本服务签发
+                HMAC 签名验证通过 — 此 SVG 由本服务签发
               </span>
             </div>
             <dl className="text-xs text-green-600 dark:text-green-400 space-y-1">
@@ -340,11 +337,9 @@ export default function VerifyPage() {
         {state === 'svg-invalid' && svgResult && (
           <div className="rounded-2xl border border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-800 p-6 space-y-3">
             <div className="flex items-center gap-2">
-              <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+              <XCircle className="w-5 h-5 text-red-600" aria-hidden="true" />
               <span className="font-medium text-red-700 dark:text-red-300">
-                ✗ 签名验证失败
+                签名验证失败
               </span>
             </div>
             <p className="text-xs text-red-600 dark:text-red-400">
@@ -357,9 +352,7 @@ export default function VerifyPage() {
         {state === 'png-found' && pngMeta && (
           <div className="rounded-2xl border border-blue-300 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800 p-6 space-y-3">
             <div className="flex items-center gap-2">
-              <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+              <Info className="w-5 h-5 text-blue-600" aria-hidden="true" />
               <span className="font-medium text-blue-700 dark:text-blue-300">
         检测到隐写溯源标识
               </span>
@@ -381,9 +374,7 @@ export default function VerifyPage() {
         {state === 'png-none' && (
           <div className="rounded-2xl border border-yellow-300 bg-yellow-50 dark:bg-yellow-900/20 dark:border-yellow-800 p-6 space-y-3">
             <div className="flex items-center gap-2">
-              <svg className="w-5 h-5 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
+              <AlertTriangle className="w-5 h-5 text-yellow-600" aria-hidden="true" />
               <span className="font-medium text-yellow-700 dark:text-yellow-300">
         未检测到隐写溯源标识
               </span>

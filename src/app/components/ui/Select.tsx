@@ -1,5 +1,6 @@
  'use client'
 
+ import { Check, ChevronDown, ChevronUp } from 'lucide-react'
  import {
    Root,
    Trigger,
@@ -87,7 +88,7 @@
            sideOffset={8}
            className="z-50 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-1 shadow-xl ring-1 ring-black/5"
          >
-           <Select.ScrollUpButton className="flex items-center justify-center py-1 text-gray-500 dark:text-gray-400">▲</Select.ScrollUpButton>
+           <Select.ScrollUpButton className="flex items-center justify-center py-1 text-gray-500 dark:text-gray-400"><ChevronUp className="h-4 w-4" aria-hidden="true" /></Select.ScrollUpButton>
            <Select.Viewport className="p-1">
              {options.map((o) => (
                <Select.Item
@@ -98,11 +99,11 @@
                             data-[disabled]:opacity-40 data-[state=checked]:text-blue-600 dark:data-[state=checked]:text-blue-400 data-[highlighted]:bg-blue-500/10"
                >
                  <Select.ItemText>{o.label}</Select.ItemText>
-                 <Select.ItemIndicator className="absolute right-2 text-blue-600 dark:text-blue-400">✓</Select.ItemIndicator>
+                 <Select.ItemIndicator className="absolute right-2 text-blue-600 dark:text-blue-400"><Check className="h-4 w-4" aria-hidden="true" /></Select.ItemIndicator>
                </Select.Item>
              ))}
            </Select.Viewport>
-           <Select.ScrollDownButton className="flex items-center justify-center py-1 text-gray-500 dark:text-gray-400">▼</Select.ScrollDownButton>
+           <Select.ScrollDownButton className="flex items-center justify-center py-1 text-gray-500 dark:text-gray-400"><ChevronDown className="h-4 w-4" aria-hidden="true" /></Select.ScrollDownButton>
          </Select.Content>
        </Select.Portal>
      </Select.Root>

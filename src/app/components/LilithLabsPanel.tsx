@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Zap } from 'lucide-react';
 
 import { ScoreAPI } from '../lib/api/score';
 import { DIFFICULTY_BG, DIFFICULTY_TEXT } from '../lib/constants/difficultyColors';
@@ -136,11 +137,11 @@ function AlternativeTargetRow({ target }: { target: CandidateTarget }) {
   return (
     <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 items-center text-xs text-gray-600 dark:text-gray-400 py-1.5 border-t border-gray-100 dark:border-gray-700/50 first:border-t-0">
       <span
-        className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${getTargetLabelClassName(target.label)}`}
+        className={`inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${getTargetLabelClassName(target.label)}`}
         title={target.needsGodRun ? '超出稳定水平，需超常发挥才能达成' : undefined}
       >
         {getTargetLabelText(target.label)}
-        {target.needsGodRun ? ' ⚡' : ''}
+        {target.needsGodRun ? <Zap className="h-3 w-3" aria-hidden="true" /> : null}
       </span>
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-x-2 gap-y-0.5">
         <span>ACC {formatFixedNumber(target.targetAcc, 2)}%</span>
@@ -172,17 +173,17 @@ function RecommendationCard({ item, index }: { item: DisplaySuggestion; index: n
           <div className="flex items-center gap-2">
             <p className="text-sm text-gray-500 dark:text-gray-400">建议 #{index + 1}</p>
             {'targetLabel' in item && (item as LilithRecommendationItem).targetLabel && (
-              <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${getTargetLabelClassName((item as LilithRecommendationItem).targetLabel)}`}>
+              <span className={`inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${getTargetLabelClassName((item as LilithRecommendationItem).targetLabel)}`}>
                 {getTargetLabelText((item as LilithRecommendationItem).targetLabel)}
-                {item.needsGodRun ? ' ⚡' : ''}
               </span>
             )}
             {item.needsGodRun && (
               <span
-                className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:border-amber-800/60 dark:bg-amber-900/30 dark:text-amber-300"
+                className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:border-amber-800/60 dark:bg-amber-900/30 dark:text-amber-300"
                 title="目标超出你的稳定水平，需要超常发挥（神经刀）才能达成；勾选「仅看稳定可达」可只看常态能练到的目标"
               >
-                ⚡ 需超常发挥
+                <Zap className="h-3 w-3" aria-hidden="true" />
+                需超常发挥
               </span>
             )}
           </div>
