@@ -56,6 +56,7 @@ describe('api/session/login', () => {
     ) as unknown as typeof fetch;
 
     const request = {
+      headers: new Headers(),
       json: vi.fn().mockResolvedValue({
         credential: { type: 'session', token: 'token', timestamp: Date.now() },
         taptapVersion: 'cn',
@@ -82,6 +83,7 @@ describe('api/session/login', () => {
     ) as unknown as typeof fetch;
 
     const request = {
+      headers: new Headers(),
       json: vi.fn().mockResolvedValue({
         credential: { type: 'session', token: 'token', timestamp: Date.now() },
         taptapVersion: 'cn',
