@@ -13,7 +13,7 @@ const TIMEOUT_MS = 15_000;
  * 避免 catch-all 路由成为上游任意端点的公开代理面。
  * 可通过环境变量 API_PROXY_ALLOWED_PREFIXES 扩展（逗号分隔）。
  */
-const DEFAULT_ALLOWED_PREFIXES = ['auth', 'developer', 'leaderboard', 'public', 'image'] as const;
+const DEFAULT_ALLOWED_PREFIXES = ['auth', 'developer', 'leaderboard', 'public', 'image', 'songs'] as const;
 
 function parseAllowedPrefixes(): Set<string> {
   const raw = (process.env.API_PROXY_ALLOWED_PREFIXES ?? '').trim();
