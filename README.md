@@ -2,6 +2,8 @@ Phigros Query（塔弦）
 
 Phigros 成绩查询与图片生成器。提供 BestN 图片生成、单曲成绩图片、RKS 列表、新曲速递、服务统计等功能，支持移动端与深色模式。
 
+本项目为非官方玩家项目，与南京鸽游网络有限公司及《Phigros》官方不存在授权、合作或运营关系。
+
 站点主页：https://lilith.xtower.site
 
 功能特性

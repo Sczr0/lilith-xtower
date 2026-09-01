@@ -85,6 +85,9 @@ export default async function Home() {
           <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
             查询成绩、生成图片、分析数据，欢迎来到空间站「塔弦」旗下的 Phigros Query。
           </p>
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-500 max-w-2xl mx-auto">
+            本项目为非官方玩家项目，与南京鸽游网络有限公司及《Phigros》官方不存在授权、合作或运营关系。
+          </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
             <HomeStartButton className={buttonStyles({ size: 'lg', variant: 'primary' })} />
             <a href="/about" className={buttonStyles({ size: 'lg', variant: 'outline' })}>
