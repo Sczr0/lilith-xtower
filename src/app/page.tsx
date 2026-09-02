@@ -87,6 +87,7 @@ export default async function Home() {
           </p>
           <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-500 max-w-2xl mx-auto">
             本项目为非官方玩家项目，与南京鸽游网络有限公司及《Phigros》官方不存在授权、合作或运营关系。
+            参见<a href="/agreement" className="underline underline-offset-2 hover:text-gray-700 dark:hover:text-gray-300">《用户协议》</a>
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
             <HomeStartButton className={buttonStyles({ size: 'lg', variant: 'primary' })} />
