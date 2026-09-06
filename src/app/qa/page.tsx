@@ -10,8 +10,8 @@ import { buildGoHref } from '../utils/outbound';
 import { DEFAULT_QA_DATA } from './defaultQAData';
 import type { QAItem } from './types';
 
-// ISR: 每小时重新验证一次
-export const revalidate = 3600;
+// ISR: 与 /api/qa 的 revalidate 对齐（10 分钟），内容发布后经由 purge 端点可即时生效
+export const revalidate = 600;
 
 function normalizeFaqAnswerForJsonLd(answer: string): string {
   return answer

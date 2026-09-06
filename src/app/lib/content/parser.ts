@@ -9,7 +9,9 @@ import { Announcement, SongUpdate } from '../types/content';
 
 const CONTENT_DIR = path.join(process.cwd(), 'src/app/content');
 const ENABLE_PROD_CACHE = process.env.NODE_ENV === 'production';
-const CONTENT_CACHE_TTL_MS = 5 * 60 * 1000; // 5 分钟，短于 ISR revalidate 避免架空
+// 仅用于消除同一 ISR 周期内的重复文件 I/O；ISR(revalidate=600) 才是内容版本控制的唯一机制，
+// 因此这里必须远短于 ISR，避免内存层架空上层刷新（详见 docs/cache-strategy-remediation.md 问题 1/4）。
+const CONTENT_CACHE_TTL_MS = 60 * 1000;
 
 type CacheEntry<T> = { data: T; ts: number };
 

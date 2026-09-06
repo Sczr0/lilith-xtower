@@ -4,9 +4,10 @@ import path from 'path';
 import { computeWeakEtag, isEtagFresh } from '@/app/lib/utils/httpCache';
 
 export const runtime = 'nodejs';
-export const revalidate = 3600;
+export const revalidate = 600;
 
-const CACHE_CONTROL = 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400';
+// max-age=0：法律文本更新后浏览器不得继续使用本地副本（此前浏览器缓存 1 小时会延迟新版生效）
+const CACHE_CONTROL = 'public, max-age=0, s-maxage=600, stale-while-revalidate=86400';
 const AGREEMENT_FILE_PATH = path.join(process.cwd(), 'src', 'app', 'agreement', 'agreement.md');
 const ENABLE_PROD_CACHE = process.env.NODE_ENV === 'production';
 

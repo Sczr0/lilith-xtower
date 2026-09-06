@@ -14,7 +14,8 @@ export interface QAItem {
 
 const QA_DIR = path.join(process.cwd(), 'src/app/content/qa');
 const ENABLE_PROD_CACHE = process.env.NODE_ENV === 'production';
-const QA_CACHE_TTL_MS = 5 * 60 * 1000; // 5 分钟
+// 同 parser.ts：仅防同 ISR 周期内的重复 I/O，刷新节奏由 ISR(revalidate=600) 主导
+const QA_CACHE_TTL_MS = 60 * 1000;
 
 type CacheEntry<T> = { data: T; ts: number };
 

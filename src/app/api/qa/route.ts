@@ -3,9 +3,9 @@ import { getAllQA } from '@/app/lib/qa';
 import { computeWeakEtag, isEtagFresh } from '@/app/lib/utils/httpCache';
 
 export const runtime = 'nodejs';
-export const revalidate = 3600;
+export const revalidate = 600;
 
-const CACHE_CONTROL = 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400';
+const CACHE_CONTROL = 'public, max-age=0, s-maxage=600, stale-while-revalidate=86400';
 
 export async function GET(request: Request) {
   const ifNoneMatch = request.headers.get('if-none-match');
