@@ -4,6 +4,18 @@
 
 ## Unreleased
 
+- 安全（验证码）：修复 CAP 验证码 fail-open 绕过
+  - `verifyCapToken` 区分「服务端未配置密钥（灰度放行）」与「已配置密钥但客户端缺 token」：后者现在明确拒绝（`missing_token`），且该检查先于断路器，断路打开也不会顺带放行；脚本不带 capToken 直接 POST 登录接口的绕过路径被关闭
+  - 登录接口对 `missing_token` / `invalid_token` 返回 403（code `CAP_FAILED`），仅 `upstream_error` / `timeout` / `circuit_open` 维持降级放行；`CAP_SECRET_KEY` 改为惰性读取（便于测试与灰度切换）
+  - 单测：灰度模式/缺 token/无效 token/验证成功/断路器降级、登录路由强制校验集成用例
+- 安全（限流）：`resolveClientIp` 收紧可信来源，封堵伪造头绕过
+  - 不再默认信任 `cf-connecting-ip` / `x-real-ip` / `X-Forwarded-For` 首跳（客户端均可伪造，EdgeOne 部署下登录/TapTap/report 等 IP 限流可被绕过）
+  - 默认改为解析 `X-Forwarded-For` 最后一跳的可公网路由 IP（EdgeOne 回源为「追加」语义，真实客户端 IP 在客户端自带前缀之后）；从尾向前跳过私有/回环/CGNAT 地址以兼容边缘内部多跳
+  - 新增环境变量 `TRUSTED_CLIENT_IP_HEADER`：在 CDN 配置专属回源 IP 头时只信任该单一头；无任何可信来源时退化为全局共享桶（'unknown'）
+- 安全（代理）：catch-all 代理 Cookie 双向收敛
+  - 请求侧：转发上游前剔除站内自有 Cookie（`phigros_auth_session`、`phigros_debug_auth`，集中登记于 `SITE_OWNED_COOKIE_NAMES`），本站会话状态不再外发上游
+  - 响应侧：上游 Set-Cookie 与站内 Cookie 同名 → 丢弃（防覆盖站内会话状态）；携带 `Domain` 属性 → 剥离（收窄为 host-only）；其余属性原样保留
+  - 新增 `lib/utils/proxyCookies`（含单测）与 catch-all 路由集成用例
 - 优化（缓存）：公开数据多级缓存强化（对应 docs/cache-strategy-remediation.md 问题 2/4/9/10 的落地）
   - 修复 `next.config.ts` 头规则顺序 bug：排行榜 Top/按名次、公开档案、统计四条 `public, s-maxage` 规则此前排在 `/api/:path*` no-store 之前被整体架空，现移至其后并同步补进 `edgeone.json`
   - catch-all 代理（`/api/[...path]`）新增"公开只读 GET"服务端缓存层（`publicProxyCache`）：排行榜 Top/按名次、公开档案、歌曲搜索在源站内存中带防击穿短 TTL 缓存（LRU 容量上限），匿名请求不再逐访客穿透上游；响应附带弱 ETag + 304，公开路径不再转发 Cookie / 携带 `Vary: Cookie`
