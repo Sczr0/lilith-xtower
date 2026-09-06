@@ -12,12 +12,11 @@ overrides:
   # 安全修复（GHSA-2v37-7h3g-55p8）：next>postcss 链上的 nanoid
   nanoid@<3.3.18: npm:nanoid@3.3.18
 
+# 允许执行安装期构建脚本的依赖（pnpm 11 的 allowBuilds 映射，值必须是布尔）：
+# @sentry/cli 的 postinstall 下载原生二进制，@sentry/nextjs 构建期上传 source map 时需要
 allowBuilds:
-  '@sentry/cli': set this to true or false
-  esbuild: true
-  javascript-obfuscator: true
-  sharp: true
-  unrs-resolver: true
-
-onlyBuiltDependencies:
-  - esbuild
+    '@sentry/cli': true
+    esbuild: true
+    javascript-obfuscator: true
+    sharp: true
+    unrs-resolver: true
