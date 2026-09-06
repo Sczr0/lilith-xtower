@@ -69,6 +69,34 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        source: "/api/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "no-store",
+          },
+        ],
+      },
+      {
+        source: "/api/auth/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, no-store, no-cache, max-age=0, must-revalidate",
+          },
+          {
+            key: "Pragma",
+            value: "no-cache",
+          },
+          {
+            key: "Vary",
+            value: "Cookie, Authorization",
+          },
+        ],
+      },
+      // 注意：公开只读接口的缓存规则必须排在 /api/:path* no-store 之后，
+      // 同名头多条规则匹配时后者覆盖前者（Next.js 官方语义）。
+      {
         source: "/api/leaderboard/rks/top",
         headers: [
           {
@@ -105,32 +133,6 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        source: "/api/:path*",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "no-store",
-          },
-        ],
-      },
-      {
-        source: "/api/auth/:path*",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "private, no-store, no-cache, max-age=0, must-revalidate",
-          },
-          {
-            key: "Pragma",
-            value: "no-cache",
-          },
-          {
-            key: "Vary",
-            value: "Cookie, Authorization",
-          },
-        ],
-      },
-      {
         source: "/internal/:path*",
         headers: [
           {
@@ -144,7 +146,7 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: "Cache-Control",
-            value: "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400",
+            value: "public, max-age=0, s-maxage=600, stale-while-revalidate=86400",
           },
         ],
       },
@@ -162,7 +164,7 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: "Cache-Control",
-            value: "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400",
+            value: "public, max-age=0, s-maxage=600, stale-while-revalidate=86400",
           },
         ],
       },
@@ -171,7 +173,7 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: "Cache-Control",
-            value: "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400",
+            value: "public, max-age=0, s-maxage=600, stale-while-revalidate=86400",
           },
         ],
       },
