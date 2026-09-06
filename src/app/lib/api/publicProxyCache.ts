@@ -23,7 +23,7 @@ export type PublicProxyCacheRule = {
   /** LRU 容量上限 */
   maxSize: number;
   /**
-   * 200/304 响应的 Cache-Control；需与 next.config.ts / edgeone.json 中
+   * 200/304 响应的 Cache-Control；需与 next.config.ts 中
    * 对应路径的公开规则保持一致（同名头两条来源相同时才会去重为单值）。
    * 空串表示响应仍保持 private no-store（仅源站内存缓存，不进共享缓存）。
    */

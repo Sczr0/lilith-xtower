@@ -50,7 +50,7 @@ npm run start
 - `AUTH_SESSION_REVOCATION_FILE`（可选）：会话撤销记录持久化文件路径（默认 `/var/lib/lilith-xtower/revocations.json`）。用于 PM2 reload/重启后仍能拒绝已登出的旧会话；应置于部署目录之外，避免部署时被 rsync --delete 清空
 - `CACHE_ADMIN_TOKEN`（可选）：缓存 purge 管理端点 `/api/internal/cache` 的 Bearer Token；未设置时端点一律拒绝（503）。用法：`POST /api/internal/cache`，body `{"tags": ["qa"], "paths": ["/api/public/profile/xxx"]}`，可选 tag 见端点 `GET` 响应
 - `CAP_API_BASE` / `CAP_SITE_KEY` / `CAP_SECRET_KEY`（可选）：Cap 验证码服务配置。未配置 `CAP_SECRET_KEY` 时登录接口跳过验证码校验（灰度模式）；**配置后强制校验**——客户端未携带 token 或 token 无效将直接拒绝（403），仅验证服务自身故障（超时/断路）时降级放行
-- `TRUSTED_CLIENT_IP_HEADER`（可选）：显式指定唯一可信的客户端 IP 回源头（如在 EdgeOne 控制台配置的自定义回源 IP 头）。未设置时默认解析 `X-Forwarded-For` 最后一跳的可公网路由 IP（EdgeOne 回源为追加语义，客户端自带前缀不可信）；限流等安全控制均基于该值。前提：源站应仅放行 CDN 回源网段（EdgeOne「源站防护」白名单），否则直连源站仍可伪造整个 XFF
+- `TRUSTED_CLIENT_IP_HEADER`（可选）：显式指定唯一可信的客户端 IP 回源头。**ESA 部署推荐**：在阿里云 ESA 控制台「规则 → 转换规则 → 托管转换」开启「回源自动注入客户端真实 IP」后设为 `ali-real-client-ip`（由 ESA 边缘节点写入 TCP 建连的真实客户端 IP，不受客户端伪造影响）。未设置时默认解析 `X-Forwarded-For` 最后一跳的可公网路由 IP（对覆盖/追加两种回源语义均成立，客户端自带前缀不可信）；限流等安全控制均基于该值。前提：源站应仅放行 CDN 回源网段（ESA「源站防护」白名单），否则直连源站仍可伪造整个 XFF
 
 固定跳转入口
 

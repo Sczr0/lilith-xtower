@@ -9,9 +9,9 @@
   - 登录接口对 `missing_token` / `invalid_token` 返回 403（code `CAP_FAILED`），仅 `upstream_error` / `timeout` / `circuit_open` 维持降级放行；`CAP_SECRET_KEY` 改为惰性读取（便于测试与灰度切换）
   - 单测：灰度模式/缺 token/无效 token/验证成功/断路器降级、登录路由强制校验集成用例
 - 安全（限流）：`resolveClientIp` 收紧可信来源，封堵伪造头绕过
-  - 不再默认信任 `cf-connecting-ip` / `x-real-ip` / `X-Forwarded-For` 首跳（客户端均可伪造，EdgeOne 部署下登录/TapTap/report 等 IP 限流可被绕过）
-  - 默认改为解析 `X-Forwarded-For` 最后一跳的可公网路由 IP（EdgeOne 回源为「追加」语义，真实客户端 IP 在客户端自带前缀之后）；从尾向前跳过私有/回环/CGNAT 地址以兼容边缘内部多跳
-  - 新增环境变量 `TRUSTED_CLIENT_IP_HEADER`：在 CDN 配置专属回源 IP 头时只信任该单一头；无任何可信来源时退化为全局共享桶（'unknown'）
+  - 不再默认信任 `cf-connecting-ip` / `x-real-ip` / `X-Forwarded-For` 首跳（客户端均可伪造，CDN 部署下登录/TapTap/report 等 IP 限流可被绕过）
+  - 默认改为解析 `X-Forwarded-For` 最后一跳的可公网路由 IP（对 CDN 覆盖/追加两种回源语义均成立，客户端自带前缀不可信）；从尾向前跳过私有/回环/CGNAT 地址以兼容边缘内部多跳
+  - 部署平台为阿里云 ESA：推荐在控制台「托管转换」开启「回源自动注入客户端真实 IP」并设置 `TRUSTED_CLIENT_IP_HEADER=ali-real-client-ip`（ESA 边缘节点写入 TCP 建连真实 IP，最可信）；无任何可信来源时退化为全局共享桶（'unknown'）
 - 安全（代理）：catch-all 代理 Cookie 双向收敛
   - 请求侧：转发上游前剔除站内自有 Cookie（`phigros_auth_session`、`phigros_debug_auth`，集中登记于 `SITE_OWNED_COOKIE_NAMES`），本站会话状态不再外发上游
   - 响应侧：上游 Set-Cookie 与站内 Cookie 同名 → 丢弃（防覆盖站内会话状态）；携带 `Domain` 属性 → 剥离（收窄为 host-only）；其余属性原样保留

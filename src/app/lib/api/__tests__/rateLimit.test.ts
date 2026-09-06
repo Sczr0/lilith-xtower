@@ -16,8 +16,8 @@ describe('resolveClientIp', () => {
     expect(resolveClientIp(createRequest({}))).toBe('unknown');
   });
 
-  it('takes the last publicly routable hop from X-Forwarded-For (EdgeOne append semantics)', () => {
-    // 客户端伪造的前缀 + EdgeOne 追加的真实 IP：应取最后一跳而非首跳
+  it('takes the last publicly routable hop from X-Forwarded-For (CDN append semantics)', () => {
+    // 客户端伪造的前缀 + CDN 追加的真实 IP：应取最后一跳而非首跳
     const req = createRequest({ 'x-forwarded-for': '1.2.3.4, 5.6.7.8, 203.0.113.77' });
     expect(resolveClientIp(req)).toBe('203.0.113.77');
   });
