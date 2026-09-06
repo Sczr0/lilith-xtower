@@ -12,6 +12,9 @@ describe('middleware decideHtmlCacheControl', () => {
   it('allows public cache for whitelisted routes when no session', () => {
     expect(decideHtmlCacheControl({ pathname: '/', hasSession: false })).toContain('public');
     expect(decideHtmlCacheControl({ pathname: '/qa', hasSession: false })).toContain('public');
+    expect(decideHtmlCacheControl({ pathname: '/login', hasSession: false })).toContain('public');
+    expect(decideHtmlCacheControl({ pathname: '/open-platform', hasSession: false })).toContain('public');
+    expect(decideHtmlCacheControl({ pathname: '/open-platform/agreement', hasSession: false })).toContain('public');
   });
 
   it('defaults to private/no-store for non-whitelisted routes when no session', () => {

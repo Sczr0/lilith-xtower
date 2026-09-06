@@ -58,7 +58,10 @@ async function fetchUpstreamFile(path: string): Promise<string> {
         'User-Agent': 'PhigrosQuery/1.0 (+https://lilith.xtower.site)',
       },
       signal: controller.signal,
-      cache: 'no-store',
+      // 进入 Next Data Cache 且与页面 ISR(revalidate=3600) 同周期对齐：
+      // no-store 会把引用它的路由打回动态渲染（Next 16 语义），导致 /songs 的 ISR 失效
+      cache: 'force-cache',
+      next: { revalidate: CACHE_TTL_MS / 1000 },
     });
     if (!response.ok) {
       throw new Error(`上游返回 ${response.status}`);

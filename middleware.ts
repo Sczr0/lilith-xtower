@@ -15,6 +15,11 @@ const PUBLIC_HTML_CACHE: Record<string, string> = {
   '/sponsors': 'public, max-age=0, s-maxage=600, stale-while-revalidate=86400',
   '/contribute': 'public, max-age=0, s-maxage=600, stale-while-revalidate=86400',
   '/songs': 'public, max-age=0, s-maxage=600, stale-while-revalidate=86400',
+  // 匿名访客高频入口：登录页为纯静态壳（个性化全部在客户端）
+  '/login': 'public, max-age=0, s-maxage=600, stale-while-revalidate=86400',
+  '/open-platform': 'public, max-age=0, s-maxage=600, stale-while-revalidate=86400',
+  // 与 /agreement 同性质的签名法律文档页（构建期内容哈希产物，适合更长 CDN 缓存）
+  '/open-platform/agreement': 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400',
   '/qa': 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400',
   '/agreement': 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400',
   '/privacy': 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400',

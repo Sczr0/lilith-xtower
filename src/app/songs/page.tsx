@@ -5,10 +5,11 @@ import { InfoPage } from './components/InfoPage';
 
 /**
  * 曲目信息页（/songs）
- * 服务端预取曲目信息（含内存缓存），失败时把错误传给客户端展示降级 UI。
- * 数据来自外部源（somnia.xtower.site），使用动态渲染避免预渲染导致数据过期。
+ * 服务端预取曲目信息（含 1 小时内存缓存与失败降级），失败时把错误传给客户端展示降级 UI。
+ * 数据来自外部源（somnia.xtower.site）：以 ISR 按小时重渲染，与数据层内存 TTL 对齐；
+ * 构建期预渲染失败（上游不可达）走 initialError 降级 UI，不会阻塞构建。
  */
-export const dynamic = 'force-dynamic';
+export const revalidate = 3600;
 
 export default async function InfoPageServer() {
   let initialData = null;
