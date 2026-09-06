@@ -8,4 +8,4 @@
  * - 仅修改排版/错别字等不改变权利义务的编辑，不应 bump 版本。
  */
 export const REQUIRED_AGREEMENT_VERSION = '2026-07-30';
-export const REQUIRED_PRIVACY_VERSION = '2026-07-30';
+export const REQUIRED_PRIVACY_VERSION = '2026-09-06';

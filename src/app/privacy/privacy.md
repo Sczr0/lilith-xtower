@@ -1,7 +1,7 @@
 -----BEGIN PGP SIGNED MESSAGE-----
 Hash: SHA256
 
-**最后更新日期：2026年8月8日** | **生效日期：2026年8月8日**
+**最后更新日期：2026年9月6日** | **生效日期：2026年9月6日**
 
 #### 1. 引言
 
@@ -55,7 +55,7 @@ Hash: SHA256
 
 我们**不主动在自建后端持久化保存包含明文登录凭证（SessionToken、APIID 等）的日志，但我们会将非敏感数据的请求日志至少保留 6 个月。**。
 
-您理解并同意，Cloudflare、EdgeOne、ESA、Umami、阿里云 RUM 等第三方基础设施/统计/性能监控服务可能会基于其产品机制与合规要求记录访问日志，我们无法完全控制其日志留存与存储位置，具体以其隐私政策/服务条款为准。
+您理解并同意，Cloudflare、EdgeOne、ESA、Umami、阿里云 RUM、Sentry 等第三方基础设施/统计/性能监控服务可能会基于其产品机制与合规要求记录访问日志，我们无法完全控制其日志留存与存储位置，具体以其隐私政策/服务条款为准。
 
 **（3）生成内容相关数据：**
 
@@ -73,6 +73,14 @@ Hash: SHA256
 
 当您通过「遇到问题？」提交问题反馈，或页面发生错误时，我们可能会自动采集并处理浏览器端生成的诊断信息，包括：所在页面、构建版本、浏览器/系统信息、登录状态、最近的页面操作与请求轨迹（仅路径与状态码）、错误摘要与堆栈。该信息**不包含**登录凭证、密码、表单输入内容等敏感数据；您可在反馈弹窗中查看并复制完整诊断信息。诊断信息仅用于定位与修复问题、改进服务稳定性，不用于识别您的真实身份。
 
+此外，本服务接入了自动化错误监控与性能追踪（服务商详见第 8.2.8 节）。
+
+当页面或服务端发生错误、异常或请求失败时，系统将自动向该服务发送错误报告与性能追踪数据，可能包括：
+
+错误消息与堆栈、出错页面 URL、构建版本、浏览器/操作系统/设备信息、屏幕分辨率、语言与时区、IP 地址、与账号无关的匿名随机标识、页面加载与路由切换耗时等性能数据，以及出错前的行为记录（如最近的页面导航与网络请求的 URL/方法/状态码；在默认配置下，还可能包含出错请求的 HTTP 头与请求/响应正文，其中 Cookie、Authorization 等已知敏感字段会被自动脱敏过滤）。
+
+本服务不会主动将您的 Phigros 登录凭证写入错误报告；若个别错误信息中意外出现疑似敏感内容，我们将及时删除相关内容。此类数据与您的账号体系无关联，仅用于故障定位、稳定性改进与滥用防护，不用于识别您的真实身份。
+
 **2.2 数据使用方式**
 
 **登录凭证：** 用于验证授权并访问您的 Phigros 云存档数据；
@@ -86,6 +94,8 @@ Hash: SHA256
 **赞助者列表数据：** 用于展示赞助者鸣谢与赞助信息，不用于推送营销或对您进行画像。
 
 **问题反馈与诊断信息：** 用于定位与修复问题、改进服务稳定性，仅在处理问题的必要范围内使用。
+
+**错误监控与性能诊断信息：** 用于故障定位、服务稳定性改进与滥用防护。该类数据与您的账号体系无关联，将按监控服务的默认保留策略（详见第 8.2.8 节）到期自动删除。
 
 #### 3. 我们如何使用 Cookie 和同类技术
 
@@ -108,6 +118,8 @@ Hash: SHA256
 **身份验证（Session Cookie）：** 我们使用 **HttpOnly Cookie** 存储您的登录会话标识。该 Cookie 仅用于在您与服务器交互时验证身份。
 
 **第三方服务：** 本服务接入的 Umami 不使用 cookie；Cloudflare、阿里云 RUM 等第三方服务是否使用 Cookie 及其留存规则，以其各自隐私政策/服务条款为准。
+
+**错误监控（Sentry）：** 不使用 Cookie；可能在浏览器本地存储中保存一个与您的账号无关的匿名随机标识，用于错误去重与聚合。
 
 #### 4. 我们如何披露您的个人信息
 
@@ -251,6 +263,18 @@ Hash: SHA256
 
 隐私政策：https://axiom.co/docs/legal/privacy
 
+8.2.8 Sentry
+
+用途：错误监控与性能追踪（捕获并定位前端与服务端错误、监测页面加载与路由切换性能）
+
+可能处理的数据：错误消息与堆栈、出错页面 URL、构建版本、浏览器/操作系统/设备信息、屏幕分辨率、语言与时区、IP 地址、匿名随机标识、性能追踪数据、出错前的行为记录（页面导航与网络请求的 URL、方法、状态码；默认配置下还可能包含出错请求的 HTTP 头与请求/响应正文，已知敏感字段会被自动脱敏）
+
+处理原因：这是服务稳定性保障与故障排查的技术必需数据
+
+说明：该服务使用欧盟（德国）数据区域，相关数据存储与处理位于欧盟境内，受欧盟《通用数据保护条例》（GDPR）管辖；错误与性能数据按其默认保留策略存储（一般为 30–90 天），到期自动删除
+
+隐私政策：https://sentry.io/privacy/
+
 #### 9. 您的个人信息如何在全球范围转移
 
 **9.1 数据存储与持久化**
@@ -262,6 +286,8 @@ Hash: SHA256
 本服务使用 Cloudflare 和 ESA 提供全球 CDN 加速，用户的请求数据可能被路由至位于全球各地区的边缘节点进行即时处理，以实现低延迟响应和 DDoS 防护。这种路由是由 CDN 技术架构自动决定的，并非开发者主动进行的数据跨境传输。Cloudflare 和 ESA 等 CDN 服务商可能按其合规与安全要求记录访问日志，日志的留存地点和期限以第三方政策为准。
 
 本服务使用的 **Umami Cloud** 统计服务服务器位于欧盟境内，相关统计数据存储与处理受欧盟 GDPR 管辖。
+
+本服务使用的 **Sentry** 错误监控服务采用欧盟（德国）数据区域，错误报告的存储与处理位于欧盟境内，受欧盟 GDPR 管辖。
 
 其他第三方服务商可能会按其合规与安全要求记录访问日志，日志的留存与存储位置以第三方隐私政策为准。
 
@@ -282,15 +308,15 @@ Hash: SHA256
 我们将在收到您的来信后，在合理时间内进行处理或回复。
 -----BEGIN PGP SIGNATURE-----
 
-iQHPBAEBCAA5FiEELLqNPkwXwRaxvR3OAM+CMkOXAy8FAmp3MkgbFIAAAAAABAAO
-bWFudTIsMi41KzEuMTIsMiwxAAoJEADPgjJDlwMvHHwL+gOfeddM2416Nk54Tyv1
-04kOg2XAE1bI43Mkhi+2+Y9whU8Zx53gDRlGc3EBj47uK+vEYHySzB38pojWZoe6
-zsf22V+F3cLRhXKfm7bAyCIgwslvsCEXy/yiy31Pzqx/ea/ZhxIuy7e3T94esk6E
-UcEs171Fx9Z+nhQFKgH9/Mm7tlTXzVRj9wft5mfW8m1N09xZFBzdSwfOBZTubGTa
-cuIB2uQIeivg9zezwKon3KaPY1rZI0FwBJUpqPzQj9L6pviJ2ElX+Vs2LkuhbEfu
-K/x03j5EO8bk3CkgCZhiqQ/3GnuFoEKpaa7h5pj0HI5UNXI2oVgLJ9C/6pGTz0eG
-5g24mSjN5BmFHLDt4FG7O66DxFvZ/pdzpsNQGpPvam1q1iVyqYdD0Yz+5uLGiz9q
-1vmMI+aTS4WCMpUnCiPmkSL16jJ++EMir0YycPF6khXGNEwEVHXLRekLtP8anklj
-F4/6cw3VZmaFpLH9jvBWS8sVKQ90kFPlJj/yCWwrjmBwSQ==
-=RaOZ
+iQHPBAEBCAA5FiEELLqNPkwXwRaxvR3OAM+CMkOXAy8FAmqdf94bFIAAAAAABAAO
+bWFudTIsMi41KzEuMTIsMiwxAAoJEADPgjJDlwMvWPAMALVCsBfvHQxpQbBRbX5R
+z6Oo1I7+c6y/YW2gNtkKY6pJOcfywemUTKSqKaOQAil+a7MVWEf2i10GpHw0lISF
+ahXwmyPqUWa9jhOHiktAbRfY5InEESlVI47Y5a0bcvNg90rzEFiKLN7uROK3jXcH
+e+OEusAWz0fqrIWI2M61BSmn3m/AU3/eHnVkN+9bisiT4GNR4/kq32x59TddTZBm
+HF70/oYeAav9oyjr2Rfed+AnBUBP4fV4Fum+keLvoF0lx/DuuTsAIKklBWfj+aby
+Dgcyzwz0+8l4YAf+1tAeKynKkFaKB8U58qlhp0pmKm7bnNG5izR/ekm4w0HaSLda
++WkYB2Qv5bzxsM7V+K4aenhIDJOGA747LHmi3UB/RKm5bKwXnjIuIol/oYD4xWEF
+RVy+ZBrpG4I0Nw+GB8BCnvkTURZvqUngwA/M0QqPi5VNTKid/3bLhpTsuJQfAC8p
+abIhXgCGfBuk/EJV2DOtm/aBk4TaXfMykk7YYopDqDf4PQ==
+=SMRe
 -----END PGP SIGNATURE-----
