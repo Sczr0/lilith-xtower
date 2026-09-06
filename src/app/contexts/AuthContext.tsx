@@ -21,6 +21,7 @@ import {
 } from '../lib/auth/banGuard';
 import type { AuthCredentialSummary, SessionStatusResponse } from '../lib/auth/credentialSummary';
 import { AGREEMENT_ACCEPTED_KEY, BANNED_DETAIL_KEY } from '../lib/constants/storageKeys';
+import { getCapToken } from '../lib/cap/client';
 import { AuthStorage } from '../lib/storage/auth';
 import type { AuthCredential } from '../lib/types/auth';
 import { useServiceReachability } from '../hooks/useServiceReachability';
@@ -247,11 +248,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
       try {
         setAuthState((prev) => ({ ...prev, isLoading: true, error: null }));
 
+        // Cap 验证码 token：调用方（手动/API/平台登录等）未显式携带时，
+        // 统一等待页面加载时已启动的后台解题结果（getCapToken 为模块级缓存，
+        // 多次调用等待同一 Promise）。否则在 CAP_SECRET_KEY 强制校验模式下，
+        // 未携带 token 的登录请求会被服务端直接拒绝（403 CAP_FAILED）。
+        const resolvedCapToken = capToken ?? (await getCapToken());
+
         const taptapVersion = AuthStorage.getTapTapVersion();
         const res = await fetch('/api/session/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ credential, taptapVersion, capToken }),
+          body: JSON.stringify({ credential, taptapVersion, capToken: resolvedCapToken }),
         });
 
         const data = (await res.json().catch(() => null)) as

@@ -13,6 +13,12 @@ vi.mock('next/navigation', () => ({
   usePathname: () => pathnameMock.current,
 }));
 
+// Cap 客户端 mock：默认无 token（与 initCap 未调用时一致），
+// 单个用例内可通过 getCapToken.mockResolvedValue 指定返回。
+vi.mock('../../lib/cap/client', () => ({
+  getCapToken: vi.fn().mockResolvedValue(undefined),
+}));
+
 // AgreementModal 经 next/dynamic 懒加载，渲染为可探测标记，用于断言弹窗显隐。
 vi.mock('next/dynamic', () => ({
   __esModule: true,
@@ -129,6 +135,40 @@ describe('AuthContext 登录缓存与异常弹窗', () => {
 
     expect(await screen.findByText('authed')).toBeTruthy();
     expect(AuthStorage.getCachedLogin()).toBe(true);
+  });
+
+  it('登录时未显式携带 capToken 也会自动附加 Cap token（手动/API/平台登录均可通过强制校验）', async () => {
+    const { getCapToken } = await import('../../lib/cap/client');
+    (getCapToken as ReturnType<typeof vi.fn>).mockResolvedValue('cap-token-abc');
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(GUEST_PAYLOAD))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          success: true,
+          credential: { type: 'api', api_user_id: 'u1', timestamp: 0 },
+        }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <AuthProvider>
+        <AuthStateProbe />
+      </AuthProvider>,
+    );
+
+    expect(await screen.findByText('guest')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'login' }));
+
+    expect(await screen.findByText('authed')).toBeTruthy();
+
+    // 登录 POST 必须携带 capToken（CAP_SECRET_KEY 强制校验时缺失会被 403 CAP_FAILED 拒绝）
+    const loginCall = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect(JSON.parse(loginCall[1].body as string)).toMatchObject({
+      capToken: 'cap-token-abc',
+    });
   });
 });
 
