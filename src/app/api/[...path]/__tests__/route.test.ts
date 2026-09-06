@@ -90,4 +90,78 @@ describe('catch-all API proxy route', () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(res.status).toBe(404);
   });
+
+  it('forwards upstream cookies but strips site-owned cookies from the request', async () => {
+    const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(
+      async () => new Response('ok', { status: 200 }),
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const request = {
+      method: 'GET',
+      headers: new Headers({
+        accept: 'application/json',
+        cookie: 'phigros_auth_session=sealed; upstream_sid=keep-me; theme=dark',
+      }),
+      nextUrl: new URL('http://localhost/api/auth/session/ping'),
+    } as unknown as NextRequest;
+
+    const { GET } = await import('../route');
+    const res = await GET(request, routeContext(['auth', 'session', 'ping']));
+
+    expect(res.status).toBe(200);
+    const init = fetchMock.mock.calls[0]?.[1];
+    const forwardedHeaders = init?.headers as Record<string, string>;
+    // 站内会话 Cookie 不外发上游，其余 Cookie 原样保留
+    expect(forwardedHeaders.Cookie).toBe('upstream_sid=keep-me; theme=dark');
+  });
+
+  it('does not send a Cookie header when only site-owned cookies are present', async () => {
+    const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(
+      async () => new Response('ok', { status: 200 }),
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const request = {
+      method: 'GET',
+      headers: new Headers({
+        accept: 'application/json',
+        cookie: 'phigros_auth_session=sealed; phigros_debug_auth=1',
+      }),
+      nextUrl: new URL('http://localhost/api/auth/session/ping'),
+    } as unknown as NextRequest;
+
+    const { GET } = await import('../route');
+    await GET(request, routeContext(['auth', 'session', 'ping']));
+
+    const init = fetchMock.mock.calls[0]?.[1];
+    const forwardedHeaders = init?.headers as Record<string, string>;
+    expect(forwardedHeaders.Cookie).toBeUndefined();
+  });
+
+  it('drops upstream Set-Cookie colliding with site-owned names and strips Domain', async () => {
+    const upstreamResponse = new Response('{}', { status: 200 });
+    upstreamResponse.headers.append('set-cookie', 'phigros_auth_session=forged; Path=/; HttpOnly');
+    upstreamResponse.headers.append('set-cookie', 'upstream_sid=abc; Domain=xtower.site; Path=/');
+    upstreamResponse.headers.append('set-cookie', 'tracker=xyz; Path=/');
+    globalThis.fetch = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(
+      async () => upstreamResponse,
+    ) as unknown as typeof fetch;
+
+    const request = {
+      method: 'GET',
+      headers: new Headers({ accept: 'application/json' }),
+      nextUrl: new URL('http://localhost/api/auth/session/ping'),
+    } as unknown as NextRequest;
+
+    const { GET } = await import('../route');
+    const res = await GET(request, routeContext(['auth', 'session', 'ping']));
+
+    const setCookies = res.headers.getSetCookie();
+    expect(setCookies).toHaveLength(2);
+    expect(setCookies).toContain('upstream_sid=abc; Path=/');
+    expect(setCookies).toContain('tracker=xyz; Path=/');
+    expect(setCookies.some((value) => value.includes('phigros_auth_session'))).toBe(false);
+    expect(setCookies.some((value) => value.toLowerCase().includes('domain='))).toBe(false);
+  });
 });

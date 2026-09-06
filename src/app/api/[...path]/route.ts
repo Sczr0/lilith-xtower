@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { computeWeakEtag, isEtagFresh } from '@/app/lib/utils/httpCache';
+import { filterOutSiteOwnedCookies, sanitizeUpstreamSetCookie } from '@/app/lib/utils/proxyCookies';
+import { SITE_OWNED_COOKIE_NAMES } from '@/app/lib/constants/cookies';
 import {
   matchPublicGetCache,
   UpstreamPassthroughError,
@@ -102,8 +104,11 @@ async function proxy(req: NextRequest, params: { path: string[] }) {
     const contentType = req.headers.get('content-type');
     if (contentType) headers['Content-Type'] = contentType;
 
+    // 安全：剔除站内自有 Cookie（会话/debug 放行等）后再转发，
+    // 其余 Cookie（上游经由本站中转的会话）原样保留
     const cookie = req.headers.get('cookie');
-    if (cookie) headers.Cookie = cookie;
+    const forwardCookie = cookie ? filterOutSiteOwnedCookies(cookie, SITE_OWNED_COOKIE_NAMES) : '';
+    if (forwardCookie) headers.Cookie = forwardCookie;
 
     const userAgent = req.headers.get('user-agent');
     if (userAgent) headers['User-Agent'] = userAgent;
@@ -132,7 +137,10 @@ async function proxy(req: NextRequest, params: { path: string[] }) {
 
     const setCookies = typeof res.headers.getSetCookie === 'function' ? res.headers.getSetCookie() : [];
     for (const value of setCookies) {
-      responseHeaders.append('Set-Cookie', value);
+      // 安全：上游 Set-Cookie 落在本站域 —— 丢弃与站内 Cookie 同名的项（防覆盖
+      // 会话状态），剥离 Domain 属性（收窄为 host-only），其余原样透传
+      const sanitized = sanitizeUpstreamSetCookie(value, SITE_OWNED_COOKIE_NAMES);
+      if (sanitized) responseHeaders.append('Set-Cookie', sanitized);
     }
 
     if (res.status >= 300 && res.status < 400) {
