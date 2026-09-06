@@ -1,0 +1,7 @@
+{
+  "format": "openpgp-clearsign",
+  "status": "signed",
+  "verified": null,
+  "hash": "SHA256",
+  "signature": "-----BEGIN PGP SIGNATURE-----\n\niQHPBAEBCAA5FiEELLqNPkwXwRaxvR3OAM+CMkOXAy8FAmqdf94bFIAAAAAABAAO\nbWFudTIsMi41KzEuMTIsMiwxAAoJEADPgjJDlwMvWPAMALVCsBfvHQxpQbBRbX5R\nz6Oo1I7+c6y/YW2gNtkKY6pJOcfywemUTKSqKaOQAil+a7MVWEf2i10GpHw0lISF\nahXwmyPqUWa9jhOHiktAbRfY5InEESlVI47Y5a0bcvNg90rzEFiKLN7uROK3jXcH\ne+OEusAWz0fqrIWI2M61BSmn3m/AU3/eHnVkN+9bisiT4GNR4/kq32x59TddTZBm\nHF70/oYeAav9oyjr2Rfed+AnBUBP4fV4Fum+keLvoF0lx/DuuTsAIKklBWfj+aby\nDgcyzwz0+8l4YAf+1tAeKynKkFaKB8U58qlhp0pmKm7bnNG5izR/ekm4w0HaSLda\n+WkYB2Qv5bzxsM7V+K4aenhIDJOGA747LHmi3UB/RKm5bKwXnjIuIol/oYD4xWEF\nRVy+ZBrpG4I0Nw+GB8BCnvkTURZvqUngwA/M0QqPi5VNTKid/3bLhpTsuJQfAC8p\nabIhXgCGfBuk/EJV2DOtm/aBk4TaXfMykk7YYopDqDf4PQ==\n=SMRe\n-----END PGP SIGNATURE-----"
+}
