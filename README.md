@@ -48,6 +48,7 @@ npm run start
 - `UNIFIED_API_LOCAL_PROBE_TIMEOUT_MS`（可选）：本地探针超时（毫秒，默认 `300`）
 - `UNIFIED_API_LOCAL_PROBE_TTL_OK_MS` / `UNIFIED_API_LOCAL_PROBE_TTL_FAIL_MS`（可选）：探针结果缓存 TTL（毫秒，默认 `30000/3000`）
 - `AUTH_SESSION_REVOCATION_FILE`（可选）：会话撤销记录持久化文件路径（默认 `/var/lib/lilith-xtower/revocations.json`）。用于 PM2 reload/重启后仍能拒绝已登出的旧会话；应置于部署目录之外，避免部署时被 rsync --delete 清空
+- `CACHE_ADMIN_TOKEN`（可选）：缓存 purge 管理端点 `/api/internal/cache` 的 Bearer Token；未设置时端点一律拒绝（503）。用法：`POST /api/internal/cache`，body `{"tags": ["qa"], "paths": ["/api/public/profile/xxx"]}`，可选 tag 见端点 `GET` 响应
 
 固定跳转入口
 

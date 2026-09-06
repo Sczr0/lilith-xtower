@@ -4,6 +4,17 @@
 
 ## Unreleased
 
+- 优化（缓存）：公开数据多级缓存强化（对应 docs/cache-strategy-remediation.md 问题 2/4/9/10 的落地）
+  - 修复 `next.config.ts` 头规则顺序 bug：排行榜 Top/按名次、公开档案、统计四条 `public, s-maxage` 规则此前排在 `/api/:path*` no-store 之前被整体架空，现移至其后并同步补进 `edgeone.json`
+  - catch-all 代理（`/api/[...path]`）新增"公开只读 GET"服务端缓存层（`publicProxyCache`）：排行榜 Top/按名次、公开档案、歌曲搜索在源站内存中带防击穿短 TTL 缓存（LRU 容量上限），匿名请求不再逐访客穿透上游；响应附带弱 ETag + 304，公开路径不再转发 Cookie / 携带 `Vary: Cookie`
+  - `createDedupedCache` 支持可选 `maxSize`（LRU 淘汰），防止高基数 key（如搜索词）无限增长
+  - 内容三层 TTL 收敛：进程内存 5 分钟 → 60 秒（仅防重复 I/O），公告/新曲速递/QA/协议 ISR 与 CDN `s-maxage` 3600 → 600 对齐；协议接口浏览器侧 `max-age` 1 小时 → 0（法律文本更新即时生效）
+  - 新增缓存 purge 管理端点 `/api/internal/cache`（Bearer `CACHE_ADMIN_TOKEN` 鉴权，未配置一律拒绝），接通此前无人调用的 `invalidateContentCache` / `invalidateQACache` / `clearPublicProxyCache`，配合 `revalidatePath` / `revalidateTag` 形成"发布即生效"闭环
+- 优化（缓存）：HTML/页面缓存策略
+  - middleware 公开 HTML 缓存名单新增 `/login`、`/open-platform`、`/open-platform/agreement`（仅匿名访客生效，带会话 Cookie 仍为 private no-store）
+  - `/songs` 由 `force-dynamic` 改为 ISR（`revalidate = 3600`，与数据层 1 小时内存缓存对齐）；上游不可达时走既有降级 UI，不影响构建
+  - 单测：`cacheWithDedup`（TTL/防击穿/LRU/失效）、`publicProxyCache` 规则匹配、middleware 新名单
+
 - 安全：修复 11 个依赖漏洞（pnpm audit 归零）
   - vite 7.3.1 → 7.3.6（3 个 high CVE：dev server 任意文件读取/fs.deny 绕过；显式声明为 devDependency 以满足 vitest peer 范围）
   - sharp 0.34.5 → 0.35.3（4 个 CVE：libvips 继承漏洞；pnpm overrides 强制覆盖 next 内部锁定）
