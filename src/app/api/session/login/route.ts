@@ -116,10 +116,14 @@ export async function POST(request: NextRequest) {
     const capToken = typeof body.capToken === 'string' ? body.capToken.trim() : undefined;
     const capResult = await verifyCapToken(capToken);
     if (!capResult.ok) {
-      // 只有明确配置了 SECRET_KEY 且验证失败时才拒绝
-      if (capResult.reason === 'invalid_token') {
+      // 缺 token / 无效 token：明确拒绝（已配置密钥后强制校验，防止不带 token 绕过）
+      if (capResult.reason === 'invalid_token' || capResult.reason === 'missing_token') {
+        const message =
+          capResult.reason === 'missing_token'
+            ? '安全验证未完成，请刷新页面后重试'
+            : '安全验证失败，请刷新页面重试';
         return NextResponse.json(
-          { success: false, message: '安全验证失败，请刷新页面重试', code: 'CAP_FAILED' },
+          { success: false, message, code: 'CAP_FAILED' },
           { status: 403, headers: { 'Cache-Control': 'no-store' } },
         );
       }
