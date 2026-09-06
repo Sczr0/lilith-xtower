@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { computeWeakEtag, isEtagFresh } from '@/app/lib/utils/httpCache';
+import {
+  matchPublicGetCache,
+  UpstreamPassthroughError,
+  type PublicProxyCacheInstance,
+  type PublicProxyCacheRule,
+} from '@/app/lib/api/publicProxyCache';
+
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
@@ -73,6 +81,13 @@ async function proxy(req: NextRequest, params: { path: string[] }) {
     return notFound();
   }
 
+  // 公开只读 GET（排行榜 Top/按名次、公开档案、歌曲搜索）：
+  // 源站内存缓存 + ETag/304 + 公开 Cache-Control；不转发 Cookie、不带 Vary。
+  const publicGet = matchPublicGetCache(req.method, params.path);
+  if (publicGet) {
+    return proxyPublicGet(req, params.path, publicGet.rule, publicGet.cache);
+  }
+
   const upstream = buildUpstream(params.path, req.nextUrl.search);
 
   const controller = new AbortController();
@@ -139,6 +154,90 @@ async function proxy(req: NextRequest, params: { path: string[] }) {
           Expires: '0',
           Vary: 'Cookie, Authorization',
         },
+      },
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/** 缓存 key 对查询参数排序归一，避免同义不同序的参数产生重复条目 */
+function buildPublicCacheKey(pathname: string, search: string): string {
+  if (!search) return pathname;
+  const params = new URLSearchParams(search);
+  params.sort();
+  return `${pathname}?${params.toString()}`;
+}
+
+async function proxyPublicGet(
+  req: NextRequest,
+  pathParts: string[],
+  rule: PublicProxyCacheRule,
+  cache: PublicProxyCacheInstance,
+): Promise<NextResponse> {
+  const upstream = buildUpstream(pathParts, req.nextUrl.search);
+  const cacheKey = buildPublicCacheKey(req.nextUrl.pathname, req.nextUrl.search);
+  const NO_STORE = 'private, no-store, no-cache, max-age=0, must-revalidate';
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+  try {
+    const entry = await cache.get(cacheKey, async () => {
+      // 匿名请求：不带 Cookie/Authorization，上游返回的是公开视图，可安全共享缓存
+      const res = await fetch(upstream.toString(), {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          'X-Forwarded-By': 'PhigrosQuery',
+        },
+        signal: controller.signal,
+        cache: 'no-store',
+      });
+
+      const contentType = res.headers.get('content-type') || 'application/json; charset=utf-8';
+      const text = await res.text();
+
+      if (!res.ok) {
+        // 非 2xx 不缓存，原样透传状态码与响应体
+        throw new UpstreamPassthroughError(res.status, contentType, text);
+      }
+
+      return { status: res.status, contentType, body: text, etag: computeWeakEtag(text) };
+    });
+
+    const cacheControl = rule.cacheControl || NO_STORE;
+
+    if (isEtagFresh(req.headers.get('if-none-match'), entry.etag)) {
+      return new NextResponse(null, {
+        status: 304,
+        headers: { ETag: entry.etag, 'Cache-Control': cacheControl },
+      });
+    }
+
+    return new NextResponse(entry.body, {
+      status: entry.status,
+      headers: {
+        'Content-Type': entry.contentType,
+        'Cache-Control': cacheControl,
+        ETag: entry.etag,
+      },
+    });
+  } catch (err) {
+    if (err instanceof UpstreamPassthroughError) {
+      return new NextResponse(err.body, {
+        status: err.status,
+        headers: { 'Content-Type': err.contentType, 'Cache-Control': NO_STORE },
+      });
+    }
+
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    const isTimeout = /aborted|abort/i.test(message);
+    return NextResponse.json(
+      { error: isTimeout ? 'API 请求超时，请稍后重试' : `API 请求失败：${message}` },
+      {
+        status: isTimeout ? 504 : 502,
+        headers: { 'Cache-Control': NO_STORE, Pragma: 'no-cache', Expires: '0' },
       },
     );
   } finally {
