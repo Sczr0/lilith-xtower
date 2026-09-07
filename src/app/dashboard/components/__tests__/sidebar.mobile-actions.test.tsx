@@ -28,6 +28,10 @@ vi.mock('../../../contexts/AuthContext', () => ({
   }),
 }))
 
+vi.mock('../../../components/InstallButton', () => ({
+  InstallButton: () => <button type="button">InstallButton</button>,
+}))
+
 import { Sidebar } from '../Sidebar'
 
 describe('Dashboard Sidebar mobile action links', () => {

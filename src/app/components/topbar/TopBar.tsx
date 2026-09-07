@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 
 import { PromoBannerSlot } from '../PromoBannerSlot';
+import { InstallButton } from '../InstallButton';
 import { cx } from '../ui/styles';
 
 export const TOP_BAR_BASE_CLASSNAME =
@@ -30,6 +31,10 @@ export function TopBar({ sticky = true, className, left, right, rightClassName }
         {right && (
           <div className={cx('ml-auto flex items-center', rightClassName)}>
             {right}
+            {/* 全局安装入口：图标态按钮，不安装时自动隐藏 */}
+            <div className="ml-1 shrink-0">
+              <InstallButton variant="icon" />
+            </div>
           </div>
         )}
       </header>

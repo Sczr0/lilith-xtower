@@ -250,6 +250,16 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      // PWA：service worker 必须可及时更新，禁止 long-cache / immutable
+      {
+        source: "/sw.js",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=0, must-revalidate",
+          },
+        ],
+      },
     ];
   },
 };

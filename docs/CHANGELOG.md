@@ -4,6 +4,20 @@
 
 ## Unreleased
 
+- 新增（PWA，MVP）：站点可安装为渐进式 Web 应用
+  - `src/app/manifest.ts` 生成 `/manifest.webmanifest`（name/short_name/start_url/scope/display=standalone/theme_color/background_color/lang/id + 192/512 与 maskable 图标）
+  - `scripts/gen-pwa-icons.mjs`：由站点头像生成 `public/icons/{icon-192,icon-512,icon-maskable-512,apple-touch-icon,favicon-32}.png`
+  - `public/sw.js`（Service Worker）：静态资源 cache-first、公开只读 API（白名单）stale-while-revalidate、导航 network-first + 离线回退 `public/offline.html`；鉴权/会话/内部端点与 catch-all、unified 代理一律不缓存（避免带凭据响应跨用户泄漏）
+  - `src/app/components/ServiceWorkerRegister.tsx`：仅生产环境注册 `sw.js`（含 waiting SW 的 SKIP_WAITING 与可见性触发更新）；`layout.tsx` 补充 `applicationName/manifest/appleWebApp/icons` 元数据
+  - `next.config.ts` 对 `/sw.js` 设 `must-revalidate`，避免 SW 被长期缓存而无法及时更新
+  - 单测：`src/app/__tests__/manifest.test.ts` 校验可安装字段与图标声明
+- 新增（PWA，增强）：自定义安装按钮与离线提示
+  - `InstallPromptContext`（`InstallPromptProvider` + `useInstallPrompt`）监听 `beforeinstallprompt` / `appinstalled` / display-mode，暴露可安装/是否 iOS/standalone 状态与 `install()`
+  - `InstallButton`：Chrome/Edge/Android 点击触发浏览器原生安装；iOS（无原生事件）点击展示轻量“分享 → 添加到主屏幕”引导；已安装为 PWA 时不渲染
+  - 接入位置：全局 `TopBar` 右侧图标态按钮（所有页面可见）+ Dashboard 侧边栏 PC 端菜单底部 + 移动端底部操作区（展开/收起态均支持）
+  - `OfflineNotice`：顶部悬浮小通知条，监听 `online/offline` 事件与 SW 的 `OFFLINE_FALLBACK`/`NETWORK_OK` 消息，离线或回退到缓存时展示、恢复后自动消失，不遮挡正文
+  - `sw.js` 增补对页面 `postMessage`（导航成功 `NETWORK_OK` / 回退 `OFFLINE_FALLBACK`）
+  - 单测：安装按钮（原生安装 / iOS 引导）、离线提示（onLine 变化 / SW 消息）、Sidebar 移动操作
 - 安全（验证码）：修复 CAP 验证码 fail-open 绕过
   - `verifyCapToken` 区分「服务端未配置密钥（灰度放行）」与「已配置密钥但客户端缺 token」：后者现在明确拒绝（`missing_token`），且该检查先于断路器，断路打开也不会顺带放行；脚本不带 capToken 直接 POST 登录接口的绕过路径被关闭
   - 登录接口对 `missing_token` / `invalid_token` 返回 403（code `CAP_FAILED`），仅 `upstream_error` / `timeout` / `circuit_open` 维持降级放行；`CAP_SECRET_KEY` 改为惰性读取（便于测试与灰度切换）

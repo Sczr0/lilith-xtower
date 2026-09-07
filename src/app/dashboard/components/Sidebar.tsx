@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTheme } from 'next-themes';
 import { useAuth } from '../../contexts/AuthContext';
 import { ThemeToggle } from '../../components/ThemeToggle';
+import { InstallButton } from '../../components/InstallButton';
 import Link from 'next/link';
 import { THEME_NAME_MOBILE, THEME_NAME_DESKTOP } from '../../lib/constants/themeNames';
 import { DASHBOARD_NAV_ITEMS } from '../../components/topbar/nav';
@@ -280,6 +281,11 @@ export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobile
         ))}
       </nav>
 
+      {/* 桌面端：安装到桌面入口（移动端在底部操作区展示） */}
+      <div className={`hidden lg:block border-t border-gray-200 dark:border-gray-700 p-3 ${isCollapsed ? '' : 'pt-3'}`}>
+        <InstallButton collapsed={isCollapsed} />
+      </div>
+
       {/* User Info & Actions - only on mobile (desktop见Header) */}
       <div className="border-t border-gray-200 dark:border-gray-700 lg:hidden">
         {!isCollapsed ? (
@@ -316,6 +322,9 @@ export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobile
                   {item.label}
                 </Link>
               ))}
+
+              {/* PWA：安装入口（移动端底部操作区，方便一眼看到） */}
+              <InstallButton onAction={onMobileClose} />
 
               <div className="flex items-center px-3 py-2">
                 <span className="text-sm text-gray-700 dark:text-gray-300">主题</span>
@@ -370,6 +379,8 @@ export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobile
                 <ActionLinkIcon href={item.href} className="w-5 h-5" />
               </Link>
             ))}
+
+            <InstallButton collapsed onAction={onMobileClose} />
 
             <div className="flex items-center justify-center px-3 py-2">
               <ThemeToggle />

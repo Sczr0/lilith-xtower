@@ -3,10 +3,12 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "./components/ThemeProvider";
 import { AuthProvider } from "./contexts/AuthContext";
+import { InstallPromptProvider } from "./contexts/InstallPromptContext";
 import { MaintenanceProvider } from "./components/MaintenanceProvider";
 import { GenerationProvider } from "./contexts/GenerationContext";
 import { MaintenanceNotice } from "./components/MaintenanceNotice";
 import { PrivacyNotice } from "./components/PrivacyNotice";
+import { OfflineNotice } from "./components/OfflineNotice";
 import { Analytics } from "@vercel/analytics/next";
 import { Suspense } from "react";
 import Script from "next/script";
@@ -14,6 +16,7 @@ import WebVitals from "./components/WebVitals";
 import { DiagnosticsInit } from "./components/DiagnosticsInit";
 import { TipsProvider } from "./components/TipsProvider";
 import { BrandFontLoader } from "./components/BrandFontLoader";
+import ServiceWorkerRegister from "./components/ServiceWorkerRegister";
 import { SITE_URL } from "./utils/site-url";
 
 const geistSans = Geist({
@@ -42,6 +45,23 @@ export const metadata: Metadata = {
   description:
     "Phigros Query 是一个专为 Phigros 玩家打造的综合性成绩查询与数据分析平台。我们提供精准的 RKS 计算、精美的 Best N 成绩卡片生成、详细的单曲表现分析以及便捷的成绩分享功能，帮助玩家更好地记录和提升游戏水平。",
   keywords: ["Phigros", "RKS 计算", "Best N", "成绩查询", "成绩卡片", "谱面数据", "成绩导出", "玩家工具"],
+  // PWA：应用名称与 web app manifest
+  applicationName: "Phigros Query",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Phigros Query",
+  },
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
   openGraph: {
     type: "website",
     url: "/",
@@ -99,19 +119,23 @@ export default async function RootLayout({
             <MaintenanceNotice />
             <PrivacyNotice />
             <Suspense fallback={null}>
-              <AuthProvider>
-                <DiagnosticsInit />
-                <MaintenanceProvider>
-                  <GenerationProvider>
-                    {children}
-                  </GenerationProvider>
-                </MaintenanceProvider>
-              </AuthProvider>
+              <InstallPromptProvider>
+                <AuthProvider>
+                  <DiagnosticsInit />
+                  <MaintenanceProvider>
+                    <GenerationProvider>
+                      {children}
+                    </GenerationProvider>
+                  </MaintenanceProvider>
+                </AuthProvider>
+              </InstallPromptProvider>
             </Suspense>
           </TipsProvider>
         </ThemeProvider>
         {ENABLE_VERCEL_ANALYTICS ? <Analytics /> : null}
         <WebVitals />
+        <ServiceWorkerRegister />
+        <OfflineNotice />
       </body>
     </html>
   );
