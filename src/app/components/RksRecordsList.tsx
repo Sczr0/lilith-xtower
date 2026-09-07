@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
 import { ScoreAPI } from '../lib/api/score';
 import { RksRecord } from '../lib/types/score';
@@ -25,7 +25,6 @@ import {
 function RksRecordsListInner({ showTitle = true, showDescription = true }: { showTitle?: boolean; showDescription?: boolean }) {
   const { credential } = useAuth();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [records, setRecords] = useState<RksRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -404,7 +403,8 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
     if (!q) return;
 
     // 导航一致性：通过 Next Router 软导航切换到“单曲查询”tab，并携带歌曲名参数。
-    const next = new URLSearchParams(searchParams.toString());
+    // 说明：使用 window.location.search 而非 useSearchParams，保证与当前地址栏一致（侧边栏切换 tab 走 replaceState，不更新 Router 内部 searchParams，后者可能拿到过期值）。
+    const next = new URLSearchParams(window.location.search);
     next.set('tab', 'single-query');
     next.set('song', q);
     router.push(`/dashboard?${next.toString()}`);

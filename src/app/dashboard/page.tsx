@@ -33,7 +33,20 @@ export default function Dashboard() {
   const agreementAccepted = useClientValue(() => localStorage.getItem(AGREEMENT_ACCEPTED_KEY) === 'true', false);
   const showMenuGuide = agreementAccepted && !menuGuideDismissed;
 
-  // 浏览器前进/后退时同步 tab 状态
+  // URL → Tab 同步：
+  // - 同路由软导航（RKS 列表“查询”按钮 / Lilith“去单曲查询”通过 router.push 携带 tab、song 参数）
+  //   不会触发 popstate，直接监听 useSearchParams 变化以切换 tab；
+  // - 浏览器前进/后退（popstate）同样会更新 searchParams，一并覆盖。
+  // 触发信号为 searchParams 引用本身：软导航后即使 tab 值未变，仅 song 参数变化也会触发同步。
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && isDashboardTabId(tabParam)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- URL→Tab 单向同步：订阅 Next Router 的 searchParams 变化，将外部路由状态同步到本地 tab 状态
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
+
+  // 兜底：直接监听 popstate，防止个别浏览器/路由场景下 searchParams 未及时更新
   useEffect(() => {
     const syncTabFromUrl = () => {
       const params = new URLSearchParams(window.location.search);
