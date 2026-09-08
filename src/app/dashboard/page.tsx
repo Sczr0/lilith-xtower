@@ -11,6 +11,7 @@ import { DashboardTabContent } from './components/DashboardTabContent';
 import { useDashboardPrefetch } from './hooks/useDashboardPrefetch';
 import { useDashboardContent } from './hooks/useDashboardContent';
 import { useClientValue } from '../hooks/useClientValue';
+import { resolveAuthGuardAction } from '../lib/auth/authGuard';
 import { AGREEMENT_ACCEPTED_KEY } from '../lib/constants/storageKeys';
 import { DashboardShell } from './components/DashboardShell';
 import { PageShell } from '../components/PageShell';
@@ -18,7 +19,7 @@ import { PageShell } from '../components/PageShell';
 const parseDebugExport = (value: string | null): boolean => value === '1' || value === 'true';
 
 export default function Dashboard() {
-  const { isAuthenticated, isLoading, error } = useAuth();
+  const { isAuthenticated, isLoading, isSessionVerified, error, refreshSession } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -83,12 +84,14 @@ export default function Dashboard() {
   }, [activeTab]);
 
   // 说明：未登录时软跳转 /login，避免硬刷新带来的体验割裂。
+  // 仅「已确认未登录」才跳转：会话状态查询超时/上游 5xx 时 isSessionVerified 为 false，
+  // 此时留在本页并展示提示，等业务接口的 401 兜底，避免 /dashboard ↔ /login 来回跳。
   useEffect(() => {
-    if (isLoading) return;
-    if (!isAuthenticated) {
+    const action = resolveAuthGuardAction({ isLoading, isAuthenticated, isSessionVerified });
+    if (action === 'redirect-login') {
       router.replace('/login');
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [isAuthenticated, isLoading, isSessionVerified, router]);
 
   if (isLoading) {
     return (
@@ -115,7 +118,25 @@ export default function Dashboard() {
         mainClassName="flex min-h-screen items-center justify-center px-4 py-10"
         containerClassName="mx-auto max-w-4xl"
       >
-        <div className="text-sm text-gray-600 dark:text-gray-400">正在跳转到登录页…</div>
+        <div className="flex flex-col items-center gap-4" role="status" aria-live="polite">
+          {isSessionVerified ? (
+            <div className="text-sm text-gray-600 dark:text-gray-400">正在跳转到登录页…</div>
+          ) : (
+            <>
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" aria-hidden="true"></div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                正在确认登录状态，服务器响应较慢，请稍候…
+              </p>
+              <button
+                type="button"
+                onClick={refreshSession}
+                className="rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              >
+                重试
+              </button>
+            </>
+          )}
+        </div>
       </PageShell>
     );
   }

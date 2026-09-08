@@ -46,12 +46,13 @@ const AUTHED_PAYLOAD = {
 const AUTHED_PAYLOAD_WITH_CONSENT = { ...AUTHED_PAYLOAD, consentRequired: true };
 
 function AuthStateProbe() {
-  const { isAuthenticated, isLoading, login } = useAuth();
+  const { isAuthenticated, isLoading, isSessionVerified, login } = useAuth();
   return (
     <div>
       <span data-testid="auth-state">
         {isLoading ? 'loading' : isAuthenticated ? 'authed' : 'guest'}
       </span>
+      <span data-testid="session-verified">{isSessionVerified ? 'verified' : 'unverified'}</span>
       <button onClick={() => login({ type: 'api', api_user_id: 'u1', timestamp: 0 })}>login</button>
     </div>
   );
@@ -169,6 +170,59 @@ describe('AuthContext 登录缓存与异常弹窗', () => {
     expect(JSON.parse(loginCall[1].body as string)).toMatchObject({
       capToken: 'cap-token-abc',
     });
+  });
+
+  /**
+   * 回归用例（P0-2）：/api/session 抽风（超时/网络错误/上游 5xx）不得被当成「未登录」。
+   * 否则守卫会把用户踢到 /login，而 /login 又因本地缓存弹回 /dashboard，来回跳转。
+   */
+  it('会话状态接口 5xx 且存在登录缓存时：保留登录态、不弹异常弹窗、标记未确认', async () => {
+    AuthStorage.setCachedLogin(true);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ error: '会话校验失败' }, 502)));
+
+    render(
+      <AuthProvider>
+        <AuthStateProbe />
+      </AuthProvider>,
+    );
+
+    expect(await screen.findByTestId('session-verified')).toBeTruthy();
+    // 瞬时失败已重试耗尽后：仍是登录态（沿用缓存），但标记为未确认。
+    expect(await screen.findByText('authed', undefined, { timeout: 4_000 })).toBeTruthy();
+    expect(screen.getByTestId('session-verified').textContent).toBe('unverified');
+    expect(screen.queryByText('登录状态异常')).toBeNull();
+    expect(AuthStorage.getCachedLogin()).toBe(true);
+  });
+
+  it('会话状态接口网络错误且存在登录缓存时：保留登录态、标记未确认', async () => {
+    AuthStorage.setCachedLogin(true);
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+
+    render(
+      <AuthProvider>
+        <AuthStateProbe />
+      </AuthProvider>,
+    );
+
+    expect(await screen.findByText('authed', undefined, { timeout: 4_000 })).toBeTruthy();
+    expect(screen.getByTestId('session-verified').textContent).toBe('unverified');
+    expect(screen.queryByText('登录状态异常')).toBeNull();
+  });
+
+  it('服务端权威判定未登录时：清除缓存并弹窗（保持原行为）', async () => {
+    AuthStorage.setCachedLogin(true);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(GUEST_PAYLOAD)));
+
+    render(
+      <AuthProvider>
+        <AuthStateProbe />
+      </AuthProvider>,
+    );
+
+    expect(await screen.findByText('guest')).toBeTruthy();
+    expect(screen.getByTestId('session-verified').textContent).toBe('verified');
+    expect(await screen.findByText('登录状态异常')).toBeTruthy();
+    expect(AuthStorage.getCachedLogin()).toBe(false);
   });
 });
 

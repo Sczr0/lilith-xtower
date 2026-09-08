@@ -19,7 +19,12 @@ import {
   detectGlobalBanFromResponse,
   shouldInspectBanForRequest,
 } from '../lib/auth/banGuard';
-import type { AuthCredentialSummary, SessionStatusResponse } from '../lib/auth/credentialSummary';
+import type { AuthCredentialSummary } from '../lib/auth/credentialSummary';
+import { resolveAuthGuardAction } from '../lib/auth/authGuard';
+import {
+  fetchSessionStatus,
+  isTransientSessionStatusError,
+} from '../lib/auth/sessionStatus';
 import { AGREEMENT_ACCEPTED_KEY, BANNED_DETAIL_KEY } from '../lib/constants/storageKeys';
 import { getCapToken } from '../lib/cap/client';
 import { AuthStorage } from '../lib/storage/auth';
@@ -38,12 +43,20 @@ type AuthState = {
   error: string | null;
   /** 服务端判定需要重新同意协议时为 true，前端据此弹出协议确认。 */
   consentRequired: boolean;
+  /**
+   * 本次状态是否已由服务端确认（权威判定）。
+   * false 表示「暂时查不到」（超时/网络错误/5xx），此时 isAuthenticated 仅沿用本地登录缓存，
+   * 守卫不应据此把用户踢到登录页——这正是「先闪登录页再被弹回仪表盘」的成因。
+   */
+  isSessionVerified: boolean;
 };
 
 interface AuthContextType extends AuthState {
   login: (credential: AuthCredential, capToken?: string) => Promise<void>;
   logout: () => void;
   validateCurrentCredential: () => Promise<boolean>;
+  /** 重新查询会话状态（服务器抽风/超时后的显式重试）。 */
+  refreshSession: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -105,20 +118,118 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isLoading: true,
     error: null,
     consentRequired: false,
+    isSessionVerified: false,
   });
   const [showAgreement, setShowAgreement] = useState(false);
   const [showSessionExpired, setShowSessionExpired] = useState(false);
   const [agreementHtml, setAgreementHtml] = useState<string>('');
   const [isInitialized, setIsInitialized] = useState(false);
   const banHandlingRef = useRef(false);
+  const sessionRequestIdRef = useRef(0);
+  // 通过 ref 暴露 refreshSession 给「服务可达」回调，避免声明顺序与依赖循环。
+  const refreshSessionRef = useRef<(() => Promise<void>) | null>(null);
 
   const shouldPollStatus =
     !!authState.error &&
     (/服务器暂时无法访问/.test(authState.error) || /网络错误/.test(authState.error));
   useServiceReachability({
     shouldPoll: shouldPollStatus,
-    onReachable: () => setAuthState((prev) => ({ ...prev, error: null })),
+    // 服务器恢复后重新确认会话状态：避免 isSessionVerified 一直停在 false，
+    // 让守卫长期卡在「正在确认登录状态」。
+    onReachable: () => void refreshSessionRef.current?.(),
   });
+
+  /**
+   * 拉取会话状态并写入 authState。
+   *
+   * 关键约定：只有服务端给出权威结果（200）才改判登录态；
+   * 瞬时失败（超时/网络/5xx）只标记 isSessionVerified=false，并沿用本地登录缓存，
+   * 避免把「服务器抽风」当成「未登录」而把用户踢去登录页。
+   */
+  const loadSessionStatus = useCallback(async (): Promise<void> => {
+    const requestId = ++sessionRequestIdRef.current;
+
+    try {
+      const payload = await fetchSessionStatus();
+      if (requestId !== sessionRequestIdRef.current) return;
+
+      // 本地缓存标记已登录、但服务端会话校验未通过（过期/被吊销）：
+      // 清除缓存并弹窗引导重新登录。登录页/封禁页本身信息已足够，不重复弹窗。
+      if (!payload.isAuthenticated && AuthStorage.getCachedLogin()) {
+        AuthStorage.clearCachedLogin();
+        if (pathname !== '/login' && pathname !== '/banned') {
+          setShowSessionExpired(true);
+        }
+      }
+
+      if (payload.isAuthenticated) {
+        AuthAPI.checkHealth()
+          .then((ok) => {
+            if (!ok) {
+              setAuthState((prev) => ({
+                ...prev,
+                error: '服务器暂时无法访问，请稍后再试',
+              }));
+            }
+          })
+          .catch(() => {
+            // 健康检查失败不阻断流程
+          });
+      }
+
+      setAuthState({
+        isAuthenticated: payload.isAuthenticated,
+        credential: payload.credential,
+        isLoading: false,
+        error: null,
+        consentRequired: payload.consentRequired ?? false,
+        isSessionVerified: true,
+      });
+
+      // 已登录但协议版本落后：弹出协议确认（跨设备/清缓存后也能拦住）。
+      // 协议阅读页（/agreement、/privacy）在渲染处放行，允许先查看最新版本。
+      if (payload.isAuthenticated && payload.consentRequired) {
+        setAgreementHtml('');
+        setShowAgreement(true);
+      }
+    } catch (error) {
+      if (requestId !== sessionRequestIdRef.current) return;
+
+      if (isTransientSessionStatusError(error)) {
+        const hasCachedLogin = AuthStorage.getCachedLogin();
+        setAuthState((prev) => ({
+          ...prev,
+          // 已缓存登录时不把用户判为未登录：否则守卫会把他踢到 /login，
+          // 而 /login 又会因缓存标记弹回 /dashboard（来回跳转）。
+          isAuthenticated: hasCachedLogin ? true : prev.isAuthenticated,
+          isLoading: false,
+          error: '服务器暂时无法访问，请稍后再试',
+          isSessionVerified: false,
+        }));
+        return;
+      }
+
+      const message = error instanceof Error ? error.message : '初始化认证状态失败';
+      setAuthState({
+        isAuthenticated: false,
+        credential: null,
+        isLoading: false,
+        error: message,
+        consentRequired: false,
+        isSessionVerified: false,
+      });
+    }
+  }, [pathname]);
+
+  /** 手动重试会话状态查询（服务器抽风时的显式重试入口）。 */
+  const refreshSession = useCallback(async (): Promise<void> => {
+    setAuthState((prev) => ({ ...prev, isLoading: true, error: null }));
+    await loadSessionStatus();
+  }, [loadSessionStatus]);
+
+  useEffect(() => {
+    refreshSessionRef.current = refreshSession;
+  }, [refreshSession]);
 
   useEffect(() => {
     if (isInitialized) return;
@@ -126,69 +237,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 一次性初始化守卫
     setIsInitialized(true);
 
-    fetch('/api/session', {
-      method: 'GET',
-      cache: 'no-store',
-      headers: { Accept: 'application/json' },
-    })
-      .then(async (res) => {
-        const payload = (await res.json().catch(() => null)) as
-          | (SessionStatusResponse & { error?: string })
-          | null;
-        if (!res.ok || !payload) {
-          throw new Error(payload?.error || `获取会话失败（${res.status}）`);
-        }
-
-        // 本地缓存标记已登录、但服务端会话校验未通过（过期/被吊销）：
-        // 清除缓存并弹窗引导重新登录。登录页/封禁页本身信息已足够，不重复弹窗。
-        if (!payload.isAuthenticated && AuthStorage.getCachedLogin()) {
-          AuthStorage.clearCachedLogin();
-          if (pathname !== '/login' && pathname !== '/banned') {
-            setShowSessionExpired(true);
-          }
-        }
-
-        if (payload.isAuthenticated) {
-          AuthAPI.checkHealth()
-            .then((ok) => {
-              if (!ok) {
-                setAuthState((prev) => ({
-                  ...prev,
-                  error: '服务器暂时无法访问，请稍后再试',
-                }));
-              }
-            })
-            .catch(() => {
-              // 健康检查失败不阻断流程
-            });
-        }
-
-        setAuthState({
-          isAuthenticated: payload.isAuthenticated,
-          credential: payload.credential,
-          isLoading: false,
-          error: null,
-          consentRequired: payload.consentRequired ?? false,
-        });
-
-        // 已登录但协议版本落后：弹出协议确认（跨设备/清缓存后也能拦住）。
-        // 协议阅读页（/agreement、/privacy）在渲染处放行，允许先查看最新版本。
-        if (payload.isAuthenticated && payload.consentRequired) {
-          setAgreementHtml('');
-          setShowAgreement(true);
-        }
-      })
-      .catch((error) => {
-        const message = error instanceof Error ? error.message : '初始化认证状态失败';
-        setAuthState({
-          isAuthenticated: false,
-          credential: null,
-          isLoading: false,
-          error: message,
-          consentRequired: false,
-        });
-      });
-  }, [isInitialized, pathname]);
+    void loadSessionStatus();
+  }, [isInitialized, loadSessionStatus]);
 
   const performClientLogout = useCallback(
     (reason: 'manual' | 'banned', detail?: string | null) => {
@@ -211,6 +261,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         isLoading: false,
         error: null,
         consentRequired: false,
+        isSessionVerified: true,
       });
 
       if (reason === 'banned') {
@@ -288,6 +339,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           isLoading: false,
           error: null,
           consentRequired,
+          isSessionVerified: true,
         });
 
         // 记录本地登录缓存（UI 提示用途），便于首页“立即开始”直接进入仪表盘。
@@ -311,6 +363,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           isLoading: false,
           error: errorMessage,
           consentRequired: false,
+          isSessionVerified: true,
         });
       }
     },
@@ -358,6 +411,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       isLoading: false,
       error: '您需要同意用户协议才能使用本服务',
       consentRequired: false,
+      isSessionVerified: true,
     });
   }, []);
 
@@ -375,7 +429,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         | { isValid: boolean; shouldLogout: boolean; error?: string }
         | null;
 
-      if (!res.ok || !data) return false;
+      // 5xx / 响应体缺失 = 上游不可用（瞬时）：不登出、不报无效，交由调用方决定是否重试。
+      if (res.status >= 500 || !res.ok || !data) return false;
       if (data.shouldLogout) logout();
       return !!data.isValid;
     } catch (error) {
@@ -389,6 +444,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     login,
     logout,
     validateCurrentCredential,
+    refreshSession,
   };
 
   return (
@@ -417,15 +473,17 @@ export function useAuth(): AuthContextType {
 
 export function withAuth<P extends object>(Component: React.ComponentType<P>): React.ComponentType<P> {
   return function AuthenticatedComponent(props: P) {
-    const { isAuthenticated, isLoading } = useAuth();
+    const { isAuthenticated, isLoading, isSessionVerified } = useAuth();
     const router = useRouter();
 
+    // 仅在「已确认未登录」时跳转：会话状态查询超时/上游 5xx 时 isSessionVerified 为 false，
+    // 此时留在原页等待后续业务接口的 401 兜底，避免 /login ↔ /dashboard 来回跳。
     useEffect(() => {
-      if (isLoading) return;
-      if (!isAuthenticated) {
+      const action = resolveAuthGuardAction({ isLoading, isAuthenticated, isSessionVerified });
+      if (action === 'redirect-login') {
         router.replace('/login');
       }
-    }, [isAuthenticated, isLoading, router]);
+    }, [isAuthenticated, isLoading, isSessionVerified, router]);
 
     if (isLoading) {
       return (
@@ -441,7 +499,9 @@ export function withAuth<P extends object>(Component: React.ComponentType<P>): R
     if (!isAuthenticated) {
       return (
         <div className="flex items-center justify-center min-h-screen">
-          <div className="text-sm text-gray-600 dark:text-gray-400">正在跳转到登录页…</div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            {isSessionVerified ? '正在跳转到登录页…' : '正在确认登录状态…'}
+          </div>
         </div>
       );
     }

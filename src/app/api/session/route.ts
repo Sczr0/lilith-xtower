@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 
 import { getConsentStatus } from '@/app/lib/auth/consent'
 import { getAuthSession } from '@/app/lib/auth/session'
-import { guardBackendSession } from '@/app/lib/auth/backendSessionGuard'
 import { toCredentialSummary, type SessionStatusResponse } from '@/app/lib/auth/credentialSummary'
 
 export const runtime = 'nodejs'
@@ -24,24 +23,19 @@ function buildUnsignedConsentPayload(extra?: Record<string, unknown>) {
   }
 }
 
+/**
+ * 会话状态查询（前端初始化鉴权状态的唯一权威来源）。
+ *
+ * 设计约束（P0-2）：
+ * - 只做本地判定：读取 iron-session Cookie + 撤销表，**不发起任何上游请求**。
+ * - 上游 token 的真值校验属于「用到它」的接口（如 /api/session/reveal 为 strict 模式），
+ *   不放在状态接口上：否则上游一次抖动就会让本接口变慢/报 5xx，客户端据此误判「未登录」，
+ *   触发 /dashboard ↔ /login 来回跳转（守卫把「查不到」当成「没登录」）。
+ * - 因此本接口的响应时间与上游无关；isAuthenticated 仅表示「本地会话存在且未被撤销」。
+ */
 export async function GET() {
   try {
     const session = await getAuthSession()
-    const guard = await guardBackendSession(session, { mode: 'lazy' })
-
-    if (guard.status === 'upstream_error') {
-      return NextResponse.json(
-        buildUnsignedConsentPayload({ error: '会话校验失败，请稍后重试' }),
-        { status: 502, headers: { 'Cache-Control': 'no-store' } },
-      )
-    }
-
-    if (guard.status !== 'valid') {
-      return NextResponse.json(buildUnsignedConsentPayload(), {
-        headers: { 'Cache-Control': 'no-store' },
-      })
-    }
-
     const credential = session.credential
     if (!credential) {
       return NextResponse.json(buildUnsignedConsentPayload(), {

@@ -4,6 +4,14 @@ import { getSeekendApiBaseUrl } from './upstream'
 const BASE_URL = getSeekendApiBaseUrl()
 const EXCHANGE_SECRET = process.env.PHI_EXCHANGE_SECRET!
 
+/** 上游会话接口超时（毫秒）：把「上游抽风」变成有界失败，避免请求无限挂起。 */
+const DEFAULT_UPSTREAM_TIMEOUT_MS = 5_000
+
+function resolveTimeoutMs(): number {
+  const raw = Number.parseInt((process.env.PHI_SESSION_TIMEOUT_MS || '').trim(), 10)
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_UPSTREAM_TIMEOUT_MS
+}
+
 type BackendTokenResponse = {
   accessToken: string
   expiresIn: number
@@ -26,6 +34,23 @@ export class BackendSessionError extends Error {
 
 export function isBackendSessionError(value: unknown): value is BackendSessionError {
   return value instanceof BackendSessionError
+}
+
+/** 上游请求统一入口：强制超时，超时以 BackendSessionError(504) 形式抛出（非 401，不会被误判为登出）。 */
+async function fetchUpstream(
+  operation: 'exchange' | 'refresh' | 'logout',
+  input: string,
+  init: RequestInit,
+): Promise<Response> {
+  try {
+    return await fetch(input, { ...init, signal: AbortSignal.timeout(resolveTimeoutMs()) })
+  } catch (error) {
+    const isAbort = error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')
+    if (isAbort) {
+      throw new BackendSessionError(operation, 504, `上游 ${operation} 超时`)
+    }
+    throw error
+  }
 }
 
 function ensureExchangeSecret(operation: 'refresh'): string {
@@ -63,7 +88,7 @@ export async function exchangeBackendToken(body: ExchangeBody) {
     return null
   }
 
-  const res = await fetch(`${BASE_URL}/auth/session/exchange`, {
+  const res = await fetchUpstream('exchange', `${BASE_URL}/auth/session/exchange`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -79,7 +104,7 @@ export async function exchangeBackendToken(body: ExchangeBody) {
 export async function refreshBackendToken(oldAccessToken: string) {
   const sharedSecret = ensureExchangeSecret('refresh')
 
-  const res = await fetch(`${BASE_URL}/auth/session/refresh`, {
+  const res = await fetchUpstream('refresh', `${BASE_URL}/auth/session/refresh`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${oldAccessToken}`,
@@ -92,7 +117,7 @@ export async function refreshBackendToken(oldAccessToken: string) {
 }
 
 export async function logoutBackendToken(accessToken: string, scope: 'current' | 'all') {
-  const res = await fetch(`${BASE_URL}/auth/session/logout`, {
+  const res = await fetchUpstream('logout', `${BASE_URL}/auth/session/logout`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
