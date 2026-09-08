@@ -40,6 +40,7 @@ export const SUPPORT_LINK_SECTIONS: SupportLinkSection[] = [
       { name: 'Phi Tracker -- 一款可以用于读取 Phigros 云存档查分的开源小工具', url: 'https://github.com/Kasumi-Ushio/Phi-Tracker', external: true },
       { name: '空游小站', url: 'https://kyou.net.cn', external: true },
       { name: 'Dmocken的Phira下载站', url: 'https://phira.dmocken.top/?utm_source=xtower-phigros-query', external: true },
+      { name: 'PhiHub 查分器', url: 'https://www.phib19.top', external: true },
     ],
     icon: Users,
   },
