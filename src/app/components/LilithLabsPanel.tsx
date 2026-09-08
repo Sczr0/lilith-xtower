@@ -9,6 +9,9 @@ import { DIFFICULTY_BG, DIFFICULTY_TEXT } from '../lib/constants/difficultyColor
 import type { RksRecord } from '../lib/types/score';
 import { formatFixedNumber } from '../lib/utils/number';
 import {
+  DEFAULT_ABSOLUTE_ACC_CEILING,
+  DEFAULT_CEILING_PROOF_RAISE,
+  DEFAULT_JUMP_BASE,
   DEFAULT_LILITH_RECOMMENDATION_LIMIT,
   buildLilithRecommendations,
   type CandidateTarget,
@@ -463,6 +466,12 @@ export function LilithLabsPanel() {
               潜力之选：每首曲目取其「目标 ACC 不超过稳定水平 {formatFixedNumber(recommendationResult.potentialOverReachCap, 1)}%」
               且「定数水平惩罚 ≤ {formatFixedNumber(recommendationResult.potentialMaxLevelPenalty, 1)}」内能做到的最大 Δ总RKS 目标；
               超出上限的神经刀 / 未胜任目标会被剔除，避免给出打不过的建议。
+            </p>
+            <p className="mt-1">
+              补充约束（以玩家 RKS {formatFixedNumber(recommendationResult.playerRks, 2)} 为参照）：高定数受绝对 ACC 天花板限制
+              （基准 {formatFixedNumber(DEFAULT_ABSOLUTE_ACC_CEILING, 1)}%，能力证明者放宽 {formatFixedNumber(DEFAULT_CEILING_PROOF_RAISE, 1)}%）；
+              超过玩家 RKS 0.5 的谱面单次提升受指数递减上限约束（基准 {formatFixedNumber(DEFAULT_JUMP_BASE, 1)}%）。
+              潜力视图硬过滤，效率视图折算为成本降权。
             </p>
             <p className="mt-1">{roiExplanation.summary}</p>
             <p className="mt-1 opacity-90">{roiExplanation.detail}</p>

@@ -331,7 +331,7 @@ describe('buildLilithRecommendations', () => {
       createRecord({ song_name: 'MediumDelta', difficulty_value: 14.5, acc: 92, push_acc: 96 }),
     ];
 
-    const result = buildLilithRecommendations(records, { limit: 5 });
+    const result = buildLilithRecommendations(records, { limit: 5, playerRks: 15.5 });
 
     expect(result.potentialRecommendations.length).toBeGreaterThan(0);
 
@@ -459,13 +459,15 @@ describe('稳定水平与补分（阶段6）', () => {
       createRecord({ song_name: 'S4', difficulty_value: 14.5, acc: 92 }),
     ];
     const est = buildStableAccEstimator(records);
-    // 15.0 桶有 3 条 → 中位数 95
-    expect(est(15.1)).toBe(95);
+    // 15.0 桶有 3 条 → 中位数 95（reliable）
+    expect(est(15.1).acc).toBe(95);
+    expect(est(15.1).reliable).toBe(true);
     // 14.5 桶只有 1 条 → 回退到最近可靠桶（15.0，距离 0.5 ≤ 1.0）→ 95
-    expect(est(14.4)).toBe(95);
+    expect(est(14.4).acc).toBe(95);
+    expect(est(14.4).reliable).toBe(true);
   });
 
-  it('buildStableAccEstimator: 无可靠桶时回退到全局中位数', () => {
+  it('buildStableAccEstimator: 无可靠桶时回退到全局中位数（reliable=false）', () => {
     const { buildStableAccEstimator } = __lilithRecommendationTestables;
     const records = [
       createRecord({ song_name: 'S1', difficulty_value: 15, acc: 96 }),
@@ -473,7 +475,8 @@ describe('稳定水平与补分（阶段6）', () => {
     ];
     const est = buildStableAccEstimator(records);
     // 两个桶各 1 条 → 全局中位数 (92+96)/2 = 94
-    expect(est(15.5)).toBe(94);
+    expect(est(15.5).acc).toBe(94);
+    expect(est(15.5).reliable).toBe(false);
   });
 
   it('computeOverReachPenalty: 未超出稳定水平为 1，超出越多惩罚越大', () => {
@@ -539,18 +542,19 @@ describe('潜力之选：可行上限（阶段7）', () => {
       createRecord({ song_name: 'Base1', difficulty_value: 15, acc: 95 }),
       createRecord({ song_name: 'Base2', difficulty_value: 15, acc: 94.5 }),
       createRecord({ song_name: 'Base3', difficulty_value: 15, acc: 95.5 }),
-      createRecord({ song_name: 'Target', difficulty_value: 15.4, acc: 92, push_acc: 95.5 }),
+      // 低于"玩家RKS+0.5"门槛 → 单次提升不受限；稳定水平≈94.75
+      createRecord({ song_name: 'Target', difficulty_value: 15, acc: 92, push_acc: 96 }),
     ];
-    const result = buildLilithRecommendations(records, { limit: 8 });
+    const result = buildLilithRecommendations(records, { limit: 8, playerRks: 15 });
     const potential = result.potentialAllCandidates.find((c) => c.record.song_name === 'Target');
     const efficiency = findRecommendation(result, 'Target');
 
     expect(potential).toBeDefined();
-    // 稳定水平 95，+2% 目标 97.5 恰好在上限 2.5% 边缘，是 cap 内最大增量
-    expect(potential!.targetAcc).toBeCloseTo(97.5, 6);
-    expect(potential!.targetLabel).toBe('plus_2');
+    // 可行上限（稳定 94.75 + 2.5 ≈ 97.25）内最大增量目标：采样间距内最高可达点 = 踩线+1% = 97（plus_1）
+    expect(potential!.targetAcc).toBeCloseTo(97, 6);
+    expect(potential!.targetLabel).toBe('plus_1');
     expect(potential!.overReach).toBeLessThanOrEqual(2.5 + 1e-6);
-    // 效率视图选择保守目标（0 超限的稳推点），潜力视图选择更大增量
+    // 效率视图选择保守目标（0 超限的稳推点 94.75），潜力视图选择更大增量
     expect(efficiency.targetAcc).toBeLessThan(potential!.targetAcc);
     // 潜力条目展开仍能看到效率视图的保守目标（stable）
     expect(potential!.alternativeTargets?.some((t) => t.label === 'stable')).toBe(true);
@@ -564,7 +568,7 @@ describe('潜力之选：可行上限（阶段7）', () => {
       // 玩家已处于/高于稳定水平（≈95.25），踩线 98.5 及 +1%/+2%/φ 全部超限
       createRecord({ song_name: 'FarPush', difficulty_value: 15, acc: 95.5, push_acc: 98.5 }),
     ];
-    const result = buildLilithRecommendations(records, { limit: 8 });
+    const result = buildLilithRecommendations(records, { limit: 8, playerRks: 15 });
 
     expect(result.potentialAllCandidates.find((c) => c.record.song_name === 'FarPush')).toBeUndefined();
     expect(result.allCandidates.find((c) => c.record.song_name === 'FarPush')).toBeDefined();
@@ -579,7 +583,7 @@ describe('潜力之选：可行上限（阶段7）', () => {
       createRecord({ song_name: 'PhiBase', difficulty_value: 15.2, acc: 100, already_phi: true }),
       createRecord({ song_name: 'NearPhi', difficulty_value: 15.4, acc: 99.7, push_acc: 100 }),
     ];
-    const result = buildLilithRecommendations(records, { limit: 8 });
+    const result = buildLilithRecommendations(records, { limit: 8, playerRks: 14 });
     const potential = result.potentialAllCandidates.find((c) => c.record.song_name === 'NearPhi');
 
     expect(potential).toBeDefined();
@@ -598,7 +602,7 @@ describe('潜力之选：可行上限（阶段7）', () => {
       createRecord({ song_name: 'A2', difficulty_value: 14.6, acc: 92, push_acc: 95 }),
       createRecord({ song_name: 'A3', difficulty_value: 14.2, acc: 93, push_acc: 94.5 }),
     ];
-    const result = buildLilithRecommendations(records, { limit: 8 });
+    const result = buildLilithRecommendations(records, { limit: 8, playerRks: 14 });
     const list = result.potentialAllCandidates;
 
     expect(list.length).toBeGreaterThanOrEqual(3);
@@ -639,7 +643,7 @@ describe('潜力之选：可行上限（阶段7）', () => {
       // 16.8 定数"尝试过但未胜任"：踩线 95.5 的 ACC 超限很小（≈0.75），但定数远超玩家水平
       createRecord({ song_name: 'OverLevel', difficulty_value: 16.8, acc: 89, push_acc: 95.5 }),
     ];
-    const result = buildLilithRecommendations(records, { limit: 8 });
+    const result = buildLilithRecommendations(records, { limit: 8, playerRks: 14 });
 
     expect(result.potentialAllCandidates.find((c) => c.record.song_name === 'OverLevel')).toBeUndefined();
     expect(result.allCandidates.find((c) => c.record.song_name === 'OverLevel')).toBeDefined();
@@ -663,5 +667,123 @@ describe('潜力之选：可行上限（阶段7）', () => {
     });
     expect(strict.potentialOverReachCap).toBe(1.8);
     expect(strict.potentialMaxLevelPenalty).toBe(1.5);
+  });
+});
+
+describe('阶段8：高定数绝对天花板 / 能力证明 / 单次提升上限', () => {
+  it('computeAbsoluteAccCeiling: 以玩家RKS+1.0为基准，向上递减向下递增，证明时放宽', () => {
+    const { computeAbsoluteAccCeiling } = __lilithRecommendationTestables;
+    expect(computeAbsoluteAccCeiling(16.0, 15, false)).toBeCloseTo(98.5, 6);
+    expect(computeAbsoluteAccCeiling(16.5, 15, false)).toBeCloseTo(98.1, 6);
+    expect(computeAbsoluteAccCeiling(17.0, 15, false)).toBeCloseTo(97.7, 6);
+    expect(computeAbsoluteAccCeiling(15.4, 15, false)).toBeCloseTo(98.8, 6);
+    expect(computeAbsoluteAccCeiling(14.0, 15, false)).toBeCloseTo(99.5, 6);
+    expect(computeAbsoluteAccCeiling(13.0, 15, false)).toBeCloseTo(100, 6); // 封顶
+    expect(computeAbsoluteAccCeiling(16.0, 15, true)).toBeCloseTo(99.0, 6); // 证明 +0.5
+    expect(computeAbsoluteAccCeiling(15.0, 0, false)).toBe(100); // 无参照 → 不限制
+  });
+
+  it('computeMaxJump: 低于门槛不限制，超出后 1.5% 起指数递减', () => {
+    const { computeMaxJump } = __lilithRecommendationTestables;
+    expect(computeMaxJump(15.0, 15)).toBe(Number.POSITIVE_INFINITY); // 门槛内
+    expect(computeMaxJump(14.0, 15)).toBe(Number.POSITIVE_INFINITY);
+    expect(computeMaxJump(15.5, 15)).toBeCloseTo(1.5, 6); // 恰在门槛
+    expect(computeMaxJump(16.0, 15)).toBeCloseTo(1.5 * Math.exp(-0.5), 6);
+    expect(computeMaxJump(16.5, 15)).toBeCloseTo(1.5 * Math.exp(-1), 6);
+    expect(computeMaxJump(17.0, 15)).toBeCloseTo(1.5 * Math.exp(-1.5), 6);
+    expect(computeMaxJump(16.0, 0)).toBe(Number.POSITIVE_INFINITY);
+  });
+
+  it('hasProofedCeiling: band（T−0.2 起）内需 ≥2 条定数与谱面RKS均达标的记录', () => {
+    const { hasProofedCeiling } = __lilithRecommendationTestables;
+    const proof1 = createRecord({ song_name: 'P1', difficulty_value: 16.1, acc: 99.7 }); // rks≈15.89
+    const proof2 = createRecord({ song_name: 'P2', difficulty_value: 16.2, acc: 99.6 }); // rks≈15.91
+    const notEnough = createRecord({ song_name: 'N1', difficulty_value: 16.1, acc: 96 }); // rks≈14.7 < 15.8
+    expect(hasProofedCeiling([proof1], 15)).toBe(false);
+    expect(hasProofedCeiling([proof1, proof2], 15)).toBe(true);
+    expect(hasProofedCeiling([proof1, notEnough], 15)).toBe(false);
+    expect(hasProofedCeiling([proof1, proof2], 0)).toBe(false);
+  });
+
+  it('无能力证明时，高定数超过绝对天花板的目标不进入潜力列表', () => {
+    const records: RksRecord[] = [
+      createRecord({ song_name: 'B1', difficulty_value: 16, acc: 98.2 }),
+      createRecord({ song_name: 'B2', difficulty_value: 16, acc: 97.9 }),
+      // 稳定水平≈97.9（可靠桶），推 98.9 只超 1.0 且单次提升未超限；
+      // 但无证明时天花板 = 98.75（16.0 低于 T=16.5）→ 98.9 被天花板拦下
+      createRecord({ song_name: 'HighPush', difficulty_value: 16, acc: 97.8, push_acc: 98.9 }),
+    ];
+    const result = buildLilithRecommendations(records, { limit: 8, playerRks: 15.5 });
+    const potential = result.potentialAllCandidates.find((c) => c.record.song_name === 'HighPush');
+
+    expect(result.proofedCeiling).toBe(false);
+    // 无证明：天花板 98.75 拦住 98.9（及更远目标），可行上限内只剩稳推点 97.9
+    expect(potential).toBeDefined();
+    expect(potential!.targetAcc).toBeCloseTo(97.9, 6);
+    expect(potential!.targetLabel).toBe('stable');
+    expect(result.allCandidates.find((c) => c.record.song_name === 'HighPush')).toBeDefined();
+  });
+
+  it('能力证明成立时允许略微抬高天花板（高定数目标进入潜力列表）', () => {
+    const records: RksRecord[] = [
+      createRecord({ song_name: 'B1', difficulty_value: 16, acc: 98.2 }),
+      createRecord({ song_name: 'B2', difficulty_value: 16, acc: 97.9 }),
+      // 证明：band [16.3, ∞) 内的近-φ 高定数记录（定数≥16.3 且谱面RKS≥16.3）
+      createRecord({ song_name: 'Proof1', difficulty_value: 16.4, acc: 99.87 }), // rks≈16.31
+      createRecord({ song_name: 'Proof2', difficulty_value: 16.5, acc: 99.85 }), // rks≈16.39
+      createRecord({ song_name: 'HighPush', difficulty_value: 16, acc: 97.8, push_acc: 98.9 }),
+    ];
+    const result = buildLilithRecommendations(records, { limit: 8, playerRks: 15.5 });
+    const potential = result.potentialAllCandidates.find((c) => c.record.song_name === 'HighPush');
+
+    expect(result.proofedCeiling).toBe(true);
+    expect(potential).toBeDefined();
+    // 证明后天花板 = 98.5 + 0.5×0.5 + 0.5 = 99.25，目标可达
+    expect(potential!.targetAcc).toBeGreaterThan(98.9 - 1e-6);
+    expect(potential!.targetAcc).toBeLessThanOrEqual(99.25 + 1e-6);
+  });
+
+  it('单次提升上限：稳定估计可靠时可练到自身稳定水平，全局回退时不豁免', () => {
+    // 可靠桶（16.5 有 3 条常态记录）→ 允许补到稳定水平 94.75
+    const reliableRecords: RksRecord[] = [
+      createRecord({ song_name: 'R1', difficulty_value: 16.5, acc: 95 }),
+      createRecord({ song_name: 'R2', difficulty_value: 16.5, acc: 94.5 }),
+      createRecord({ song_name: 'R3', difficulty_value: 16.5, acc: 95 }),
+      createRecord({ song_name: 'Jump', difficulty_value: 16.5, acc: 94, push_acc: 97.5 }),
+    ];
+    const reliableResult = buildLilithRecommendations(reliableRecords, { limit: 8, playerRks: 14 });
+    const reliableJump = reliableResult.potentialAllCandidates.find((c) => c.record.song_name === 'Jump');
+    expect(reliableJump).toBeDefined();
+    expect(reliableJump!.targetLabel).toBe('stable');
+    expect(reliableJump!.targetAcc).toBeCloseTo(94.75, 6);
+
+    // 无可靠桶（全局中位数回退）→ 不豁免，97.5 大跳跃被拦，整首曲目不进潜力列表
+    const unreliableRecords: RksRecord[] = [
+      createRecord({ song_name: 'U1', difficulty_value: 15, acc: 95 }),
+      createRecord({ song_name: 'U2', difficulty_value: 15, acc: 94.5 }),
+      createRecord({ song_name: 'U3', difficulty_value: 15, acc: 95.5 }),
+      createRecord({ song_name: 'Jump', difficulty_value: 16.5, acc: 94, push_acc: 97.5 }),
+    ];
+    const unreliableResult = buildLilithRecommendations(unreliableRecords, { limit: 8, playerRks: 14 });
+    expect(unreliableResult.potentialAllCandidates.find((c) => c.record.song_name === 'Jump')).toBeUndefined();
+  });
+
+  it('效率视图软惩罚：超出天花板/单次上限的目标成本上升，φ 豁免天花板', () => {
+    const { computeEffectiveCost } = __lilithRecommendationTestables;
+
+    // 天花板软惩罚：其余条件相同，仅天花板不同 → 成本按 (1 + 3×超出量) 放大
+    const ceilingConstrained = computeEffectiveCost(95, 99, 1, 96, { absCeiling: 98.5 });
+    const ceilingUnconstrained = computeEffectiveCost(95, 99, 1, 96, { absCeiling: 100 });
+    expect(ceilingConstrained / ceilingUnconstrained).toBeCloseTo(1 + 3 * 0.5, 6);
+
+    // 单次提升软惩罚：超 2.9 → ×(1 + 2×2.9)
+    const jumpConstrained = computeEffectiveCost(94, 97.5, 1, 96, { allowedDelta: 0.6 });
+    const jumpUnconstrained = computeEffectiveCost(94, 97.5, 1, 96, { allowedDelta: 3.5 });
+    expect(jumpConstrained / jumpUnconstrained).toBeCloseTo(1 + 2 * 2.9, 6);
+
+    // φ 目标豁免天花板
+    const phiWithCeiling = computeEffectiveCost(99.5, 100, 1, 99.6, { absCeiling: 98.5 });
+    const phiNoCeiling = computeEffectiveCost(99.5, 100, 1, 99.6, { absCeiling: 100 });
+    expect(phiWithCeiling).toBeCloseTo(phiNoCeiling, 10);
   });
 });

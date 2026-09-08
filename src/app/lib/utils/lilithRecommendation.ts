@@ -8,6 +8,23 @@ export const DEFAULT_POTENTIAL_OVER_REACH_CAP = 2.5;
 // 阶段7: 潜力之选——定数水平惩罚上限：显著超出玩家胜任水平的目标同样剔除
 // （稳定曲线对高定数谱面可能回退到全局中位数，需用锚点惩罚兜底）。
 export const DEFAULT_POTENTIAL_MAX_LEVEL_PENALTY = 2.0;
+// ── 阶段8: 高定数绝对 ACC 天花板 + 能力证明 + 单次提升上限 ──
+// 规则1：以玩家 RKS + 1.0 为基准定数 T，绝对 ACC 天花板（φ 目标豁免）
+export const DEFAULT_ABSOLUTE_ACC_CEILING = 98.5; // T 处的天花板基准
+export const DEFAULT_CEILING_UP_SLOPE = 0.8; // 定数每高于 T 1.0 点，天花板下降多少
+export const DEFAULT_CEILING_DOWN_SLOPE = 0.5; // 定数每低于 T 1.0 点，天花板上升多少（封顶 100）
+export const DEFAULT_CEILING_PROOF_RAISE = 0.5; // 能力证明成立时的放宽幅度
+// 规则2：能力证明——band = [T − PROOF_BAND_HALF_WIDTH, ∞) 内至少 N 条记录
+// （定数与谱面 RKS 均落在 band 内，隐含近-φ 水平）
+export const DEFAULT_PROOF_BAND_HALF_WIDTH = 0.2;
+export const DEFAULT_PROOF_MIN_COUNT = 2;
+// 规则3：单次提升上限——超过玩家 RKS + 0.5 后指数递减
+export const DEFAULT_JUMP_BASE = 1.5; // 刚好跨过门槛时的最大单次提升（ACC 百分点）
+export const DEFAULT_JUMP_GAP_BASE = 0.5; // 门槛：定数 − 玩家 RKS > 0.5 开始惩罚
+export const DEFAULT_JUMP_DECAY = 1.0; // 指数衰减系数
+// 效率视图的软惩罚乘子（潜力视图为硬过滤）
+export const DEFAULT_CEILING_VIOLATION_FACTOR = 3.0; // 每超出天花板 1 点，成本 ×(1+3)
+export const DEFAULT_JUMP_VIOLATION_FACTOR = 2.0; // 每超出单次上限 1 点，成本 ×(1+2)
 
 const TOP27_COUNT = 27;
 const TOP3_PHI_COUNT = 3;
@@ -114,6 +131,10 @@ export interface LilithRecommendationResult {
   potentialOverReachCap: number;
   /** 潜力目标的定数水平惩罚上限（显著超出玩家胜任水平的目标会被剔除） */
   potentialMaxLevelPenalty: number;
+  /** 玩家 RKS 参照（规则1/3 的基准），记录计算或 BuildOptions 覆盖 */
+  playerRks: number;
+  /** 能力证明是否成立（band 内 ≥N 条定数与谱面 RKS 均达标的记录） */
+  proofedCeiling: boolean;
   status: LilithStructureStatus;
   quota: LilithRecommendationQuota;
   bestRoiTop27: number;
@@ -126,6 +147,24 @@ type BuildOptions = {
   imbalanceThreshold?: number;
   potentialOverReachCap?: number;
   potentialMaxLevelPenalty?: number;
+  /** 覆盖玩家 RKS 参照（测试或面板透传后端 serverRks.totalRks 时使用） */
+  playerRks?: number;
+};
+
+/** 稳定水平估计结果：acc 为持续可达水平，reliable 表示是否来自可靠桶/近邻（而非全局中位数回退） */
+type StableAccEstimate = {
+  acc: number;
+  reliable: boolean;
+};
+
+/** 阶段8 推荐策略：以玩家 RKS 为参照的绝对天花板与单次提升上限 */
+type LilithPolicy = {
+  playerRks: number;
+  proofed: boolean;
+  /** 规则1：绝对 ACC 天花板（φ 目标由调用方豁免） */
+  absoluteCeiling: (constant: number) => number;
+  /** 规则3：单次提升上限（已含稳定性豁免：可靠估计下允许练到自身稳定水平） */
+  maxAllowedDelta: (constant: number, currentAcc: number) => number;
 };
 
 type LilithPlayerProfile = {
@@ -138,7 +177,7 @@ type LilithPlayerProfile = {
   highAccAnchor: number;
   highConstAnchor: number;
   // 阶段6: 稳定ACC曲线（按定数估计玩家可持续水平，区别于峰值水平）
-  stableAccByConstant: (constant: number) => number;
+  stableAccByConstant: (constant: number) => StableAccEstimate;
 };
 
 function normalizeFiniteNumber(value: unknown): number | null {
@@ -209,7 +248,9 @@ function weightedMedianDifficultyValue(records: RksRecord[]): number {
 
 // 阶段6: 基于玩家自身记录估计"稳定ACC曲线"——每个定数区间常态能打到的 ACC，
 // 用分桶中位数（对神经刀/手滑等异常值稳健），样本不足时回退到最近可靠桶或全局中位数。
-function buildStableAccEstimator(records: RksRecord[]): (constant: number) => number {
+// 返回的 reliable 标记估计来源：可靠桶/近邻回退为 true，全局中位数回退为 false
+// （后者用于防污染——全局回退不代表玩家在该定数区间真实可达）。
+function buildStableAccEstimator(records: RksRecord[]): (constant: number) => StableAccEstimate {
   const samples: Array<{ constant: number; acc: number }> = [];
   for (const r of records) {
     const constant = normalizeFiniteNumber(r.difficulty_value);
@@ -218,7 +259,7 @@ function buildStableAccEstimator(records: RksRecord[]): (constant: number) => nu
       samples.push({ constant, acc });
     }
   }
-  if (samples.length === 0) return () => 100;
+  if (samples.length === 0) return () => ({ acc: 100, reliable: false });
 
   const buckets = new Map<number, number[]>();
   for (const s of samples) {
@@ -241,23 +282,25 @@ function buildStableAccEstimator(records: RksRecord[]): (constant: number) => nu
 
   const globalMedian = median(samples.map((s) => s.acc));
 
-  return (constant: number): number => {
+  return (constant: number): StableAccEstimate => {
     const key = Math.round(constant / STABLE_BUCKET_WIDTH) * STABLE_BUCKET_WIDTH;
     const direct = reliable.find((b) => b.key === key);
-    if (direct) return direct.median;
+    if (direct) return { acc: direct.median, reliable: true };
 
-    let nearest: number | null = null;
+    let nearest: { key: number; median: number } | null = null;
     let bestGap = Infinity;
     for (const b of reliable) {
       const gap = Math.abs(b.key - key);
       if (gap < bestGap) {
         bestGap = gap;
-        nearest = b.median;
+        nearest = b;
       }
     }
-    if (nearest !== null && bestGap <= STABLE_NEAREST_MAX_GAP) return nearest;
+    if (nearest !== null && bestGap <= STABLE_NEAREST_MAX_GAP) {
+      return { acc: nearest.median, reliable: true };
+    }
 
-    return globalMedian;
+    return { acc: globalMedian, reliable: false };
   };
 }
 
@@ -311,6 +354,98 @@ function buildPlayerProfile(records: RksRecord[]): LilithPlayerProfile {
     highAccAnchor,
     highConstAnchor,
     stableAccByConstant: buildStableAccEstimator(records),
+  };
+}
+
+// ──────────────────────────────────────────────────────────
+// 阶段8: 玩家 RKS 参照 / 能力证明 / 绝对天花板 / 单次提升上限
+// ──────────────────────────────────────────────────────────
+
+/** 按 B30 口径计算玩家 RKS：满 30 首时与游戏显示一致；不足时按已有数量归一，
+ *  避免稀疏样本把参照点压得过低导致规则失真（测试/边缘场景）。 */
+function computePlayerRks(cache: BaselineCache): number {
+  const top27 = cache.allRksSorted.slice(0, TOP27_COUNT);
+  const top3Phi = cache.phiRksSorted.slice(0, TOP3_PHI_COUNT);
+  const total = top27.length + top3Phi.length;
+  if (total === 0) return 0;
+  const sum = top27.reduce((s, v) => s + v, 0) + top3Phi.reduce((s, v) => s + v, 0);
+  return sum / Math.min(TOTAL_RKS_COUNT, total);
+}
+
+/**
+ * 规则2 能力证明：band = [T − PROOF_BAND_HALF_WIDTH, +∞) 内至少 PROOF_MIN_COUNT 条记录，
+ * 且每条记录的定数与谱面 RKS 都落在 band 内（示例：定数 16.1、谱面 RKS 15.9）。
+ * 高谱面 RKS 隐含近-φ 水平，因此证明成立时允许略微提高天花板。
+ */
+function hasProofedCeiling(records: RksRecord[], playerRks: number): boolean {
+  if (!Number.isFinite(playerRks) || playerRks <= 0) return false;
+  const bandThreshold = playerRks + 1.0 - DEFAULT_PROOF_BAND_HALF_WIDTH;
+  let count = 0;
+  for (const r of records) {
+    const constant = normalizeFiniteNumber(r.difficulty_value);
+    const rks = normalizeFiniteNumber(r.rks);
+    if (constant !== null && constant > 0 && rks !== null && rks > 0) {
+      if (constant >= bandThreshold - EPS && rks >= bandThreshold - EPS) {
+        count += 1;
+        if (count >= DEFAULT_PROOF_MIN_COUNT) return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * 规则1 绝对 ACC 天花板：以 T = playerRks + 1.0 为基准；
+ * 定数高于 T 每 1.0 点下降 CEILING_UP_SLOPE，低于 T 每 1.0 点上升 CEILING_DOWN_SLOPE（封顶 100）。
+ * 能力证明成立时上浮 CEILING_PROOF_RAISE。φ（100%）目标由调用方豁免。
+ */
+function computeAbsoluteAccCeiling(constant: number, playerRks: number, proofed: boolean): number {
+  if (!Number.isFinite(constant) || constant <= 0) return 100;
+  if (!Number.isFinite(playerRks) || playerRks <= 0) return 100;
+
+  const threshold = playerRks + 1.0;
+  const excess = Math.max(0, constant - threshold);
+  const under = Math.max(0, threshold - constant);
+  let ceiling =
+    DEFAULT_ABSOLUTE_ACC_CEILING - DEFAULT_CEILING_UP_SLOPE * excess + DEFAULT_CEILING_DOWN_SLOPE * under;
+  if (proofed) ceiling += DEFAULT_CEILING_PROOF_RAISE;
+  return Math.min(100, Math.max(70, ceiling));
+}
+
+/**
+ * 规则3 单次提升上限：定数超过 playerRks + JUMP_GAP_BASE 后，
+ * 上限 = JUMP_BASE × e^(−JUMP_DECAY × 超出量)，指数递减；未超门槛则不限制。
+ */
+function computeMaxJump(constant: number, playerRks: number): number {
+  if (!Number.isFinite(constant) || constant <= 0) return Number.POSITIVE_INFINITY;
+  if (!Number.isFinite(playerRks) || playerRks <= 0) return Number.POSITIVE_INFINITY;
+
+  const gap = constant - (playerRks + DEFAULT_JUMP_GAP_BASE);
+  // 定数未超过玩家 RKS + 0.5 → 不限制；恰在门槛 → 上限 = JUMP_BASE（1.5）起指数递减
+  if (gap <= -EPS) return Number.POSITIVE_INFINITY;
+  return DEFAULT_JUMP_BASE * Math.exp(-DEFAULT_JUMP_DECAY * Math.max(0, gap));
+}
+
+/** 稳定性豁免：稳定水平估计可靠（可靠桶/近邻回退）时，允许一次练到自身稳定水平；全局回退不豁免。 */
+function computeAllowedDelta(constant: number, currentAcc: number, stableEstimate: StableAccEstimate, playerRks: number): number {
+  const jumpLimit = computeMaxJump(constant, playerRks);
+  if (!stableEstimate.reliable) return jumpLimit;
+  return Math.max(jumpLimit, Math.max(0, stableEstimate.acc - currentAcc));
+}
+
+function buildLilithPolicy(records: RksRecord[], cache: BaselineCache, profile: LilithPlayerProfile, override?: number): LilithPolicy {
+  const playerRks =
+    Number.isFinite(override) && (override ?? 0) >= 0
+      ? (override ?? 0)
+      : computePlayerRks(cache);
+  const proofed = hasProofedCeiling(records, playerRks);
+
+  return {
+    playerRks,
+    proofed,
+    absoluteCeiling: (constant: number) => computeAbsoluteAccCeiling(constant, playerRks, proofed),
+    maxAllowedDelta: (constant: number, currentAcc: number) =>
+      computeAllowedDelta(constant, currentAcc, profile.stableAccByConstant(constant), playerRks),
   };
 }
 
@@ -410,7 +545,13 @@ export const __lilithRecommendationTestables = {
   computeAccDifficultyMultiplier,
   computeLegacyAccDifficultyMultiplier,
   computeOverReachPenalty,
+  computeEffectiveCost,
   buildStableAccEstimator,
+  computePlayerRks,
+  hasProofedCeiling,
+  computeAbsoluteAccCeiling,
+  computeMaxJump,
+  computeAllowedDelta,
   selectPotentialTarget,
   compareCandidatesByPotential,
 };
@@ -425,18 +566,46 @@ function computeOverReachPenalty(targetAcc: number, stableAcc: number): number {
   return 1 + OVER_REACH_LINEAR_FACTOR * overReach + OVER_REACH_QUADRATIC_FACTOR * overReach * overReach;
 }
 
+// 阶段8: 效率视图软惩罚——绝对天花板违反（φ 豁免）与单次提升超限，均折算为成本乘子。
+// 潜力视图对同一规则做硬过滤；效率视图保留排序连续性，但让违规目标显著降权。
+function computeCeilingViolationPenalty(targetAcc: number, absCeiling: number | undefined): number {
+  if (!Number.isFinite(absCeiling) || absCeiling === undefined) return 1;
+  if (absCeiling >= 100 - EPS) return 1;
+  if (targetAcc >= 100 - EPS) return 1; // φ 目标豁免
+  const over = targetAcc - absCeiling;
+  if (over <= EPS) return 1;
+  return 1 + DEFAULT_CEILING_VIOLATION_FACTOR * over;
+}
+
+function computeJumpViolationPenalty(deltaAcc: number, allowedDelta: number | undefined): number {
+  if (allowedDelta === undefined || !Number.isFinite(allowedDelta)) return 1;
+  const over = deltaAcc - allowedDelta;
+  if (over <= EPS) return 1;
+  return 1 + DEFAULT_JUMP_VIOLATION_FACTOR * over;
+}
+
 function computeEffectiveCost(
   currentAcc: number,
   targetAcc: number,
   levelPenalty: number,
   stableAcc: number,
+  extra?: { absCeiling?: number; allowedDelta?: number },
 ): number {
   const deltaAcc = targetAcc - currentAcc;
   if (!Number.isFinite(deltaAcc) || deltaAcc <= EPS) return 0;
 
   const accDifficultyMultiplier = computeAccDifficultyMultiplier(currentAcc, targetAcc);
   const overReachPenalty = computeOverReachPenalty(targetAcc, stableAcc);
-  return deltaAcc * Math.max(1, accDifficultyMultiplier) * Math.max(1, levelPenalty) * overReachPenalty;
+  const ceilingPenalty = computeCeilingViolationPenalty(targetAcc, extra?.absCeiling);
+  const jumpPenalty = computeJumpViolationPenalty(deltaAcc, extra?.allowedDelta);
+  return (
+    deltaAcc
+    * Math.max(1, accDifficultyMultiplier)
+    * Math.max(1, levelPenalty)
+    * overReachPenalty
+    * ceilingPenalty
+    * jumpPenalty
+  );
 }
 
 // 单侧 ROI 缺失时仍返回稳定数值，避免面板层无法解释结构失衡方向。
@@ -659,14 +828,19 @@ function generateCandidateTargets(
   index: number,
   cache: BaselineCache,
   profile: LilithPlayerProfile,
+  policy: LilithPolicy,
 ): { best: LilithRecommendationItem; alternatives: CandidateTarget[]; evaluatedTargets: CandidateTarget[] } | null {
   if (record.unreachable === true) return null;
   if (record.already_phi === true) return null;
 
   const acc = record.acc;
-  const stableAcc = profile.stableAccByConstant(record.difficulty_value);
+  const stableInfo = profile.stableAccByConstant(record.difficulty_value);
+  const stableAcc = stableInfo.acc;
   const pushAcc = normalizeFiniteNumber(record.push_acc);
   const pushAccClamped = pushAcc === null ? NaN : clampTargetAcc(pushAcc);
+  // 阶段8: 该谱面的绝对天花板（φ 豁免在评估处处理）与单次提升上限
+  const absCeiling = policy.absoluteCeiling(record.difficulty_value);
+  const allowedDelta = policy.maxAllowedDelta(record.difficulty_value, acc);
   // 推分线语义：push_acc 是"让总分动一下的最低 ACC"，对已过推分线（榜内）的谱面会接近/等于当前 ACC，
   // 此时不再当作推分目标，而是走下面的补分分支。
   const hasPushTarget = Number.isFinite(pushAccClamped) && pushAccClamped >= 70 && pushAccClamped - acc > EPS;
@@ -757,7 +931,10 @@ function generateCandidateTargets(
     if (!pool) continue;
 
     const levelPenalty = computePlayerLevelPenalty(record.difficulty_value, targetAcc, pool, profile);
-    const effectiveCost = computeEffectiveCost(record.acc, targetAcc, levelPenalty, stableAcc);
+    const effectiveCost = computeEffectiveCost(record.acc, targetAcc, levelPenalty, stableAcc, {
+      absCeiling,
+      allowedDelta,
+    });
     const roi = deltaTotal / Math.max(0.01, effectiveCost);
     if (!Number.isFinite(roi) || roi <= EPS) continue;
 
@@ -818,26 +995,40 @@ function generateCandidateTargets(
 }
 
 // ──────────────────────────────────────────────────────────
-// 阶段7: 潜力之选——可行上限
+// 阶段7/8: 潜力之选——可行上限（含绝对天花板与单次提升上限硬过滤）
 // ──────────────────────────────────────────────────────────
 
 /**
  * 从某曲目的全部已评估目标中，选出「可行上限」目标：
- * - 目标 ACC 超出玩家稳定水平不得超过 maxOverReach（默认 2.5 个百分点）；
- * - 目标的定数水平惩罚不得超过 maxLevelPenalty（默认 2.0），
+ * - 目标 ACC 超出玩家稳定水平不得超过 opts.maxOverReach（默认 2.5 个百分点）；
+ * - 目标的定数水平惩罚不得超过 opts.maxLevelPenalty（默认 2.0），
  *   剔除"尝试过但未胜任"的高定数谱面（稳定曲线可能回退到全局中位数而失真）；
+ * - 阶段8 规则1：目标 ACC 不得超过绝对天花板（φ 目标豁免）；
+ * - 阶段8 规则3：目标单次提升不得超过 opts.allowedDelta（已含稳定性豁免）；
  * - 在满足约束的目标里取 Δ总RKS 最大者；Δ总RKS 相同时取超出更少者，再同取 ROI 更高者。
  * - 没有任何目标能满足约束时返回 null（该曲目不进入潜力视图），
  *   避免潜力之选再次推荐"纯神经刀"目标。
  */
 function selectPotentialTarget(
   evaluatedTargets: CandidateTarget[],
-  maxOverReach: number,
-  maxLevelPenalty: number,
+  opts: {
+    maxOverReach: number;
+    maxLevelPenalty: number;
+    absCeiling?: number;
+    allowedDelta?: number;
+  },
 ): CandidateTarget | null {
-  const capped = evaluatedTargets.filter(
-    (target) => target.overReach <= maxOverReach + EPS && target.levelPenalty <= maxLevelPenalty + EPS,
-  );
+  const capped = evaluatedTargets.filter((target) => {
+    if (target.overReach > opts.maxOverReach + EPS) return false;
+    if (target.levelPenalty > opts.maxLevelPenalty + EPS) return false;
+    // 规则1: 绝对 ACC 天花板（φ 目标豁免）
+    if (Number.isFinite(opts.absCeiling) && target.targetAcc < 100 - EPS) {
+      if (target.targetAcc > (opts.absCeiling ?? 100) + EPS) return false;
+    }
+    // 规则3: 单次提升上限
+    if (Number.isFinite(opts.allowedDelta) && target.deltaAcc > (opts.allowedDelta ?? 0) + EPS) return false;
+    return true;
+  });
   if (capped.length === 0) return null;
 
   let best: CandidateTarget = capped[0];
@@ -903,16 +1094,22 @@ export function buildLilithRecommendations(records: RksRecord[], options?: Build
 
   const cache = buildBaselineCache(records);
   const playerProfile = buildPlayerProfile(records);
+  const policy = buildLilithPolicy(records, cache, playerProfile, options?.playerRks);
   const candidates: LilithRecommendationItem[] = [];
   const potentialCandidates: LilithRecommendationItem[] = [];
 
   records.forEach((record, index) => {
-    const result = generateCandidateTargets(record, index, cache, playerProfile);
+    const result = generateCandidateTargets(record, index, cache, playerProfile, policy);
     if (!result) return;
     candidates.push(result.best);
 
-    // 阶段7: 潜力条目 = 该曲目在可行上限内的最大 Δ总RKS 目标
-    const potentialTarget = selectPotentialTarget(result.evaluatedTargets, potentialCap, potentialLevelCap);
+    // 阶段7/8: 潜力条目 = 该曲目在可行上限内的最大 Δ总RKS 目标（含绝对天花板/单次提升上限）
+    const potentialTarget = selectPotentialTarget(result.evaluatedTargets, {
+      maxOverReach: potentialCap,
+      maxLevelPenalty: potentialLevelCap,
+      absCeiling: policy.absoluteCeiling(record.difficulty_value),
+      allowedDelta: policy.maxAllowedDelta(record.difficulty_value, record.acc),
+    });
     if (potentialTarget) {
       potentialCandidates.push(buildPotentialItem(record, index, result.evaluatedTargets, potentialTarget));
     }
@@ -946,6 +1143,8 @@ export function buildLilithRecommendations(records: RksRecord[], options?: Build
     potentialRecommendations,
     potentialOverReachCap: potentialCap,
     potentialMaxLevelPenalty: potentialLevelCap,
+    playerRks: policy.playerRks,
+    proofedCeiling: policy.proofed,
     status,
     quota,
     bestRoiTop27,
