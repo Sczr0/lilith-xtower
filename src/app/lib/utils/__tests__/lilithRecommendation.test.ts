@@ -325,9 +325,10 @@ describe('buildLilithRecommendations', () => {
 
   it('potentialRecommendations are sorted by deltaTotal descending', () => {
     const records: RksRecord[] = [
+      // 定数均在玩家水平内（锚点≈14.0），确保记录能进入潜力列表
       createRecord({ song_name: 'SmallDelta', difficulty_value: 14, acc: 94, push_acc: 95 }),
-      createRecord({ song_name: 'BigDelta', difficulty_value: 16, acc: 90, push_acc: 98 }),
-      createRecord({ song_name: 'MediumDelta', difficulty_value: 15, acc: 92, push_acc: 96 }),
+      createRecord({ song_name: 'BigDelta', difficulty_value: 14.8, acc: 90, push_acc: 98 }),
+      createRecord({ song_name: 'MediumDelta', difficulty_value: 14.5, acc: 92, push_acc: 96 }),
     ];
 
     const result = buildLilithRecommendations(records, { limit: 5 });
@@ -344,14 +345,16 @@ describe('buildLilithRecommendations', () => {
 
   it('potentialAllCandidates keep deltaTotal ordering for fallback fills', () => {
     const records: RksRecord[] = [
+      // 定数均在玩家水平内（锚点≈14.0），确保记录能进入潜力列表
       createRecord({ song_name: 'SmallDelta', difficulty_value: 14, acc: 94, push_acc: 95 }),
-      createRecord({ song_name: 'BigDelta', difficulty_value: 16, acc: 90, push_acc: 98 }),
-      createRecord({ song_name: 'MediumDelta', difficulty_value: 15, acc: 92, push_acc: 96 }),
+      createRecord({ song_name: 'BigDelta', difficulty_value: 14.8, acc: 90, push_acc: 98 }),
+      createRecord({ song_name: 'MediumDelta', difficulty_value: 14.5, acc: 92, push_acc: 96 }),
     ];
 
     const result = buildLilithRecommendations(records, { limit: 5 });
 
-    expect(result.potentialAllCandidates).toHaveLength(result.allCandidates.length);
+    // 可行上限约束下部分曲目可能被剔除，潜力列表长度 ≤ 全量候选
+    expect(result.potentialAllCandidates.length).toBeLessThanOrEqual(result.allCandidates.length);
     for (let i = 1; i < result.potentialAllCandidates.length; i++) {
       expect(result.potentialAllCandidates[i - 1].deltaTotal).toBeGreaterThanOrEqual(
         result.potentialAllCandidates[i].deltaTotal,
@@ -527,5 +530,138 @@ describe('稳定水平与补分（阶段6）', () => {
     expect(stableTarget).toBeDefined();
     expect(pushLineTarget).toBeDefined();
     expect(stableTarget!.roi).toBeGreaterThan(pushLineTarget!.roi);
+  });
+});
+
+describe('潜力之选：可行上限（阶段7）', () => {
+  it('潜力目标 = 可行上限内 Δ总RKS 最大的目标（而非 ROI 最优的保守目标）', () => {
+    const records: RksRecord[] = [
+      createRecord({ song_name: 'Base1', difficulty_value: 15, acc: 95 }),
+      createRecord({ song_name: 'Base2', difficulty_value: 15, acc: 94.5 }),
+      createRecord({ song_name: 'Base3', difficulty_value: 15, acc: 95.5 }),
+      createRecord({ song_name: 'Target', difficulty_value: 15.4, acc: 92, push_acc: 95.5 }),
+    ];
+    const result = buildLilithRecommendations(records, { limit: 8 });
+    const potential = result.potentialAllCandidates.find((c) => c.record.song_name === 'Target');
+    const efficiency = findRecommendation(result, 'Target');
+
+    expect(potential).toBeDefined();
+    // 稳定水平 95，+2% 目标 97.5 恰好在上限 2.5% 边缘，是 cap 内最大增量
+    expect(potential!.targetAcc).toBeCloseTo(97.5, 6);
+    expect(potential!.targetLabel).toBe('plus_2');
+    expect(potential!.overReach).toBeLessThanOrEqual(2.5 + 1e-6);
+    // 效率视图选择保守目标（0 超限的稳推点），潜力视图选择更大增量
+    expect(efficiency.targetAcc).toBeLessThan(potential!.targetAcc);
+    // 潜力条目展开仍能看到效率视图的保守目标（stable）
+    expect(potential!.alternativeTargets?.some((t) => t.label === 'stable')).toBe(true);
+  });
+
+  it('所有目标超出可行上限时，该曲目不出现在潜力列表（效率视图不受影响）', () => {
+    const records: RksRecord[] = [
+      createRecord({ song_name: 'Base1', difficulty_value: 15, acc: 95 }),
+      createRecord({ song_name: 'Base2', difficulty_value: 15, acc: 96 }),
+      createRecord({ song_name: 'Base3', difficulty_value: 15, acc: 95 }),
+      // 玩家已处于/高于稳定水平（≈95.25），踩线 98.5 及 +1%/+2%/φ 全部超限
+      createRecord({ song_name: 'FarPush', difficulty_value: 15, acc: 95.5, push_acc: 98.5 }),
+    ];
+    const result = buildLilithRecommendations(records, { limit: 8 });
+
+    expect(result.potentialAllCandidates.find((c) => c.record.song_name === 'FarPush')).toBeUndefined();
+    expect(result.allCandidates.find((c) => c.record.song_name === 'FarPush')).toBeDefined();
+  });
+
+  it('近-φ 谱面的潜力目标可达 100%（最后一公里被收录）', () => {
+    const records: RksRecord[] = [
+      createRecord({ song_name: 'Base1', difficulty_value: 15, acc: 99.7 }),
+      createRecord({ song_name: 'Base2', difficulty_value: 15, acc: 99.9 }),
+      createRecord({ song_name: 'Base3', difficulty_value: 15, acc: 99.8 }),
+      // 有能力收尾（已有一首 φ，closeRate 足够高）
+      createRecord({ song_name: 'PhiBase', difficulty_value: 15.2, acc: 100, already_phi: true }),
+      createRecord({ song_name: 'NearPhi', difficulty_value: 15.4, acc: 99.7, push_acc: 100 }),
+    ];
+    const result = buildLilithRecommendations(records, { limit: 8 });
+    const potential = result.potentialAllCandidates.find((c) => c.record.song_name === 'NearPhi');
+
+    expect(potential).toBeDefined();
+    expect(potential!.targetAcc).toBeCloseTo(100, 6);
+    expect(potential!.overReach).toBeLessThanOrEqual(2.5 + 1e-6);
+    // 100% 目标进入 Phi 池
+    expect(potential!.deltaTop3Phi).toBeGreaterThan(0);
+  });
+
+  it('potentialAllCandidates 按 deltaTotal 降序且收录可行上限候选', () => {
+    const records: RksRecord[] = [
+      createRecord({ song_name: 'Base1', difficulty_value: 15, acc: 95 }),
+      createRecord({ song_name: 'Base2', difficulty_value: 15, acc: 94.5 }),
+      createRecord({ song_name: 'Base3', difficulty_value: 15, acc: 95.5 }),
+      createRecord({ song_name: 'A1', difficulty_value: 15.4, acc: 92, push_acc: 95.5 }),
+      createRecord({ song_name: 'A2', difficulty_value: 14.6, acc: 92, push_acc: 95 }),
+      createRecord({ song_name: 'A3', difficulty_value: 14.2, acc: 93, push_acc: 94.5 }),
+    ];
+    const result = buildLilithRecommendations(records, { limit: 8 });
+    const list = result.potentialAllCandidates;
+
+    expect(list.length).toBeGreaterThanOrEqual(3);
+    for (let i = 1; i < list.length; i++) {
+      expect(list[i - 1].deltaTotal).toBeGreaterThanOrEqual(list[i].deltaTotal);
+    }
+  });
+
+  it('compareCandidatesByPotential: deltaTotal 相同时 overReach 小的在前', () => {
+    const { compareCandidatesByPotential } = __lilithRecommendationTestables;
+    const base: LilithRecommendationItem = {
+      record: createRecord({ song_name: 'A' }),
+      sourceIndex: 0,
+      targetAcc: 96,
+      targetRks: 12,
+      deltaAcc: 2,
+      deltaTop27: 0.6,
+      deltaTop3Phi: 0,
+      deltaTotal: 0.02,
+      roi: 0.5,
+      pool: 'top27',
+      targetLabel: 'push_line',
+      needsGodRun: false,
+      overReach: 1.0,
+    };
+    const low = { ...base, sourceIndex: 1, overReach: 1.0 };
+    const high = { ...base, sourceIndex: 2, record: createRecord({ song_name: 'B' }), overReach: 2.0 };
+
+    expect(compareCandidatesByPotential(low, high)).toBeLessThan(0);
+    expect(compareCandidatesByPotential(high, low)).toBeGreaterThan(0);
+  });
+
+  it('远超玩家胜任水平的高定数谱面被潜力列表剔除（即使 ACC 上限满足）', () => {
+    const records: RksRecord[] = [
+      createRecord({ song_name: 'Base1', difficulty_value: 15, acc: 95 }),
+      createRecord({ song_name: 'Base2', difficulty_value: 15, acc: 94.5 }),
+      createRecord({ song_name: 'Base3', difficulty_value: 15, acc: 95.5 }),
+      // 16.8 定数"尝试过但未胜任"：踩线 95.5 的 ACC 超限很小（≈0.75），但定数远超玩家水平
+      createRecord({ song_name: 'OverLevel', difficulty_value: 16.8, acc: 89, push_acc: 95.5 }),
+    ];
+    const result = buildLilithRecommendations(records, { limit: 8 });
+
+    expect(result.potentialAllCandidates.find((c) => c.record.song_name === 'OverLevel')).toBeUndefined();
+    expect(result.allCandidates.find((c) => c.record.song_name === 'OverLevel')).toBeDefined();
+  });
+
+  it('potentialOverReachCap 默认 2.5 且可参数化', () => {
+    const records: RksRecord[] = [
+      createRecord({ song_name: 'Base1', difficulty_value: 15, acc: 95 }),
+      createRecord({ song_name: 'Base2', difficulty_value: 15, acc: 94.5 }),
+      createRecord({ song_name: 'Base3', difficulty_value: 15, acc: 95.5 }),
+      createRecord({ song_name: 'Target', difficulty_value: 15.4, acc: 92, push_acc: 95.5 }),
+    ];
+    const result = buildLilithRecommendations(records, { limit: 5 });
+    expect(result.potentialOverReachCap).toBe(2.5);
+    expect(result.potentialMaxLevelPenalty).toBe(2.0);
+
+    const strict = buildLilithRecommendations(records, {
+      limit: 5,
+      potentialOverReachCap: 1.8,
+      potentialMaxLevelPenalty: 1.5,
+    });
+    expect(strict.potentialOverReachCap).toBe(1.8);
+    expect(strict.potentialMaxLevelPenalty).toBe(1.5);
   });
 });

@@ -2,6 +2,12 @@ import type { RksRecord } from '../types/score';
 
 export const DEFAULT_LILITH_RECOMMENDATION_LIMIT = 8;
 export const DEFAULT_LILITH_IMBALANCE_THRESHOLD = 1.8;
+// 阶段7: 潜力之选——可行上限：目标 ACC 超出玩家稳定水平的允许上限。
+// 超出该上限的目标（纯神经刀/水平跃迁）不会进入潜力视图。
+export const DEFAULT_POTENTIAL_OVER_REACH_CAP = 2.5;
+// 阶段7: 潜力之选——定数水平惩罚上限：显著超出玩家胜任水平的目标同样剔除
+// （稳定曲线对高定数谱面可能回退到全局中位数，需用锚点惩罚兜底）。
+export const DEFAULT_POTENTIAL_MAX_LEVEL_PENALTY = 2.0;
 
 const TOP27_COUNT = 27;
 const TOP3_PHI_COUNT = 3;
@@ -67,6 +73,8 @@ export interface CandidateTarget {
   overReach: number;
   /** 目标是否需要超常发挥（神经刀）才能达成 */
   needsGodRun: boolean;
+  /** 该目标的定数水平惩罚（显著高于玩家胜任能力时 > 1） */
+  levelPenalty: number;
 }
 
 export interface LilithRecommendationItem {
@@ -83,6 +91,8 @@ export interface LilithRecommendationItem {
   targetLabel: CandidateTargetLabel;
   /** 目标是否需超常发挥（超出稳定水平 GODRUN_ACC_GAP 以上） */
   needsGodRun: boolean;
+  /** 目标超出玩家稳定水平多少（ACC 百分点），0 表示稳定可达 */
+  overReach: number;
   /** 该记录的所有候选目标（用于 UI 展开） */
   alternativeTargets?: CandidateTarget[];
 }
@@ -96,10 +106,14 @@ export interface LilithRecommendationQuota {
 export interface LilithRecommendationResult {
   recommendations: LilithRecommendationItem[];
   allCandidates: LilithRecommendationItem[];
-  /** 按 deltaTotal 排序的全量候选（用于潜力视图补位） */
+  /** 潜力视图全量候选：每首曲目在其可行上限内的最大 Δ总RKS 目标 */
   potentialAllCandidates: LilithRecommendationItem[];
-  /** 按 deltaTotal 排序的推荐（潜力最大视图） */
+  /** 按 deltaTotal 排序的潜力推荐（可行性受限的最大增量视图） */
   potentialRecommendations: LilithRecommendationItem[];
+  /** 潜力目标的超出稳定水平上限（百分点），用于 UI 说明与筛选 */
+  potentialOverReachCap: number;
+  /** 潜力目标的定数水平惩罚上限（显著超出玩家胜任水平的目标会被剔除） */
+  potentialMaxLevelPenalty: number;
   status: LilithStructureStatus;
   quota: LilithRecommendationQuota;
   bestRoiTop27: number;
@@ -110,6 +124,8 @@ export interface LilithRecommendationResult {
 type BuildOptions = {
   limit?: number;
   imbalanceThreshold?: number;
+  potentialOverReachCap?: number;
+  potentialMaxLevelPenalty?: number;
 };
 
 type LilithPlayerProfile = {
@@ -395,6 +411,8 @@ export const __lilithRecommendationTestables = {
   computeLegacyAccDifficultyMultiplier,
   computeOverReachPenalty,
   buildStableAccEstimator,
+  selectPotentialTarget,
+  compareCandidatesByPotential,
 };
 
 // 阶段6: 超出玩家稳定水平的成本惩罚——目标越高于稳定水平，成本越高。
@@ -481,6 +499,8 @@ function compareCandidates(a: LilithRecommendationItem, b: LilithRecommendationI
 
 function compareCandidatesByPotential(a: LilithRecommendationItem, b: LilithRecommendationItem): number {
   if (a.deltaTotal !== b.deltaTotal) return b.deltaTotal - a.deltaTotal;
+  // 同样收益时，超出稳定水平更少（更可控）的目标在前
+  if (a.overReach !== b.overReach) return a.overReach - b.overReach;
   if (a.roi !== b.roi) return b.roi - a.roi;
   if (a.deltaAcc !== b.deltaAcc) return a.deltaAcc - b.deltaAcc;
   return a.record.song_name.localeCompare(b.record.song_name, 'zh-CN');
@@ -639,7 +659,7 @@ function generateCandidateTargets(
   index: number,
   cache: BaselineCache,
   profile: LilithPlayerProfile,
-): { best: LilithRecommendationItem; alternatives: CandidateTarget[] } | null {
+): { best: LilithRecommendationItem; alternatives: CandidateTarget[]; evaluatedTargets: CandidateTarget[] } | null {
   if (record.unreachable === true) return null;
   if (record.already_phi === true) return null;
 
@@ -753,6 +773,7 @@ function generateCandidateTargets(
       label,
       overReach: Math.max(0, targetAcc - stableAcc),
       needsGodRun,
+      levelPenalty,
     });
   }
 
@@ -788,9 +809,81 @@ function generateCandidateTargets(
       pool: best.pool,
       targetLabel: best.label,
       needsGodRun: best.needsGodRun,
+      overReach: best.overReach,
       alternativeTargets: alternatives.length > 0 ? alternatives : undefined,
     },
     alternatives: evaluatedTargets,
+    evaluatedTargets,
+  };
+}
+
+// ──────────────────────────────────────────────────────────
+// 阶段7: 潜力之选——可行上限
+// ──────────────────────────────────────────────────────────
+
+/**
+ * 从某曲目的全部已评估目标中，选出「可行上限」目标：
+ * - 目标 ACC 超出玩家稳定水平不得超过 maxOverReach（默认 2.5 个百分点）；
+ * - 目标的定数水平惩罚不得超过 maxLevelPenalty（默认 2.0），
+ *   剔除"尝试过但未胜任"的高定数谱面（稳定曲线可能回退到全局中位数而失真）；
+ * - 在满足约束的目标里取 Δ总RKS 最大者；Δ总RKS 相同时取超出更少者，再同取 ROI 更高者。
+ * - 没有任何目标能满足约束时返回 null（该曲目不进入潜力视图），
+ *   避免潜力之选再次推荐"纯神经刀"目标。
+ */
+function selectPotentialTarget(
+  evaluatedTargets: CandidateTarget[],
+  maxOverReach: number,
+  maxLevelPenalty: number,
+): CandidateTarget | null {
+  const capped = evaluatedTargets.filter(
+    (target) => target.overReach <= maxOverReach + EPS && target.levelPenalty <= maxLevelPenalty + EPS,
+  );
+  if (capped.length === 0) return null;
+
+  let best: CandidateTarget = capped[0];
+  for (let i = 1; i < capped.length; i++) {
+    const candidate = capped[i];
+    if (candidate.deltaTotal > best.deltaTotal + EPS) {
+      best = candidate;
+    } else if (
+      Math.abs(candidate.deltaTotal - best.deltaTotal) <= EPS &&
+      candidate.overReach < best.overReach - EPS
+    ) {
+      best = candidate;
+    } else if (
+      Math.abs(candidate.deltaTotal - best.deltaTotal) <= EPS &&
+      Math.abs(candidate.overReach - best.overReach) <= EPS &&
+      candidate.roi > best.roi + EPS
+    ) {
+      best = candidate;
+    }
+  }
+  return best;
+}
+
+/** 以潜力目标构建推荐条目；alternativeTargets 包含其余全部目标（含被效率视图选中的保守目标）。 */
+function buildPotentialItem(
+  record: RksRecord,
+  index: number,
+  evaluatedTargets: CandidateTarget[],
+  potentialTarget: CandidateTarget,
+): LilithRecommendationItem {
+  const alternatives = evaluatedTargets.filter((target) => target !== potentialTarget);
+  return {
+    record,
+    sourceIndex: index,
+    targetAcc: potentialTarget.targetAcc,
+    targetRks: potentialTarget.targetRks,
+    deltaAcc: potentialTarget.deltaAcc,
+    deltaTop27: potentialTarget.deltaTop27,
+    deltaTop3Phi: potentialTarget.deltaTop3Phi,
+    deltaTotal: potentialTarget.deltaTotal,
+    roi: potentialTarget.roi,
+    pool: potentialTarget.pool,
+    targetLabel: potentialTarget.label,
+    needsGodRun: potentialTarget.needsGodRun,
+    overReach: potentialTarget.overReach,
+    alternativeTargets: alternatives.length > 0 ? alternatives : undefined,
   };
 }
 
@@ -801,15 +894,27 @@ export function buildLilithRecommendations(records: RksRecord[], options?: Build
   const threshold = Number.isFinite(options?.imbalanceThreshold ?? DEFAULT_LILITH_IMBALANCE_THRESHOLD)
     ? options?.imbalanceThreshold ?? DEFAULT_LILITH_IMBALANCE_THRESHOLD
     : DEFAULT_LILITH_IMBALANCE_THRESHOLD;
+  const potentialCap = Number.isFinite(options?.potentialOverReachCap)
+    ? (options?.potentialOverReachCap ?? DEFAULT_POTENTIAL_OVER_REACH_CAP)
+    : DEFAULT_POTENTIAL_OVER_REACH_CAP;
+  const potentialLevelCap = Number.isFinite(options?.potentialMaxLevelPenalty)
+    ? (options?.potentialMaxLevelPenalty ?? DEFAULT_POTENTIAL_MAX_LEVEL_PENALTY)
+    : DEFAULT_POTENTIAL_MAX_LEVEL_PENALTY;
 
   const cache = buildBaselineCache(records);
   const playerProfile = buildPlayerProfile(records);
   const candidates: LilithRecommendationItem[] = [];
+  const potentialCandidates: LilithRecommendationItem[] = [];
 
   records.forEach((record, index) => {
     const result = generateCandidateTargets(record, index, cache, playerProfile);
-    if (result) {
-      candidates.push(result.best);
+    if (!result) return;
+    candidates.push(result.best);
+
+    // 阶段7: 潜力条目 = 该曲目在可行上限内的最大 Δ总RKS 目标
+    const potentialTarget = selectPotentialTarget(result.evaluatedTargets, potentialCap, potentialLevelCap);
+    if (potentialTarget) {
+      potentialCandidates.push(buildPotentialItem(record, index, result.evaluatedTargets, potentialTarget));
     }
   });
 
@@ -830,8 +935,8 @@ export function buildLilithRecommendations(records: RksRecord[], options?: Build
   const recommendations = pickWithQuota(candidates, quota);
   const imbalanceRatio = computeImbalanceRatio(bestRoiTop27, bestRoiTop3Phi);
 
-  // 阶段5: 潜力之选 — 按 deltaTotal 降序
-  const potentialAllCandidates = [...candidates].sort(compareCandidatesByPotential);
+  // 阶段5/7: 潜力之选 — 按可行上限内的 deltaTotal 降序（平手时更可控的目标在前）
+  const potentialAllCandidates = [...potentialCandidates].sort(compareCandidatesByPotential);
   const potentialRecommendations = pickWithQuota(potentialAllCandidates, quota);
 
   return {
@@ -839,6 +944,8 @@ export function buildLilithRecommendations(records: RksRecord[], options?: Build
     allCandidates: candidates,
     potentialAllCandidates,
     potentialRecommendations,
+    potentialOverReachCap: potentialCap,
+    potentialMaxLevelPenalty: potentialLevelCap,
     status,
     quota,
     bestRoiTop27,

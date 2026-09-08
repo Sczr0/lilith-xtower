@@ -208,6 +208,14 @@ function RecommendationCard({ item, index }: { item: DisplaySuggestion; index: n
         <div className="flex flex-col items-start md:items-end gap-2">
           <div className="text-xs text-gray-500 dark:text-gray-400">目标 ACC</div>
           <div className="text-xl font-bold text-emerald-700 dark:text-emerald-400">{formatFixedNumber(item.targetAcc, 2)}%</div>
+          {item.overReach !== undefined && item.overReach > 0.05 && (
+            <div
+              className="text-[11px] text-amber-600 dark:text-amber-400"
+              title="目标 ACC 超出你的稳定水平（常态可达水平）的百分点"
+            >
+              超出稳定水平 +{formatFixedNumber(item.overReach, 1)}%
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
             <span>ΔACC {formatFixedNumber(item.deltaAcc, 2)}%</span>
             <span>目标RKS {formatFixedNumber(item.targetRks, 4)}</span>
@@ -451,6 +459,11 @@ export function LilithLabsPanel() {
           <div className="mt-2 rounded-md border border-current/20 bg-white/30 dark:bg-black/10 px-3 py-2 text-xs leading-5">
             <p>指标说明：bestROI = 在该池中“每投入 1 单位有效推分成本可换来的最大 Δ总RKS”。</p>
             <p className="mt-1">有效推分成本会同时考虑高 ACC 区间的非线性难度、明显高于玩家当前 Best / AP 水平的高定数降权，以及目标为 Phi 时的 AP 收尾能力。</p>
+            <p className="mt-1">
+              潜力之选：每首曲目取其「目标 ACC 不超过稳定水平 {formatFixedNumber(recommendationResult.potentialOverReachCap, 1)}%」
+              且「定数水平惩罚 ≤ {formatFixedNumber(recommendationResult.potentialMaxLevelPenalty, 1)}」内能做到的最大 Δ总RKS 目标；
+              超出上限的神经刀 / 未胜任目标会被剔除，避免给出打不过的建议。
+            </p>
             <p className="mt-1">{roiExplanation.summary}</p>
             <p className="mt-1 opacity-90">{roiExplanation.detail}</p>
           </div>
@@ -460,7 +473,7 @@ export function LilithLabsPanel() {
         <div className="mt-4 flex items-center gap-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 p-1 w-fit">
           {([
             { value: 'efficiency' as ViewMode, label: '效率之选', desc: '按 ROI 降序' },
-            { value: 'potential' as ViewMode, label: '潜力之选', desc: '按 Δ总RKS 降序' },
+            { value: 'potential' as ViewMode, label: '潜力之选', desc: '按可行上限内的最大 Δ总RKS 降序' },
           ]).map((tab) => (
             <button
               key={tab.value}
@@ -542,20 +555,22 @@ export function LilithLabsPanel() {
           </div>
         ) : suggestions.length === 0 ? (
           <div className="mt-4 rounded-xl border border-dashed border-gray-300 dark:border-gray-700 px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
-            {recommendationResult.allCandidates.length > 0
-              ? '当前筛选条件下暂无建议，尝试放宽筛选。'
-              : '暂无可推进曲目。你可能已经接近当前推分线，或当前数据不足以计算。'}
+            {viewMode === 'potential' && recommendationResult.potentialAllCandidates.length === 0 && recommendationResult.allCandidates.length > 0
+              ? '潜力视角下所有可推曲目的目标都超出稳定水平上限，暂无可控上限建议；可切回「效率之选」查看更现实的建议。'
+              : recommendationResult.allCandidates.length > 0
+                ? '当前筛选条件下暂无建议，尝试放宽筛选。'
+                : '暂无可推进曲目。你可能已经接近当前推分线，或当前数据不足以计算。'}
           </div>
         ) : (
           <div className="mt-4 space-y-3">
             <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/40 px-3 py-2 text-sm text-gray-600 dark:text-gray-400">
               <p>
-                可推进谱面 <span className="font-semibold text-gray-900 dark:text-gray-100">{recommendationResult.allCandidates.length}</span>{' '}
+                可推进谱面 <span className="font-semibold text-gray-900 dark:text-gray-100">{viewMode === 'efficiency' ? recommendationResult.allCandidates.length : recommendationResult.potentialAllCandidates.length}</span>{' '}
                 条；动态配额 <span className="font-semibold text-gray-900 dark:text-gray-100">{recommendationResult.quota.total}</span>{' '}
                 条（Top27: {recommendationResult.quota.top27}，Top3Phi: {recommendationResult.quota.top3phi}）。
               </p>
               <p className="mt-1">
-                当前视图：<span className="font-semibold text-gray-900 dark:text-gray-100">{viewMode === 'efficiency' ? '效率之选（ROI 优先）' : '潜力之选（Δ总RKS 优先）'}</span>
+                当前视图：<span className="font-semibold text-gray-900 dark:text-gray-100">{viewMode === 'efficiency' ? '效率之选（ROI 优先）' : '潜力之选（上限增量优先）'}</span>
                 ，筛选后展示 <span className="font-semibold text-gray-900 dark:text-gray-100">{suggestions.length}</span> 条。
               </p>
             </div>
