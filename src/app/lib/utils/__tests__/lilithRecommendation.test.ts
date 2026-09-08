@@ -786,4 +786,68 @@ describe('阶段8：高定数绝对天花板 / 能力证明 / 单次提升上限
     const phiNoCeiling = computeEffectiveCost(99.5, 100, 1, 99.6, { absCeiling: 100 });
     expect(phiWithCeiling).toBeCloseTo(phiNoCeiling, 10);
   });
+
+  it('stage8.absAccCeiling 可调：调低后连稳推目标也一并剔除', () => {
+    const records: RksRecord[] = [
+      createRecord({ song_name: 'B1', difficulty_value: 16, acc: 98.2 }),
+      createRecord({ song_name: 'B2', difficulty_value: 16, acc: 97.9 }),
+      createRecord({ song_name: 'HighPush', difficulty_value: 16, acc: 97.8, push_acc: 98.9 }),
+    ];
+    const strict = buildLilithRecommendations(records, {
+      limit: 8,
+      playerRks: 15.5,
+      stage8: { absAccCeiling: 95 }, // 95 + 0.5×0.5 = 95.25，稳推目标 97.9 也被拦
+    });
+    const loose = buildLilithRecommendations(records, { limit: 8, playerRks: 15.5 });
+
+    expect(strict.potentialAllCandidates.find((c) => c.record.song_name === 'HighPush')).toBeUndefined();
+    expect(loose.potentialAllCandidates.find((c) => c.record.song_name === 'HighPush')).toBeDefined();
+  });
+
+  it('stage8.enableProof 可关：关闭后证明不再抬高天花板', () => {
+    const records: RksRecord[] = [
+      createRecord({ song_name: 'B1', difficulty_value: 16, acc: 98.2 }),
+      createRecord({ song_name: 'B2', difficulty_value: 16, acc: 97.9 }),
+      createRecord({ song_name: 'Proof1', difficulty_value: 16.4, acc: 99.87 }),
+      createRecord({ song_name: 'Proof2', difficulty_value: 16.5, acc: 99.85 }),
+      createRecord({ song_name: 'HighPush', difficulty_value: 16, acc: 97.8, push_acc: 98.9 }),
+    ];
+    const enabled = buildLilithRecommendations(records, { limit: 8, playerRks: 15.5 });
+    const disabled = buildLilithRecommendations(records, {
+      limit: 8,
+      playerRks: 15.5,
+      stage8: { enableProof: false },
+    });
+
+    expect(enabled.proofedCeiling).toBe(true);
+    expect(disabled.proofedCeiling).toBe(false);
+    const enabledRet = enabled.potentialAllCandidates.find((c) => c.record.song_name === 'HighPush');
+    const disabledRet = disabled.potentialAllCandidates.find((c) => c.record.song_name === 'HighPush');
+    // 证明生效：可达 98.9+；关闭证明：只剩稳推点 97.9
+    expect(enabledRet!.targetAcc).toBeGreaterThan(98.9 - 1e-6);
+    expect(disabledRet!.targetAcc).toBeCloseTo(97.9, 6);
+  });
+
+  it('stage8.jumpBase 可调：调低后大步长目标被剔除', () => {
+    const records: RksRecord[] = [
+      createRecord({ song_name: 'B1', difficulty_value: 16, acc: 98.2 }),
+      createRecord({ song_name: 'B2', difficulty_value: 16, acc: 97.9 }),
+      // 带能力证明，避免绝对天花板先拦下 98.9（隔离跳限影响）
+      createRecord({ song_name: 'Proof1', difficulty_value: 16.4, acc: 99.87 }),
+      createRecord({ song_name: 'Proof2', difficulty_value: 16.5, acc: 99.85 }),
+      createRecord({ song_name: 'HighPush', difficulty_value: 16, acc: 97.8, push_acc: 98.9 }),
+    ];
+    const strictJump = buildLilithRecommendations(records, {
+      limit: 8,
+      playerRks: 15.5,
+      stage8: { jumpBase: 0.5 },
+    });
+    const looseJump = buildLilithRecommendations(records, { limit: 8, playerRks: 15.5 });
+
+    const strictRet = strictJump.potentialAllCandidates.find((c) => c.record.song_name === 'HighPush');
+    const looseRet = looseJump.potentialAllCandidates.find((c) => c.record.song_name === 'HighPush');
+    // 单次上限 0.5 < 1.1 → 只能留稳推 97.9；默认 1.5 时可达 98.9+
+    expect(strictRet!.targetAcc).toBeCloseTo(97.9, 6);
+    expect(looseRet!.targetAcc).toBeGreaterThan(98.9 - 1e-6);
+  });
 });

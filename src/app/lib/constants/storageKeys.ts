@@ -13,3 +13,6 @@ export const LOGIN_CACHED_KEY = 'phigros_login_cached';
 
 // 被封禁页展示文案（会话级）
 export const BANNED_DETAIL_KEY = 'phigros_banned_detail';
+
+// 实验室-Lilith「RKS 提升助手」用户调参（localStorage 持久化，注意 v1 版本化）
+export const LILITH_SETTINGS_STORAGE_KEY = 'phigros_lilith_settings_v1';

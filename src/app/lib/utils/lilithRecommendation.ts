@@ -142,6 +142,54 @@ export interface LilithRecommendationResult {
   imbalanceRatio: number;
 }
 
+/** 阶段8 可调参数（供 UI 暴露；默认值 = 模块级 DEFAULT_* 常量，行为与历史上线版本一致） */
+export type LilithStage8Params = {
+  /** 规则1 天花板基准（T 处的绝对 ACC 上限） */
+  absAccCeiling: number;
+  /** 规则1 定数高于 T 时每 1.0 点的下降量 */
+  ceilingUpSlope: number;
+  /** 规则1 定数低于 T 时每 1.0 点的上升量 */
+  ceilingDownSlope: number;
+  /** 规则2 能力证明成立时的放宽幅度 */
+  ceilingProofRaise: number;
+  /** 规则2 是否启用能力证明 */
+  enableProof: boolean;
+  /** 规则3 单次提升上限基准（恰在门槛时） */
+  jumpBase: number;
+  /** 规则3 门槛：定数 − 玩家 RKS 超过该值开始惩罚 */
+  jumpGapBase: number;
+  /** 规则3 指数衰减系数 */
+  jumpDecay: number;
+};
+
+/** 默认阶段8 参数（与 DEFAULT_* 常量一致，不可变） */
+const DEFAULT_STAGE8_PARAMS: LilithStage8Params = {
+  absAccCeiling: DEFAULT_ABSOLUTE_ACC_CEILING,
+  ceilingUpSlope: DEFAULT_CEILING_UP_SLOPE,
+  ceilingDownSlope: DEFAULT_CEILING_DOWN_SLOPE,
+  ceilingProofRaise: DEFAULT_CEILING_PROOF_RAISE,
+  enableProof: true,
+  jumpBase: DEFAULT_JUMP_BASE,
+  jumpGapBase: DEFAULT_JUMP_GAP_BASE,
+  jumpDecay: DEFAULT_JUMP_DECAY,
+};
+
+function resolveStage8Params(partial?: Partial<LilithStage8Params>): LilithStage8Params {
+  const source = partial ?? {};
+  const pickFinite = (value: unknown, fallback: number): number =>
+    typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+  return {
+    absAccCeiling: pickFinite(source.absAccCeiling, DEFAULT_STAGE8_PARAMS.absAccCeiling),
+    ceilingUpSlope: pickFinite(source.ceilingUpSlope, DEFAULT_STAGE8_PARAMS.ceilingUpSlope),
+    ceilingDownSlope: pickFinite(source.ceilingDownSlope, DEFAULT_STAGE8_PARAMS.ceilingDownSlope),
+    ceilingProofRaise: pickFinite(source.ceilingProofRaise, DEFAULT_STAGE8_PARAMS.ceilingProofRaise),
+    enableProof: typeof source.enableProof === 'boolean' ? source.enableProof : DEFAULT_STAGE8_PARAMS.enableProof,
+    jumpBase: pickFinite(source.jumpBase, DEFAULT_STAGE8_PARAMS.jumpBase),
+    jumpGapBase: pickFinite(source.jumpGapBase, DEFAULT_STAGE8_PARAMS.jumpGapBase),
+    jumpDecay: pickFinite(source.jumpDecay, DEFAULT_STAGE8_PARAMS.jumpDecay),
+  };
+}
+
 type BuildOptions = {
   limit?: number;
   imbalanceThreshold?: number;
@@ -149,6 +197,8 @@ type BuildOptions = {
   potentialMaxLevelPenalty?: number;
   /** 覆盖玩家 RKS 参照（测试或面板透传后端 serverRks.totalRks 时使用） */
   playerRks?: number;
+  /** 阶段8 可调参数（UI 暴露的子集，缺省时使用默认值） */
+  stage8?: Partial<LilithStage8Params>;
 };
 
 /** 稳定水平估计结果：acc 为持续可达水平，reliable 表示是否来自可靠桶/近邻（而非全局中位数回退） */
@@ -396,56 +446,77 @@ function hasProofedCeiling(records: RksRecord[], playerRks: number): boolean {
 
 /**
  * 规则1 绝对 ACC 天花板：以 T = playerRks + 1.0 为基准；
- * 定数高于 T 每 1.0 点下降 CEILING_UP_SLOPE，低于 T 每 1.0 点上升 CEILING_DOWN_SLOPE（封顶 100）。
- * 能力证明成立时上浮 CEILING_PROOF_RAISE。φ（100%）目标由调用方豁免。
+ * 定数高于 T 每 1.0 点下降 ceilingUpSlope，低于 T 每 1.0 点上升 ceilingDownSlope（封顶 100）。
+ * 能力证明成立时上浮 ceilingProofRaise。φ（100%）目标由调用方豁免。
  */
-function computeAbsoluteAccCeiling(constant: number, playerRks: number, proofed: boolean): number {
+function computeAbsoluteAccCeiling(
+  constant: number,
+  playerRks: number,
+  proofed: boolean,
+  params: LilithStage8Params = DEFAULT_STAGE8_PARAMS,
+): number {
   if (!Number.isFinite(constant) || constant <= 0) return 100;
   if (!Number.isFinite(playerRks) || playerRks <= 0) return 100;
 
   const threshold = playerRks + 1.0;
   const excess = Math.max(0, constant - threshold);
   const under = Math.max(0, threshold - constant);
-  let ceiling =
-    DEFAULT_ABSOLUTE_ACC_CEILING - DEFAULT_CEILING_UP_SLOPE * excess + DEFAULT_CEILING_DOWN_SLOPE * under;
-  if (proofed) ceiling += DEFAULT_CEILING_PROOF_RAISE;
+  let ceiling = params.absAccCeiling - params.ceilingUpSlope * excess + params.ceilingDownSlope * under;
+  if (proofed) ceiling += params.ceilingProofRaise;
   return Math.min(100, Math.max(70, ceiling));
 }
 
 /**
- * 规则3 单次提升上限：定数超过 playerRks + JUMP_GAP_BASE 后，
- * 上限 = JUMP_BASE × e^(−JUMP_DECAY × 超出量)，指数递减；未超门槛则不限制。
+ * 规则3 单次提升上限：定数超过 playerRks + jumpGapBase 后，
+ * 上限 = jumpBase × e^(−jumpDecay × 超出量)，指数递减；未超门槛则不限制。
  */
-function computeMaxJump(constant: number, playerRks: number): number {
+function computeMaxJump(
+  constant: number,
+  playerRks: number,
+  params: LilithStage8Params = DEFAULT_STAGE8_PARAMS,
+): number {
   if (!Number.isFinite(constant) || constant <= 0) return Number.POSITIVE_INFINITY;
   if (!Number.isFinite(playerRks) || playerRks <= 0) return Number.POSITIVE_INFINITY;
 
-  const gap = constant - (playerRks + DEFAULT_JUMP_GAP_BASE);
-  // 定数未超过玩家 RKS + 0.5 → 不限制；恰在门槛 → 上限 = JUMP_BASE（1.5）起指数递减
+  const gap = constant - (playerRks + params.jumpGapBase);
+  // 定数未超过门槛 → 不限制；恰在门槛 → 上限 = jumpBase 起指数递减
   if (gap <= -EPS) return Number.POSITIVE_INFINITY;
-  return DEFAULT_JUMP_BASE * Math.exp(-DEFAULT_JUMP_DECAY * Math.max(0, gap));
+  return params.jumpBase * Math.exp(-params.jumpDecay * Math.max(0, gap));
 }
 
 /** 稳定性豁免：稳定水平估计可靠（可靠桶/近邻回退）时，允许一次练到自身稳定水平；全局回退不豁免。 */
-function computeAllowedDelta(constant: number, currentAcc: number, stableEstimate: StableAccEstimate, playerRks: number): number {
-  const jumpLimit = computeMaxJump(constant, playerRks);
+function computeAllowedDelta(
+  constant: number,
+  currentAcc: number,
+  stableEstimate: StableAccEstimate,
+  playerRks: number,
+  params: LilithStage8Params = DEFAULT_STAGE8_PARAMS,
+): number {
+  const jumpLimit = computeMaxJump(constant, playerRks, params);
   if (!stableEstimate.reliable) return jumpLimit;
   return Math.max(jumpLimit, Math.max(0, stableEstimate.acc - currentAcc));
 }
 
-function buildLilithPolicy(records: RksRecord[], cache: BaselineCache, profile: LilithPlayerProfile, override?: number): LilithPolicy {
+function buildLilithPolicy(
+  records: RksRecord[],
+  cache: BaselineCache,
+  profile: LilithPlayerProfile,
+  override?: number,
+  stage8Overrides?: Partial<LilithStage8Params>,
+): LilithPolicy {
   const playerRks =
     Number.isFinite(override) && (override ?? 0) >= 0
       ? (override ?? 0)
       : computePlayerRks(cache);
-  const proofed = hasProofedCeiling(records, playerRks);
+  const params = resolveStage8Params(stage8Overrides);
+  const proofed = params.enableProof ? hasProofedCeiling(records, playerRks) : false;
 
   return {
     playerRks,
     proofed,
-    absoluteCeiling: (constant: number) => computeAbsoluteAccCeiling(constant, playerRks, proofed),
+    absoluteCeiling: (constant: number) => computeAbsoluteAccCeiling(constant, playerRks, proofed, params),
     maxAllowedDelta: (constant: number, currentAcc: number) =>
-      computeAllowedDelta(constant, currentAcc, profile.stableAccByConstant(constant), playerRks),
+      computeAllowedDelta(constant, currentAcc, profile.stableAccByConstant(constant), playerRks, params),
   };
 }
 
@@ -1094,7 +1165,7 @@ export function buildLilithRecommendations(records: RksRecord[], options?: Build
 
   const cache = buildBaselineCache(records);
   const playerProfile = buildPlayerProfile(records);
-  const policy = buildLilithPolicy(records, cache, playerProfile, options?.playerRks);
+  const policy = buildLilithPolicy(records, cache, playerProfile, options?.playerRks, options?.stage8);
   const candidates: LilithRecommendationItem[] = [];
   const potentialCandidates: LilithRecommendationItem[] = [];
 

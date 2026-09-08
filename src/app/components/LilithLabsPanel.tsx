@@ -5,14 +5,22 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Zap } from 'lucide-react';
 
 import { ScoreAPI } from '../lib/api/score';
+import { LILITH_SETTINGS_STORAGE_KEY } from '../lib/constants/storageKeys';
 import { DIFFICULTY_BG, DIFFICULTY_TEXT } from '../lib/constants/difficultyColors';
 import type { RksRecord } from '../lib/types/score';
 import { formatFixedNumber } from '../lib/utils/number';
 import {
+  DEFAULT_LILITH_USER_SETTINGS,
+  LILITH_SETTINGS_BOUNDS,
+  isLilithUserSettingsDefault,
+  parseLilithUserSettings,
+  serializeLilithUserSettings,
+  type LilithUserSettings,
+} from '../lib/utils/lilithSettings';
+import {
   DEFAULT_ABSOLUTE_ACC_CEILING,
   DEFAULT_CEILING_PROOF_RAISE,
   DEFAULT_JUMP_BASE,
-  DEFAULT_LILITH_RECOMMENDATION_LIMIT,
   buildLilithRecommendations,
   type CandidateTarget,
   type CandidateTargetLabel,
@@ -22,9 +30,62 @@ import {
 } from '../lib/utils/lilithRecommendation';
 
 const EASY_DELTA_ACC_THRESHOLD = 0.5;
-const RECOMMENDATION_LIMIT = DEFAULT_LILITH_RECOMMENDATION_LIMIT;
 const AP_ACC_THRESHOLD = 100;
 const EPS = 1e-6;
+
+/** 安全读取 localStorage（SSR/隐私模式兜底） */
+function safeReadStoredSettings(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.localStorage.getItem(LILITH_SETTINGS_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** 滑块行（label + 数值 + 说明 + 拖动控件） */
+function SettingsSlider({
+  label,
+  hint,
+  value,
+  min,
+  max,
+  step,
+  unit,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  unit: string;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/50 px-3 py-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{label}</span>
+        <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">
+          {formatFixedNumber(value, step < 1 ? 1 : 0)}
+          {unit}
+        </span>
+      </div>
+      <input
+        type="range"
+        className="mt-1.5 w-full accent-blue-600 dark:accent-blue-400"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        aria-label={label}
+      />
+      <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{hint}</p>
+    </div>
+  );
+}
 
 type ViewMode = 'efficiency' | 'potential';
 type DisplaySuggestion = LilithRecommendationItem;
@@ -267,6 +328,8 @@ export function LilithLabsPanel() {
   const [easyOnly, setEasyOnly] = useState(false);
   const [noApOnly, setNoApOnly] = useState(false);
   const [stableOnly, setStableOnly] = useState(false);
+  const [settings, setSettings] = useState<LilithUserSettings>(DEFAULT_LILITH_USER_SETTINGS);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const loadRecords = useCallback(async () => {
     setIsLoading(true);
@@ -288,9 +351,46 @@ export function LilithLabsPanel() {
     void loadRecords();
   }, [loadRecords]);
 
+  useEffect(() => {
+    // 恢复用户调参（仅客户端；服务端渲染保持默认值避免 hydration mismatch）
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 一次性恢复持久化配置
+    setSettings(parseLilithUserSettings(safeReadStoredSettings()));
+  }, []);
+
+  const updateSettings = useCallback((patch: Partial<LilithUserSettings>) => {
+    setSettings((prev) => {
+      const next = { ...prev, ...patch };
+      try {
+        window.localStorage.setItem(LILITH_SETTINGS_STORAGE_KEY, serializeLilithUserSettings(next));
+      } catch {
+        // localStorage 不可用（隐私模式等）时仅内存生效
+      }
+      return next;
+    });
+  }, []);
+
+  const resetSettings = useCallback(() => {
+    updateSettings({ ...DEFAULT_LILITH_USER_SETTINGS });
+  }, [updateSettings]);
+
+  const isCustomized = useMemo(() => !isLilithUserSettingsDefault(settings), [settings]);
+
+  const buildOptions = useMemo<Parameters<typeof buildLilithRecommendations>[1]>(
+    () => ({
+      limit: settings.limit,
+      potentialOverReachCap: settings.overReachCap,
+      stage8: {
+        absAccCeiling: settings.absAccCeiling,
+        enableProof: settings.enableProof,
+        jumpBase: settings.jumpBase,
+      },
+    }),
+    [settings],
+  );
+
   const recommendationResult = useMemo(
-    () => buildLilithRecommendations(records, { limit: RECOMMENDATION_LIMIT }),
-    [records],
+    () => buildLilithRecommendations(records, buildOptions),
+    [records, buildOptions],
   );
   const structureInfo = useMemo(
     () => getStructureStatusInfo(recommendationResult.status),
@@ -364,7 +464,7 @@ export function LilithLabsPanel() {
     const picked: DisplaySuggestion[] = [];
     const selectedSourceIndex = new Set<number>();
     const push = (item: DisplaySuggestion) => {
-      if (picked.length >= RECOMMENDATION_LIMIT) return;
+      if (picked.length >= settings.limit) return;
       if (selectedSourceIndex.has(item.sourceIndex)) return;
       if (!matchesFilters(item)) return;
       picked.push(item);
@@ -373,18 +473,18 @@ export function LilithLabsPanel() {
 
     for (const item of baseRecommendations) {
       push(item);
-      if (picked.length >= RECOMMENDATION_LIMIT) break;
+      if (picked.length >= settings.limit) break;
     }
 
-    if (picked.length < RECOMMENDATION_LIMIT) {
+    if (picked.length < settings.limit) {
       for (const item of fallbackRecommendations) {
         push(item);
-        if (picked.length >= RECOMMENDATION_LIMIT) break;
+        if (picked.length >= settings.limit) break;
       }
     }
 
     return picked;
-  }, [easyOnly, noApOnly, poolFilter, stableOnly, baseRecommendations, fallbackRecommendations]);
+  }, [easyOnly, noApOnly, poolFilter, stableOnly, baseRecommendations, fallbackRecommendations, settings.limit]);
 
   return (
     <div className="space-y-6">
@@ -498,6 +598,96 @@ export function LilithLabsPanel() {
               {tab.label}
             </button>
           ))}
+        </div>
+
+        {/* 用户调参（localStorage 持久化，默认收起） */}
+        <div className="mt-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+          <button
+            type="button"
+            onClick={() => setSettingsOpen((open) => !open)}
+            className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+            aria-expanded={settingsOpen}
+          >
+            <span className="font-medium">
+              调参
+              <span
+                className={`ml-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                  isCustomized
+                    ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800/60 dark:bg-amber-900/30 dark:text-amber-300'
+                    : 'border-gray-200 bg-gray-50 text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400'
+                }`}
+              >
+                {isCustomized ? '已自定义' : '默认参数'}
+              </span>
+            </span>
+            <span className="text-xs text-gray-400 dark:text-gray-500">{settingsOpen ? '收起' : '展开'}</span>
+          </button>
+          {settingsOpen && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 px-3 pb-3">
+              <SettingsSlider
+                label="高定数 ACC 上限"
+                hint="基准水平 +1.0 定数以上的谱面，目标 ACC 最多到多少；调高 → 建议更激进"
+                value={settings.absAccCeiling}
+                min={LILITH_SETTINGS_BOUNDS.absAccCeiling.min}
+                max={LILITH_SETTINGS_BOUNDS.absAccCeiling.max}
+                step={LILITH_SETTINGS_BOUNDS.absAccCeiling.step}
+                unit="%"
+                onChange={(absAccCeiling) => updateSettings({ absAccCeiling })}
+              />
+              <SettingsSlider
+                label="单次提升上限"
+                hint="一首歌一次最多建议推多少 ACC；调高 → 允许更大步长的推分推荐"
+                value={settings.jumpBase}
+                min={LILITH_SETTINGS_BOUNDS.jumpBase.min}
+                max={LILITH_SETTINGS_BOUNDS.jumpBase.max}
+                step={LILITH_SETTINGS_BOUNDS.jumpBase.step}
+                unit="%"
+                onChange={(jumpBase) => updateSettings({ jumpBase })}
+              />
+              <SettingsSlider
+                label="上行放宽幅度"
+                hint="目标 ACC 最多可超出你的稳定水平多少；调高 → 允许更多超常发挥目标"
+                value={settings.overReachCap}
+                min={LILITH_SETTINGS_BOUNDS.overReachCap.min}
+                max={LILITH_SETTINGS_BOUNDS.overReachCap.max}
+                step={LILITH_SETTINGS_BOUNDS.overReachCap.step}
+                unit="%"
+                onChange={(overReachCap) => updateSettings({ overReachCap })}
+              />
+              <SettingsSlider
+                label="推荐条数"
+                hint="每次展示多少条建议"
+                value={settings.limit}
+                min={LILITH_SETTINGS_BOUNDS.limit.min}
+                max={LILITH_SETTINGS_BOUNDS.limit.max}
+                step={LILITH_SETTINGS_BOUNDS.limit.step}
+                unit=" 条"
+                onChange={(limit) => updateSettings({ limit })}
+              />
+              <label
+                className="flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/50 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 sm:col-span-2"
+                title="已有两首以上高定数近-φ 成绩（谱面 RKS 达标）时，允许天花板略微 +0.5%"
+              >
+                <input
+                  type="checkbox"
+                  checked={settings.enableProof}
+                  onChange={(event) => updateSettings({ enableProof: event.target.checked })}
+                  className="h-3.5 w-3.5 rounded border-gray-300 dark:border-gray-700 text-blue-600 focus:ring-blue-500"
+                />
+                允许能力证明放宽（近-φ 成绩记录可略微抬高上限）
+              </label>
+              <div className="sm:col-span-2 flex items-center justify-end">
+                <button
+                  type="button"
+                  onClick={resetSettings}
+                  disabled={!isCustomized}
+                  className="inline-flex items-center justify-center rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  恢复默认
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
