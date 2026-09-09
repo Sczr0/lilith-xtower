@@ -20,10 +20,18 @@ const MULTI_KEYWORD_MODE = 'and';
 const ENRICH_LIMIT = 20;
 
 /**
- * 曲绘缩略图：后端低分辨率原图（`/_ill/illLow`），带 `immutable` 长缓存，
- * 同一首歌只需拉取一次；CSP 的 `img-src` 已放行 `*.xtower.site`。
+ * 曲绘缩略图：走静态资源 CDN（somnia.xtower.site）的低分辨率 WebP 变体 `lilith/illLow`。
+ *
+ * - 不再直连后端（seekend）的 `/_ill/illLow/*.png`：那会由浏览器逐张打后端，暴露源站并挤占其带宽；
+ *   CDN 上同一张曲绘有 `webp`/`avif` 变体（低清 WebP 质量 75，体积约为 PNG 的 1/4~1/5）。
+ * - `lilith/illLow` 只有 webp/avif（上游刻意不产出 png，避免与 `illustrationLowRes` 重复），
+ *   因此兜底格式退回 CDN 上的 `illustrationLowRes/*.png`。
+ * - 两条路径均为 `Cache-Control: public, max-age=2592000` 长缓存 + `Access-Control-Allow-Origin: *`，
+ *   CSP 的 `img-src` 已放行 `*.xtower.site`，`layout.tsx` 也已有该域名的 dns-prefetch。
  */
-const COVER_BASE_URL = 'https://seekend.xtower.site/_ill/illLow';
+const COVER_BASE_URL = 'https://somnia.xtower.site/lilith/illLow';
+/** 兜底曲绘：CDN 上的低分辨率 PNG（`lilith/illLow` 不提供 PNG 变体）。 */
+const COVER_FALLBACK_BASE_URL = 'https://somnia.xtower.site/illustrationLowRes';
 
 /** 四难度定数（缺失难度为 null）。 */
 export interface SongChartConstants {
@@ -42,8 +50,10 @@ export interface SongCandidate {
   illustrator?: string;
   /** 各难度定数 */
   chartConstants?: SongChartConstants;
-  /** 曲绘缩略图 URL */
+  /** 曲绘缩略图 URL（CDN 低清 WebP） */
   coverUrl?: string;
+  /** 曲绘兜底 URL（CDN 低清 PNG，仅在 WebP 变体缺失/解码失败时使用） */
+  coverFallbackUrl?: string;
 }
 
 /** 检索结果：唯一命中 / 多命中（需消歧）/ 未命中。 */
@@ -56,7 +66,14 @@ export type SongSearchOutcome =
 export function buildSongCoverUrl(songId: string): string {
   const id = songId.trim();
   if (!id) return '';
-  return `${COVER_BASE_URL}/${encodeURIComponent(id)}.png`;
+  return `${COVER_BASE_URL}/${encodeURIComponent(id)}.webp`;
+}
+
+/** 构造曲绘兜底 URL（CDN 低清 PNG）。 */
+export function buildSongCoverFallbackUrl(songId: string): string {
+  const id = songId.trim();
+  if (!id) return '';
+  return `${COVER_FALLBACK_BASE_URL}/${encodeURIComponent(id)}.png`;
 }
 
 /**
@@ -104,6 +121,7 @@ const parseSongInfo = (item: unknown): SongCandidate | null => {
     id: raw.id,
     name: raw.name,
     coverUrl: buildSongCoverUrl(raw.id),
+    coverFallbackUrl: buildSongCoverFallbackUrl(raw.id),
   };
   if (typeof raw.composer === 'string' && raw.composer) candidate.artist = raw.composer;
   if (typeof raw.illustrator === 'string' && raw.illustrator) candidate.illustrator = raw.illustrator;
@@ -122,7 +140,12 @@ const parseProblemCandidates = (payload: unknown): { candidates: SongCandidate[]
       if (!item || typeof item !== 'object') return null;
       const raw = item as { id?: unknown; name?: unknown };
       if (typeof raw.id !== 'string' || typeof raw.name !== 'string') return null;
-      return { id: raw.id, name: raw.name, coverUrl: buildSongCoverUrl(raw.id) };
+      return {
+        id: raw.id,
+        name: raw.name,
+        coverUrl: buildSongCoverUrl(raw.id),
+        coverFallbackUrl: buildSongCoverFallbackUrl(raw.id),
+      };
     })
     .filter((it): it is SongCandidate => it !== null);
 

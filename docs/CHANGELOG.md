@@ -4,13 +4,22 @@
 
 ## Unreleased
 
+- 优化（实验室-Lilith「RKS 提升助手」）：收尾能力建模为 P(φ|定数)，效率视图改为期望收益排序
+  - `lib/utils/lilithRecommendation.ts` 新增 `fitClosureProbability()`：用近-φ 记录（ACC ≥ 99.8）按定数拟合单调递减的 logistic 曲线（带斜率岭惩罚的牛顿法，样本不足或单一类别时回退全局 closeRate），得到「收掉把握」——把「能打到 99.8%」与「能收掉」拆成两个维度
+  - `computeApClosurePenalty` 拆成两维、不再重复计入：①「收掉率」改由 P(φ|定数) 进入期望收益；②「目标定数相对玩家个人 AP 天花板（已 φ 谱面 Top3 定数均值）的距离」保留为 `computeApCeilingPenalty` 成本乘子，并继续受潜力视图 `levelPenalty ≤ 2.0` 硬上限约束——避免要求玩家去收远超自己 AP 天花板的谱面
+  - 新增 `expectedDelta = 达成概率 × Δ总RKS`：φ 目标按 P(φ|定数) 折算，其他目标为 1；效率视图按 `roi = expectedDelta / max(1, 有效成本)` 排序（成本下限＝一次完整游玩）
+  - 效果（真实存档）：ΔACC≈0.001 的微推分不再凭虚高 ROI 占据首位（ROI 从 0.0034 降至 ≈0.00003，退为备选目标而**不被丢弃**）；潜力视图候选由 2 条升至 123 条，且 φ 目标被 AP 天花板约束在定数 13.9~15.4（玩家 AP Best3 均值 13.97、近-φ 上限 15.60），原先 15.5~15.9 的「远超天花板」目标已被剔除
+  - UI：卡片与备选目标新增「期望ΔRKS / 达成（收掉把握）」展示，并说明「能打到 99.8%」≠「能收掉」
+  - 单测：`lilithRecommendation.test.ts` 新增阶段9 用例（logistic 拟合/回退/钳制、期望收益折算、微推分沉底但保留、收尾概率低时 φ 目标仍进潜力视图、AP 天花板距离剔除），共 50 项
+
 - 优化（单曲检索）：启用后端多关键词模式 + 候选消歧信息补全（对应问卷「同名/相近名混淆」「曲师不好搜」）
   - `lib/api/song.ts` 重构为 `searchSong()`：含多词的查询（如「雪降 A39」）优先走 `mode=and`（后端该模式下官方名/别名/曲师/曲目 ID 均参与匹配，支持双引号短语与 `-` 排除）；`mode=and` 未命中时自动回退默认单串模式，保证「祈 -我ら神祖と共に歩む者なり-」这类含连字符的完整曲名仍可命中
   - 多命中（409）时用同查询的非 unique 请求补全候选的曲师/画师/四难度定数（后端候选预览只含 id/name），补全失败不影响消歧
-  - 新增 `SongCandidateList` 组件（单曲查询 / 玩家成绩渲染共用）：展示曲绘缩略图（`/_ill/illLow`，immutable 缓存，加载失败退回占位图标）、曲名、曲师/画师、各难度定数与曲目 ID；由红色错误框改为独立的消歧面板
+  - 新增 `SongCandidateList` 组件（单曲查询 / 玩家成绩渲染共用）：展示曲绘缩略图（CDN `somnia.xtower.site/lilith/illLow` 低清 WebP，长缓存，失败退回 CDN PNG 再退回占位图标）、曲名、曲师/画师、各难度定数与曲目 ID；由红色错误框改为独立的消歧面板
+  - 修复：候选曲绘不再由浏览器直连后端（`seekend.xtower.site/_ill/illLow/*.png`）——那会逐张打后端、暴露源站并挤占其带宽；改走现成的静态资源 CDN `somnia.xtower.site/lilith/illLow/*.webp`（低清 WebP，`Access-Control-Allow-Origin: *` + 30 天缓存），仅在 WebP 变体缺失时退回同 CDN 的 `illustrationLowRes/*.png`。实测抽样 12 首：WebP 合计 216 KB vs PNG 2.5 MB（省 91.4%），且 CDN 覆盖率不低于后端（后端有 1 首 404 而 CDN 正常）
   - 单曲查询输入区补充检索能力提示（黑话/缩写别名、「曲名 + 曲师」组合、`-` 排除），占位文案同步更新
   - 检索结果按查询词做 10 分钟 LRU 缓存（上限 200），同一查询不重复回源
-  - 单测：`song.test.ts`（mode 选择/回退/409 补全/补全失败降级/缓存去重）、`song-candidate-list.test.tsx`（渲染与交互）
+  - 单测：`song.test.ts`（mode 选择/回退/409 补全/补全失败降级/缓存去重/CDN 曲绘 URL）、`song-candidate-list.test.tsx`（渲染、交互与曲绘回退链）
 
 - 新增（PWA，MVP）：站点可安装为渐进式 Web 应用
   - `src/app/manifest.ts` 生成 `/manifest.webmanifest`（name/short_name/start_url/scope/display=standalone/theme_color/background_color/lang/id + 192/512 与 maskable 图标）

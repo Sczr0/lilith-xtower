@@ -11,7 +11,8 @@ const candidate: SongCandidate = {
   artist: 'Halv',
   illustrator: 'utosao',
   chartConstants: { ez: 6.0, hd: 11.8, in: 14.0, at: null },
-  coverUrl: 'https://seekend.xtower.site/_ill/illLow/KhronostasisKatharsis.Halv.png',
+  coverUrl: 'https://somnia.xtower.site/lilith/illLow/KhronostasisKatharsis.Halv.webp',
+  coverFallbackUrl: 'https://somnia.xtower.site/illustrationLowRes/KhronostasisKatharsis.Halv.png',
 };
 
 afterEach(() => {
@@ -41,6 +42,20 @@ describe('SongCandidateList', () => {
     fireEvent.click(screen.getByRole('button'));
 
     expect(onSelect).toHaveBeenCalledWith(candidate);
+  });
+
+  it('WebP 加载失败时退回 CDN PNG，再失败才退回占位图标', () => {
+    render(<SongCandidateList candidates={[candidate]} onSelect={vi.fn()} />);
+
+    const cover = document.querySelector('img');
+    expect(cover?.getAttribute('src')).toBe(candidate.coverUrl);
+
+    fireEvent.error(cover!);
+    const fallback = document.querySelector('img');
+    expect(fallback?.getAttribute('src')).toBe(candidate.coverFallbackUrl);
+
+    fireEvent.error(fallback!);
+    expect(document.querySelector('img')).toBeNull();
   });
 
   it('无曲绘时退回占位图标（不渲染 img）', () => {

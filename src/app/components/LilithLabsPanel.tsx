@@ -116,6 +116,12 @@ function getTargetLabelText(label: CandidateTargetLabel): string {
   }
 }
 
+/** 达成概率展示：φ 目标为 P(收掉|定数)，其他目标为 100% */
+function formatTargetProbability(probability: number): string {
+  if (!Number.isFinite(probability)) return '--';
+  return `${formatFixedNumber(probability * 100, 0)}%`;
+}
+
 function getTargetLabelClassName(label: CandidateTargetLabel): string {
   switch (label) {
     case 'stable':
@@ -212,8 +218,10 @@ function AlternativeTargetRow({ target }: { target: CandidateTarget }) {
         <span>ΔACC {formatFixedNumber(target.deltaAcc, 2)}%</span>
         <span>目标RKS {formatFixedNumber(target.targetRks, 4)}</span>
         <span>Δ总RKS {formatFixedNumber(target.deltaTotal, 4)}</span>
+        <span>期望ΔRKS {formatFixedNumber(target.expectedDelta, 4)}</span>
         <span>ROI {formatFixedNumber(target.roi, 4)}</span>
         <span className="text-gray-400 dark:text-gray-500">{getPoolBadge(target.pool).label}</span>
+        <span className="text-gray-400 dark:text-gray-500">达成 {formatTargetProbability(target.targetProbability)}</span>
       </div>
     </div>
   );
@@ -280,13 +288,23 @@ function RecommendationCard({ item, index }: { item: DisplaySuggestion; index: n
               超出稳定水平 +{formatFixedNumber(item.overReach, 1)}%
             </div>
           )}
+          {item.targetProbability < 1 - EPS && (
+            <div
+              className="text-[11px] text-violet-600 dark:text-violet-400"
+              title="P(收掉|定数)：由你的近-φ 记录按定数拟合的收尾概率。「能打到 99.8%」不等于「能收掉」——手癖、心态与最后一公里的稳定性是另一个维度。"
+            >
+              收掉把握 {formatTargetProbability(item.targetProbability)}
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
             <span>ΔACC {formatFixedNumber(item.deltaAcc, 2)}%</span>
             <span>目标RKS {formatFixedNumber(item.targetRks, 4)}</span>
             <span>ΔTop27 {formatFixedNumber(item.deltaTop27, 4)}</span>
             <span>ΔTop3Phi {formatFixedNumber(item.deltaTop3Phi, 4)}</span>
             <span>Δ总RKS {formatFixedNumber(item.deltaTotal, 4)}</span>
+            <span>期望ΔRKS {formatFixedNumber(item.expectedDelta, 4)}</span>
             <span>ROI {formatFixedNumber(item.roi, 4)}</span>
+            <span>达成 {formatTargetProbability(item.targetProbability)}</span>
           </div>
           <div className="flex items-center gap-2">
             {hasAlternatives && (
@@ -560,8 +578,15 @@ export function LilithLabsPanel() {
             </div>
           </div>
           <div className="mt-2 rounded-md border border-current/20 bg-white/30 dark:bg-black/10 px-3 py-2 text-xs leading-5">
-            <p>指标说明：bestROI = 在该池中“每投入 1 单位有效推分成本可换来的最大 Δ总RKS”。</p>
-            <p className="mt-1">有效推分成本会同时考虑高 ACC 区间的非线性难度、明显高于玩家当前 Best / AP 水平的高定数降权，以及目标为 Phi 时的 AP 收尾能力。</p>
+            <p>指标说明：ROI = 期望ΔRKS ÷ 有效推分成本（成本下限为一次完整游玩），bestROI 即该池中的最大值。</p>
+            <p className="mt-1">
+              期望ΔRKS = 达成概率 × Δ总RKS：φ 目标的达成概率取 P(收掉|定数)（由你的近-φ 记录按定数拟合，
+              当前 {recommendationResult.closure.source === 'logistic'
+                ? `logistic 拟合，样本 ${recommendationResult.closure.samples} 条 / φ ${recommendationResult.closure.events} 条`
+                : `样本不足，回退全局比例 ${formatFixedNumber(recommendationResult.closure.closeRate * 100, 0)}%`}），
+              其他目标取 100%。因此「只推 0.001% ACC」这类几乎不动的目标不会被丢弃，而是因期望收益极低自然沉到列表末尾。
+            </p>
+            <p className="mt-1">有效推分成本会同时考虑高 ACC 区间的非线性难度，以及明显高于玩家当前 Best / AP 水平的高定数降权。</p>
             <p className="mt-1">
               潜力之选：每首曲目取其「目标 ACC 不超过稳定水平 {formatFixedNumber(recommendationResult.potentialOverReachCap, 1)}%」
               且「定数水平惩罚 ≤ {formatFixedNumber(recommendationResult.potentialMaxLevelPenalty, 1)}」内能做到的最大 Δ总RKS 目标；
@@ -581,7 +606,7 @@ export function LilithLabsPanel() {
         {/* 双 Tab 视图切换 */}
         <div className="mt-4 flex items-center gap-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 p-1 w-fit">
           {([
-            { value: 'efficiency' as ViewMode, label: '效率之选', desc: '按 ROI 降序' },
+            { value: 'efficiency' as ViewMode, label: '效率之选', desc: '按期望收益效率降序（期望ΔRKS ÷ 成本）' },
             { value: 'potential' as ViewMode, label: '潜力之选', desc: '按可行上限内的最大 Δ总RKS 降序' },
           ]).map((tab) => (
             <button

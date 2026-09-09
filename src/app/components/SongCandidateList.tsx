@@ -26,11 +26,19 @@ export interface SongCandidateListProps {
   className?: string;
 }
 
-/** 曲绘缩略图：加载失败时退回占位图标（部分曲目 ID 含特殊符号，远端可能无对应文件）。 */
+/**
+ * 曲绘缩略图：优先 CDN 低清 WebP，失败退回 CDN 低清 PNG，再失败退回占位图标
+ * （部分曲目 ID 含特殊符号，或新曲尚未在 CDN 生成变体）。
+ */
 function CandidateCover({ candidate }: { candidate: SongCandidate }) {
-  const [failed, setFailed] = useState(false);
+  // 依次尝试的地址：0 = 主图（CDN WebP），1 = 兜底（CDN PNG），越界即占位
+  const sources = [candidate.coverUrl, candidate.coverFallbackUrl].filter(
+    (url, index, list): url is string => Boolean(url) && list.indexOf(url) === index,
+  );
+  const [attempt, setAttempt] = useState(0);
+  const src = sources[attempt];
 
-  if (!candidate.coverUrl || failed) {
+  if (!src) {
     return (
       <span
         className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-400 dark:bg-neutral-800 dark:text-gray-500"
@@ -42,15 +50,15 @@ function CandidateCover({ candidate }: { candidate: SongCandidate }) {
   }
 
   return (
-    /* eslint-disable-next-line @next/next/no-img-element -- 说明：曲绘为远端静态资源（*.xtower.site，immutable 缓存），不走 next/image 优化链路 */
+    /* eslint-disable-next-line @next/next/no-img-element -- 说明：曲绘为 CDN 静态资源（somnia.xtower.site，长缓存），不走 next/image 优化链路 */
     <img
-      src={candidate.coverUrl}
+      src={src}
       alt=""
       width={48}
       height={48}
       loading="lazy"
       decoding="async"
-      onError={() => setFailed(true)}
+      onError={() => setAttempt((current) => current + 1)}
       className="h-12 w-12 shrink-0 rounded-lg bg-gray-100 object-cover dark:bg-neutral-800"
     />
   );

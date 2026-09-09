@@ -362,9 +362,9 @@ describe('buildLilithRecommendations', () => {
     }
   });
 
-  it('closeRate uses count ratio instead of weighted sum ratio', () => {
+  it('收尾比例使用数量比（而非加权和比），并作为 logistic 回退值', () => {
     // 构造 closeReady 数量比场景：
-    // 5 条 99.8%+ 记录中只有 1 条 Phi → closeRate = 1/5 = 0.2
+    // 5 条 99.8%+ 记录中只有 1 条 Phi → closeRate = 1/5
     const records: RksRecord[] = [
       createRecord({ song_name: 'Close1', difficulty_value: 14, acc: 99.85, push_acc: null }),
       createRecord({ song_name: 'Close2', difficulty_value: 15, acc: 99.80, push_acc: null }),
@@ -374,13 +374,18 @@ describe('buildLilithRecommendations', () => {
       createRecord({ song_name: 'PhiTarget', difficulty_value: 14.5, acc: 99.5, push_acc: 100 }),
     ];
 
-    const result = buildLilithRecommendations(records, { limit: 5 });
+    // 1 phi out of 5 closeReady records → closeRate = 1/5（数量比，不是加权和比）
+    const closure = __lilithRecommendationTestables.fitClosureProbability(records);
+    expect(closure.samples).toBe(5);
+    expect(closure.events).toBe(1);
+    expect(closure.closeRate).toBeCloseTo(1 / 5, 10);
 
-    // 1 phi out of 5+1=6 closeReady records → closeRate ≈ 0.167
-    // 这意味着 AP 收尾能力较弱，Phi 目标的惩罚应该更大
+    const result = buildLilithRecommendations(records, { limit: 5 });
     const phiTarget = findRecommendation(result, 'PhiTarget');
     expect(phiTarget).toBeDefined();
-    // 无法直接检测 closeRate，但可以验证 ROI > 0
+    // 收尾概率进入期望收益：φ 目标的达成概率就是 closeRate（样本不足 → 回退全局比例）
+    expect(phiTarget.targetProbability).toBeCloseTo(1 / 5, 10);
+    expect(phiTarget.expectedDelta).toBeCloseTo(phiTarget.deltaTotal / 5, 10);
     expect(phiTarget.roi).toBeGreaterThan(0);
   });
 
@@ -623,6 +628,8 @@ describe('潜力之选：可行上限（阶段7）', () => {
       deltaTop3Phi: 0,
       deltaTotal: 0.02,
       roi: 0.5,
+      expectedDelta: 0.02,
+      targetProbability: 1,
       pool: 'top27',
       targetLabel: 'push_line',
       needsGodRun: false,
@@ -849,5 +856,200 @@ describe('阶段8：高定数绝对天花板 / 能力证明 / 单次提升上限
     // 单次上限 0.5 < 1.1 → 只能留稳推 97.9；默认 1.5 时可达 98.9+
     expect(strictRet!.targetAcc).toBeCloseTo(97.9, 6);
     expect(looseRet!.targetAcc).toBeGreaterThan(98.9 - 1e-6);
+  });
+});
+
+describe('阶段9：收尾概率 P(φ|定数) 与期望收益排序', () => {
+  const { fitClosureProbability, computeExpectedDelta } = __lilithRecommendationTestables;
+
+  it('fitClosureProbability: 样本足够时按定数拟合单调递减的 logistic', () => {
+    // 近-φ 池 12 条：低定数全收掉，高定数全没收掉
+    const records: RksRecord[] = [
+      ...[14.0, 14.1, 14.2, 14.3].map((c, i) =>
+        createRecord({ song_name: `LowPhi${i}`, difficulty_value: c, acc: 100, already_phi: true }),
+      ),
+      ...[16.0, 16.1, 16.2, 16.3].map((c, i) =>
+        createRecord({ song_name: `HighNear${i}`, difficulty_value: c, acc: 99.9 }),
+      ),
+      ...[15.0, 15.1].map((c, i) =>
+        createRecord({ song_name: `MidNear${i}`, difficulty_value: c, acc: 99.85 }),
+      ),
+      ...[15.5, 15.6].map((c, i) =>
+        createRecord({ song_name: `MidPhi${i}`, difficulty_value: c, acc: 100, already_phi: true }),
+      ),
+    ];
+    const model = fitClosureProbability(records);
+
+    expect(model.source).toBe('logistic');
+    expect(model.samples).toBe(12);
+    expect(model.events).toBe(6);
+    expect(model.slope).toBeLessThan(0);
+    // 单调递减
+    expect(model.probability(14.0)).toBeGreaterThan(model.probability(15.0));
+    expect(model.probability(15.0)).toBeGreaterThan(model.probability(16.0));
+    // 概率钳制在 [0.02, 0.98]
+    for (const c of [1, 10, 13, 16, 18, 25]) {
+      const p = model.probability(c);
+      expect(p).toBeGreaterThanOrEqual(0.02);
+      expect(p).toBeLessThanOrEqual(0.98);
+    }
+  });
+
+  it('fitClosureProbability: 样本不足时回退全局比例（定数无关的常数概率）', () => {
+    const records: RksRecord[] = [
+      createRecord({ song_name: 'Near1', difficulty_value: 14, acc: 99.9 }),
+      createRecord({ song_name: 'Near2', difficulty_value: 16, acc: 99.85 }),
+      createRecord({ song_name: 'Phi1', difficulty_value: 13, acc: 100, already_phi: true }),
+    ];
+    const model = fitClosureProbability(records);
+
+    expect(model.source).toBe('global');
+    expect(model.samples).toBe(3);
+    expect(model.events).toBe(1);
+    expect(model.slope).toBe(0);
+    // closeRate = 1/3
+    expect(model.probability(13)).toBeCloseTo(1 / 3, 10);
+    expect(model.probability(17)).toBeCloseTo(1 / 3, 10);
+  });
+
+  it('fitClosureProbability: 全是 φ（单一类别）时不做斜率拟合', () => {
+    const records: RksRecord[] = [
+      ...[13, 14, 15, 16, 17, 18, 19, 20].map((c, i) =>
+        createRecord({ song_name: `AllPhi${i}`, difficulty_value: c, acc: 100, already_phi: true }),
+      ),
+    ];
+    const model = fitClosureProbability(records);
+    expect(model.source).toBe('global');
+    expect(model.events).toBe(model.samples);
+    // closeRate = 1 → 钳制到 0.98
+    expect(model.probability(15)).toBeCloseTo(0.98, 10);
+  });
+
+  it('computeExpectedDelta: φ 目标按 P(φ|定数) 折算，其他目标概率为 1', () => {
+    const closure = () => 0.25;
+
+    const phi = computeExpectedDelta(0.04, 100, 16, closure);
+    expect(phi.targetProbability).toBeCloseTo(0.25, 10);
+    expect(phi.expectedDelta).toBeCloseTo(0.01, 10);
+
+    const nonPhi = computeExpectedDelta(0.04, 99.5, 16, closure);
+    expect(nonPhi.targetProbability).toBe(1);
+    expect(nonPhi.expectedDelta).toBeCloseTo(0.04, 10);
+
+    // 非正增量 → 0
+    expect(computeExpectedDelta(0, 100, 16, closure).expectedDelta).toBe(0);
+  });
+
+  it('期望收益排序：ΔACC≈0 的微推分沉底但仍在候选列表中（不被硬过滤）', () => {
+    const records: RksRecord[] = [
+      // 填充 27 条，让 Micro 恰好已入榜（push_acc 只比当前 acc 高 0.001）
+      ...Array.from({ length: 27 }, (_, i) =>
+        createRecord({
+          song_name: `Top${i}`,
+          difficulty_value: 15,
+          acc: 97,
+          push_acc: null,
+          rks: 12 - i * 0.05,
+        }),
+      ),
+      // 微推分：ΔACC = 0.001，Δ总RKS ≈ 2e-5（模拟后端对已入榜谱面返回 push_acc ≈ acc）
+      // 注：既有守卫会丢弃 ΔACC ≤ 1e-6 或 Δ总RKS ≤ 1e-6 的候选（数值噪声级），
+      // 这里取 0.001 以落在守卫之外，专门验证"非零但极小"的目标不会被硬过滤。
+      createRecord({
+        song_name: 'Micro',
+        difficulty_value: 16.2,
+        acc: 98.19,
+        push_acc: 98.191,
+      }),
+      // 值钱目标：近-φ 推到 100
+      createRecord({
+        song_name: 'NearPhi',
+        difficulty_value: 15.1,
+        acc: 99.6,
+        push_acc: 100,
+        rks: 14.0,
+      }),
+      // 给收尾概率提供样本
+      ...[13.8, 13.9, 14.0, 14.1].map((c, i) =>
+        createRecord({ song_name: `PhiBase${i}`, difficulty_value: c, acc: 100, already_phi: true }),
+      ),
+      ...[15.0, 15.2, 15.4, 15.6].map((c, i) =>
+        createRecord({ song_name: `NearBase${i}`, difficulty_value: c, acc: 99.9 }),
+      ),
+    ];
+
+    const result = buildLilithRecommendations(records, { limit: 8, playerRks: 14 });
+    const microItem = result.allCandidates.find((c) => c.record.song_name === 'Micro');
+    const nearPhi = result.allCandidates.find((c) => c.record.song_name === 'NearPhi');
+
+    // 1) 微推分没有被硬过滤掉——玩家仍能在该谱面的备选目标里看到它
+    expect(microItem).toBeDefined();
+    const microTarget = findTargetByAcc(microItem, 98.191);
+    expect(microTarget).toBeDefined();
+    expect(microTarget!.deltaAcc).toBeCloseTo(0.001, 6);
+    // 2) 它的期望收益极低，且因成本下限（至少算一次完整游玩）不会虚高
+    expect(microTarget!.expectedDelta).toBeLessThan(0.0001);
+    expect(microTarget!.roi).toBeLessThanOrEqual(microTarget!.expectedDelta + 1e-12);
+    // 3) 该谱面的主推荐不再落在微推分上（期望收益更高的目标胜出）
+    expect(microItem!.targetAcc).not.toBeCloseTo(98.191, 6);
+    expect(microItem!.expectedDelta).toBeGreaterThan(microTarget!.expectedDelta * 10);
+    // 4) 近-φ 目标的期望收益同样远高于微推分
+    expect(nearPhi).toBeDefined();
+    expect(nearPhi!.expectedDelta).toBeGreaterThan(microTarget!.expectedDelta * 10);
+  });
+
+  it('收尾概率低时 φ 目标仍可出现在潜力视图（不再被硬上限一刀切否决）', () => {
+    const records: RksRecord[] = [
+      createRecord({ song_name: 'Base1', difficulty_value: 15, acc: 99.7 }),
+      createRecord({ song_name: 'Base2', difficulty_value: 15, acc: 99.9 }),
+      createRecord({ song_name: 'Base3', difficulty_value: 15, acc: 99.8 }),
+      // 收尾能力弱：近-φ 一堆但只有 1 首 φ
+      createRecord({ song_name: 'OnlyPhi', difficulty_value: 15.2, acc: 100, already_phi: true }),
+      ...[14.4, 14.6, 14.8, 15.0, 15.2, 15.4].map((c, i) =>
+        createRecord({ song_name: `Near${i}`, difficulty_value: c, acc: 99.85 }),
+      ),
+      createRecord({ song_name: 'NearPhiTarget', difficulty_value: 15.1, acc: 99.7, push_acc: 100 }),
+    ];
+
+    const result = buildLilithRecommendations(records, { limit: 8, playerRks: 14 });
+    const potential = result.potentialAllCandidates.find((c) => c.record.song_name === 'NearPhiTarget');
+
+    // 收尾能力弱 → 概率低，但目标仍然进入潜力列表（由期望收益体现代价，而非直接剔除）
+    expect(potential).toBeDefined();
+    expect(potential!.targetAcc).toBeCloseTo(100, 6);
+    expect(potential!.targetProbability).toBeLessThan(0.5);
+    expect(potential!.expectedDelta).toBeLessThan(potential!.deltaTotal);
+  });
+
+  it('AP 天花板距离：远超自己 AP Best3 均值的 φ 目标被潜力视图剔除', () => {
+    // 同一个 16.0 定数目标，唯一差别是玩家已 φ 的谱面在哪一档定数
+    const buildDataset = (phiConstants: number[]): RksRecord[] => [
+      ...phiConstants.map((c, i) =>
+        createRecord({ song_name: `Phi${i}`, difficulty_value: c, acc: 100, already_phi: true }),
+      ),
+      // 近-φ 池都在 15.5~15.9（能打到但收不掉）
+      ...[15.5, 15.7, 15.9].map((c, i) =>
+        createRecord({ song_name: `NearHigh${i}`, difficulty_value: c, acc: 99.9 }),
+      ),
+      createRecord({ song_name: 'Target', difficulty_value: 16.0, acc: 99.7, push_acc: 100 }),
+      // 只比低天花板高 0.4 的合理目标
+      createRecord({ song_name: 'Reasonable', difficulty_value: 13.2, acc: 99.7, push_acc: 100 }),
+    ];
+
+    // 低天花板：已 φ 都在 12.6~13.0（AP Best3 均值 ≈ 12.8）
+    const lowCeiling = buildLilithRecommendations(buildDataset([12.6, 12.8, 13.0]), { limit: 8, playerRks: 15.5 });
+    // 高天花板：已 φ 都在 15.4~15.8（AP Best3 均值 ≈ 15.6）
+    const highCeiling = buildLilithRecommendations(buildDataset([15.4, 15.6, 15.8]), { limit: 8, playerRks: 15.5 });
+
+    // 天花板低 → 目标 16.0 远超 AP 天花板 → 潜力视图剔除
+    expect(lowCeiling.potentialAllCandidates.find((c) => c.record.song_name === 'Target')).toBeUndefined();
+    // 天花板高 → 同一目标可行 → 收录
+    expect(highCeiling.potentialAllCandidates.find((c) => c.record.song_name === 'Target')).toBeDefined();
+
+    // 门槛是分级的：低天花板下只高 0.4 的合理 φ 目标仍然收录
+    expect(lowCeiling.potentialAllCandidates.find((c) => c.record.song_name === 'Reasonable')).toBeDefined();
+
+    // 效率视图不做硬删除——目标仍可见，只是被 AP 天花板距离惩罚压低
+    expect(lowCeiling.allCandidates.find((c) => c.record.song_name === 'Target')).toBeDefined();
   });
 });

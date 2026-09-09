@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { buildSongCoverUrl, searchSong, shouldUseMultiKeywordMode } from '../song';
+import { buildSongCoverFallbackUrl, buildSongCoverUrl, searchSong, shouldUseMultiKeywordMode } from '../song';
 
 type MockResponse = { status: number; payload: unknown };
 
@@ -33,14 +33,21 @@ afterEach(() => {
 });
 
 describe('buildSongCoverUrl', () => {
-  it('按路径片段编码曲目 ID（含空格/日文/特殊符号）', () => {
+  it('走 CDN 的 lilith/illLow WebP 变体（不直连后端）', () => {
     expect(buildSongCoverUrl('Stasis.Maozon')).toBe(
-      'https://seekend.xtower.site/_ill/illLow/Stasis.Maozon.png',
+      'https://somnia.xtower.site/lilith/illLow/Stasis.Maozon.webp',
     );
     expect(buildSongCoverUrl('亂☆舞.NekockLK')).toBe(
-      `https://seekend.xtower.site/_ill/illLow/${encodeURIComponent('亂☆舞.NekockLK')}.png`,
+      `https://somnia.xtower.site/lilith/illLow/${encodeURIComponent('亂☆舞.NekockLK')}.webp`,
     );
     expect(buildSongCoverUrl('  ')).toBe('');
+  });
+
+  it('兜底曲绘走 CDN 的 illustrationLowRes PNG 变体', () => {
+    expect(buildSongCoverFallbackUrl('Stasis.Maozon')).toBe(
+      'https://somnia.xtower.site/illustrationLowRes/Stasis.Maozon.png',
+    );
+    expect(buildSongCoverFallbackUrl('  ')).toBe('');
   });
 });
 
@@ -135,7 +142,8 @@ describe('searchSong', () => {
       artist: 'Halv',
       illustrator: 'utosao',
       chartConstants: { ez: 6.0, hd: 11.8, in: 14.0, at: null },
-      coverUrl: 'https://seekend.xtower.site/_ill/illLow/KhronostasisKatharsis.Halv.png',
+      coverUrl: 'https://somnia.xtower.site/lilith/illLow/KhronostasisKatharsis.Halv.webp',
+      coverFallbackUrl: 'https://somnia.xtower.site/illustrationLowRes/KhronostasisKatharsis.Halv.png',
     });
     expect(outcome.candidates[1]).toMatchObject({ artist: '黒皇帝' });
 
@@ -166,7 +174,8 @@ describe('searchSong', () => {
     expect(outcome.candidates[0]).toMatchObject({
       id: 'X.Y',
       name: 'X',
-      coverUrl: 'https://seekend.xtower.site/_ill/illLow/X.Y.png',
+      coverUrl: 'https://somnia.xtower.site/lilith/illLow/X.Y.webp',
+      coverFallbackUrl: 'https://somnia.xtower.site/illustrationLowRes/X.Y.png',
     });
     expect(outcome.candidates[0]?.artist).toBeUndefined();
   });

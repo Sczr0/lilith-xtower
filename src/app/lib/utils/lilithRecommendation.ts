@@ -48,12 +48,29 @@ const PROFILE_LEVEL_SAMPLE_COUNT = 3;
 const NEAR_AP_ACC_THRESHOLD = 99.5;
 const CLOSE_READY_ACC_THRESHOLD = 99.8;
 const HIGH_ACC_PROFILE_THRESHOLD = 98;
-const AP_CLOSURE_FALLBACK_GAP = 0.6;
-const AP_CLOSURE_SAFE_MARGIN = 0.15;
-const AP_CLOSURE_GAP_FACTOR = 0.55;
-const AP_CLOSURE_AP_LEVEL_FACTOR = 0.75;
-const AP_CLOSURE_NEAR_AP_FACTOR = 0.35;
-const AP_CLOSURE_CLOSE_RATE_FACTOR = 1.1;
+// 阶段9: 收尾能力模型——把 closeRate 从标量升级为 P(φ | 定数) 的 logistic 曲线。
+// 动机：近-φ（能打到 99.8%）与真的收掉（100%）是两个维度，
+// 且收掉率随定数显著下降（实测玩家：定数 13~14 → 50%，14~15 → 16.7%，15~16 → 0%）。
+const CLOSURE_FIT_MIN_SAMPLES = 8; // 低于此样本数不拟合斜率，回退全局比例
+const CLOSURE_FIT_MIN_EVENTS = 2; // 至少需要这么多 φ 事件才能拟合斜率
+const CLOSURE_RIDGE_LAMBDA = 1.0; // 斜率岭惩罚（标准化定数坐标，保证小样本可解）
+const CLOSURE_SLOPE_MAX = 6.0; // 斜率绝对值上限（防分离导致的极端外推）
+const CLOSURE_PROB_MIN = 0.02;
+const CLOSURE_PROB_MAX = 0.98;
+const CLOSURE_NEWTON_ITERATIONS = 40;
+// 阶段9: AP 天花板距离惩罚——"目标定数远高于玩家已 φ 的定数（AP Best3 均值）"是独立的一维：
+// 强行让玩家去收一个远超自己 AP 天花板的谱面并不现实，因此仍以成本乘子表达（并在潜力视图里受硬上限约束）。
+// 注意：这与 P(φ|定数) 不重复——概率表达的是"在该定数上的收掉率"（玩家相对自身曲线的能力），
+// 这里表达的是"目标相对玩家个人天花板有多远"。
+const AP_CEILING_FALLBACK_GAP = 0.6;
+const AP_CEILING_SAFE_MARGIN = 0.15;
+const AP_CEILING_AP_LEVEL_FACTOR = 0.75;
+const AP_CEILING_NEAR_AP_FACTOR = 0.35;
+// 阶段9: ROI 分母的成本下限——任何目标至少算"一次完整游玩"的成本。
+// 没有这个下限时，ΔACC≈0.001 的微推分会因为成本趋近 0 而拿到极高的 ROI，
+// 从而挤掉同一谱面上真正值钱的 φ 目标；有了下限，微推分的 ROI 就等于它真实的
+// 期望收益（≈0），自然沉底，但仍然保留在候选列表里（不做硬过滤）。
+const ROI_COST_FLOOR = 1.0;
 // 阶段2: 多目标采样参数
 const MULTI_TARGET_SAMPLE_COUNT = 6;
 // 阶段4: 失衡检测最低收益门槛
@@ -84,6 +101,10 @@ export interface CandidateTarget {
   deltaTop3Phi: number;
   deltaTotal: number;
   roi: number;
+  /** 期望 Δ总RKS = 达成概率 × Δ总RKS（φ 目标按 P(φ|定数) 折算，其他目标概率为 1） */
+  expectedDelta: number;
+  /** 该目标的达成概率：φ 目标 = P(φ|定数)，其他目标 = 1 */
+  targetProbability: number;
   pool: LilithPool;
   label: CandidateTargetLabel;
   /** 目标超出玩家稳定水平多少（ACC 百分点），0 表示稳定可达 */
@@ -104,6 +125,10 @@ export interface LilithRecommendationItem {
   deltaTop3Phi: number;
   deltaTotal: number;
   roi: number;
+  /** 期望 Δ总RKS = 达成概率 × Δ总RKS（效率视图排序的次级键，并用于 UI 展示） */
+  expectedDelta: number;
+  /** 该目标的达成概率：φ 目标 = P(φ|定数)，其他目标 = 1 */
+  targetProbability: number;
   pool: LilithPool;
   targetLabel: CandidateTargetLabel;
   /** 目标是否需超常发挥（超出稳定水平 GODRUN_ACC_GAP 以上） */
@@ -133,6 +158,8 @@ export interface LilithRecommendationResult {
   potentialMaxLevelPenalty: number;
   /** 玩家 RKS 参照（规则1/3 的基准），记录计算或 BuildOptions 覆盖 */
   playerRks: number;
+  /** 阶段9: 收尾概率模型 P(φ|定数)（供 UI 说明：拟合来源 / 样本数 / 事件数） */
+  closure: LilithClosureModel;
   /** 能力证明是否成立（band 内 ≥N 条定数与谱面 RKS 均达标的记录） */
   proofedCeiling: boolean;
   status: LilithStructureStatus;
@@ -207,6 +234,27 @@ type StableAccEstimate = {
   reliable: boolean;
 };
 
+/**
+ * 阶段9: 收尾能力模型——P(收掉到 φ | 定数)。
+ * - source='logistic'：样本足够，按定数拟合单调递减的 logistic 曲线；
+ * - source='global'：样本不足（或只有单一类别），回退为全局比例（定数无关的常数概率）。
+ * 概率始终钳制在 [CLOSURE_PROB_MIN, CLOSURE_PROB_MAX]，避免 0/1 导致期望收益退化为 0 或全量。
+ */
+export type LilithClosureModel = {
+  probability: (constant: number) => number;
+  source: 'logistic' | 'global';
+  /** 全局 closeRate = 近-φ 记录中转 φ 的比例（回退值也是它） */
+  closeRate: number;
+  /** 参与拟合的近-φ 样本数 / 其中的 φ 事件数 */
+  samples: number;
+  events: number;
+  /** 拟合出的斜率（标准化定数坐标，logit 尺度，恒 ≤ 0；global 回退时为 0） */
+  slope: number;
+  /** 拟合样本的定数均值与标准差（用于还原斜率到原始定数尺度） */
+  meanConstant: number;
+  sdConstant: number;
+};
+
 /** 阶段8 推荐策略：以玩家 RKS 为参照的绝对天花板与单次提升上限 */
 type LilithPolicy = {
   playerRks: number;
@@ -220,9 +268,12 @@ type LilithPolicy = {
 type LilithPlayerProfile = {
   bestPeakConstant: number;
   apPeakConstant: number | null;
+  /** 近-φ 池（ACC ∈ [99.5, 100)）中定数最高的 3 首均值 */
   nearApLevel: number | null;
+  /** 已 φ 谱面中定数最高的 3 首均值 —— 玩家的个人 AP 天花板 */
   apLevel: number | null;
-  closeRate: number;
+  // 阶段9: 收尾能力曲线（P(φ|定数)），替代原先的标量 closeRate 惩罚
+  closure: LilithClosureModel;
   // 阶段3: 双锚点
   highAccAnchor: number;
   highConstAnchor: number;
@@ -354,6 +405,135 @@ function buildStableAccEstimator(records: RksRecord[]): (constant: number) => St
   };
 }
 
+/**
+ * 阶段9: 拟合收尾概率曲线 P(φ | 定数)。
+ *
+ * 样本：ACC ≥ CLOSE_READY_ACC_THRESHOLD（近-φ 池）的记录；事件：其中真正的 φ。
+ * 模型：logit P = b0 + b1 · (定数 − 均值)/标准差，b1 ≤ 0（定数越高越难收掉）。
+ * 求解：带斜率岭惩罚的牛顿-拉夫逊（确定性，固定迭代上限）。
+ * 回退：样本不足 / 只有单一类别时，用全局比例作为常数概率。
+ *
+ * 这样"能打到 99.8%"与"能收掉"被分成两个维度：
+ * 前者仍由稳定水平曲线描述，后者由本模型给出的概率进入期望收益。
+ */
+export function fitClosureProbability(records: RksRecord[]): LilithClosureModel {
+  const closeReadyRecords = records.filter((record) => {
+    const acc = normalizeFiniteNumber(record.acc);
+    return acc !== null && acc >= CLOSE_READY_ACC_THRESHOLD - EPS && acc <= 100;
+  });
+  const samples = closeReadyRecords.length;
+  const events = closeReadyRecords.filter(isPhiRecord).length;
+  const closeRate = samples > 0 ? Math.min(1, events / samples) : 0;
+
+  const fallbackProbability = clampClosureProbability(closeRate);
+  const makeGlobal = (): LilithClosureModel => ({
+    probability: () => fallbackProbability,
+    source: 'global',
+    closeRate,
+    samples,
+    events,
+    slope: 0,
+    meanConstant: 0,
+    sdConstant: 1,
+  });
+
+  // 需要两类样本，否则斜率不可识别（分离问题）
+  if (samples < CLOSURE_FIT_MIN_SAMPLES || events < CLOSURE_FIT_MIN_EVENTS || events >= samples) {
+    return makeGlobal();
+  }
+
+  const constants = closeReadyRecords.map((record) => normalizeFiniteNumber(record.difficulty_value) ?? 0);
+  const meanConstant = constants.reduce((sum, value) => sum + value, 0) / constants.length;
+  const sdRaw = Math.sqrt(
+    constants.reduce((sum, value) => sum + (value - meanConstant) ** 2, 0) / constants.length,
+  );
+  const sdConstant = sdRaw > 1e-6 ? sdRaw : 1;
+  const z = constants.map((value) => (value - meanConstant) / sdConstant);
+  const y = closeReadyRecords.map((record) => (isPhiRecord(record) ? 1 : 0));
+
+  // 初始化为仅截距模型的 MLE
+  let b0 = Math.log(events / (samples - events));
+  let b1 = 0;
+
+  for (let iteration = 0; iteration < CLOSURE_NEWTON_ITERATIONS; iteration += 1) {
+    let g0 = 0;
+    let g1 = 0;
+    let h00 = 0;
+    let h01 = 0;
+    let h11 = CLOSURE_RIDGE_LAMBDA;
+    for (let i = 0; i < z.length; i += 1) {
+      const p = 1 / (1 + Math.exp(-(b0 + b1 * z[i])));
+      const weight = Math.max(1e-9, p * (1 - p));
+      g0 += y[i] - p;
+      g1 += (y[i] - p) * z[i];
+      h00 += weight;
+      h01 += weight * z[i];
+      h11 += weight * z[i] * z[i];
+    }
+    // 岭惩罚只加一次（对斜率）
+    g1 -= CLOSURE_RIDGE_LAMBDA * b1;
+    const det = h00 * h11 - h01 * h01;
+    if (!Number.isFinite(det) || Math.abs(det) < 1e-12) break;
+    const step0 = (h11 * g0 - h01 * g1) / det;
+    const step1 = (-h01 * g0 + h00 * g1) / det;
+    if (!Number.isFinite(step0) || !Number.isFinite(step1)) break;
+    b0 += step0;
+    b1 += step1;
+    if (Math.abs(step0) + Math.abs(step1) < 1e-10) break;
+  }
+
+  if (!Number.isFinite(b0) || !Number.isFinite(b1)) return makeGlobal();
+
+  // 单调先验：定数越高越难收掉；若数据给出正斜率（噪声），退化为仅截距模型
+  if (b1 > 0) {
+    b1 = 0;
+    b0 = Math.log(events / (samples - events));
+  } else {
+    b1 = Math.max(-CLOSURE_SLOPE_MAX, b1);
+  }
+
+  return {
+    probability: (constant: number) => {
+      const value = normalizeFiniteNumber(constant);
+      if (value === null) return fallbackProbability;
+      const linear = b0 + b1 * ((value - meanConstant) / sdConstant);
+      return clampClosureProbability(1 / (1 + Math.exp(-linear)));
+    },
+    source: 'logistic',
+    closeRate,
+    samples,
+    events,
+    slope: b1,
+    meanConstant,
+    sdConstant,
+  };
+}
+
+function clampClosureProbability(value: number): number {
+  if (!Number.isFinite(value)) return CLOSURE_PROB_MIN;
+  return Math.min(CLOSURE_PROB_MAX, Math.max(CLOSURE_PROB_MIN, value));
+}
+
+/**
+ * 期望 Δ总RKS = 达成概率 × Δ总RKS。
+ * - φ 目标：概率取 P(φ|定数)，即"能不能收掉"；
+ * - 其他目标：概率为 1（可行性由成本模型与硬约束负责）。
+ * 该指标是效率视图的排序主键——它让"0.00003 RKS 的微推分"自然沉底，
+ * 而不是被硬过滤掉（玩家仍能在备选列表里看到它）。
+ */
+function computeExpectedDelta(
+  deltaTotal: number,
+  targetAcc: number,
+  constant: number,
+  closureProbability: (constant: number) => number,
+): { expectedDelta: number; targetProbability: number } {
+  if (!Number.isFinite(deltaTotal) || deltaTotal <= 0) {
+    return { expectedDelta: 0, targetProbability: 1 };
+  }
+  const targetProbability = targetAcc >= 100 - EPS ? closureProbability(constant) : 1;
+  return { expectedDelta: deltaTotal * targetProbability, targetProbability };
+}
+
 function buildPlayerProfile(records: RksRecord[]): LilithPlayerProfile {
   const bestPeak = records.reduce<RksRecord | null>((currentBest, record) => {
     if (!currentBest) return record;
@@ -373,24 +553,15 @@ function buildPlayerProfile(records: RksRecord[]): LilithPlayerProfile {
     return currentBest;
   }, null);
 
+  // 阶段9: AP 天花板相关样本
   const nearApRecords = records.filter((record) => record.acc >= NEAR_AP_ACC_THRESHOLD - EPS && record.acc < 100 - EPS);
-  const closeReadyRecords = records.filter((record) => record.acc >= CLOSE_READY_ACC_THRESHOLD - EPS);
   const phiRecords = records.filter(isPhiRecord);
-
-  // 阶段3: closeRate 改用数量比
-  const phiRecordsInCloseReady = closeReadyRecords.filter(isPhiRecord);
-  const closeRate =
-    closeReadyRecords.length > 0
-      ? Math.min(1, phiRecordsInCloseReady.length / closeReadyRecords.length)
-      : phiRecords.length > 0
-        ? 1
-        : 0;
 
   // 阶段3: 双锚点
   const highAccRecords = records.filter((r) => r.acc >= HIGH_ACC_PROFILE_THRESHOLD - EPS);
   const highAccAnchor = weightedMedianDifficultyValue(highAccRecords) || (bestPeak?.difficulty_value ?? 0);
 
-  // highConstAnchor：取 ACC ≥ 93% 的记录中定数最高的 Top5 均值
+  // highConstAnchor：取 ACC ≥ 97% 的记录中定数最高的 Top5 均值
   // 低于此 ACC 的记录视为"尝试过但未胜任"，不应拉高锚点
   const qualifiedForConst = records.filter((r) => r.acc >= HIGH_CONST_ACC_THRESHOLD - EPS);
   const highConstAnchor = averageTopDifficultyValues(qualifiedForConst, HIGH_CONST_SAMPLE_COUNT) ?? (bestPeak?.difficulty_value ?? 0);
@@ -400,7 +571,8 @@ function buildPlayerProfile(records: RksRecord[]): LilithPlayerProfile {
     apPeakConstant: apPeak?.difficulty_value ?? null,
     nearApLevel: averageTopDifficultyValues(nearApRecords, PROFILE_LEVEL_SAMPLE_COUNT),
     apLevel: averageTopDifficultyValues(phiRecords, PROFILE_LEVEL_SAMPLE_COUNT),
-    closeRate,
+    // 阶段9: 收掉率由 P(φ|定数) 曲线描述（原先的标量 closeRate 已废弃）
+    closure: fitClosureProbability(records),
     highAccAnchor,
     highConstAnchor,
     stableAccByConstant: buildStableAccEstimator(records),
@@ -558,10 +730,10 @@ function computePlayerLevelPenalty(
   const shouldCheckApLevel = pool !== 'top27' || isPhiTarget;
   if (!shouldCheckApLevel) return bestPenalty;
 
-  if (isPhiTarget) {
-    const closurePenalty = computeApClosurePenalty(targetConstant, profile);
-    return bestPenalty * closurePenalty;
-  }
+  // 阶段9: φ 目标同时受两个正交维度约束：
+  // 1) P(φ|定数) —— 收掉率，进入期望收益（不在这里重复计入成本）；
+  // 2) AP 天花板距离 —— 目标定数相对玩家个人 AP 天花板的距离，仍以成本乘子表达。
+  if (isPhiTarget) return bestPenalty * computeApCeilingPenalty(targetConstant, profile);
 
   const apAnchor = profile.apPeakConstant ?? profile.bestPeakConstant;
   const apPenaltyBase = computeDifficultyGapPenalty(targetConstant, apAnchor);
@@ -569,20 +741,25 @@ function computePlayerLevelPenalty(
   return Math.max(bestPenalty, apPenalty);
 }
 
-// 单独建模"能打到 99.8 附近"与"真的能收掉到 100"之间的差距，只作用于目标为 Phi 的建议。
-function computeApClosurePenalty(targetConstant: number, profile: LilithPlayerProfile): number {
+/**
+ * 阶段9: AP 天花板距离惩罚——只表达"目标相对玩家个人天花板有多远"：
+ * - apOverLevel：目标定数超过玩家已 φ 谱面的最高定数（AP Best3 均值）多少；
+ * - nearApOverLevel：目标定数超过玩家近-φ 池最高定数多少。
+ * 这两项让"远超自己 AP 天花板"的 φ 目标在效率视图里被显著降权，
+ * 并在潜力视图里被 levelPenalty 硬上限直接剔除——避免要求玩家去收根本不现实的谱面。
+ *
+ * 原先的 closureGap / closeRate 两项已移除：它们表达的是"收掉率"，现已由 P(φ|定数) 承担，
+ * 若继续留在成本里会与概率重复计入。
+ */
+function computeApCeilingPenalty(targetConstant: number, profile: LilithPlayerProfile): number {
   const nearApLevel = profile.nearApLevel ?? profile.bestPeakConstant;
-  const apLevel = profile.apLevel ?? Math.max(0, nearApLevel - AP_CLOSURE_FALLBACK_GAP);
-  const closureGap = Math.max(0, nearApLevel - apLevel);
-  const apOverLevel = Math.max(0, targetConstant - apLevel - AP_CLOSURE_SAFE_MARGIN);
-  const nearApOverLevel = Math.max(0, targetConstant - nearApLevel - AP_CLOSURE_SAFE_MARGIN);
-  const closeRatePenalty = Math.max(0, 1 - profile.closeRate);
+  const apLevel = profile.apLevel ?? Math.max(0, nearApLevel - AP_CEILING_FALLBACK_GAP);
+  const apOverLevel = Math.max(0, targetConstant - apLevel - AP_CEILING_SAFE_MARGIN);
+  const nearApOverLevel = Math.max(0, targetConstant - nearApLevel - AP_CEILING_SAFE_MARGIN);
 
   return 1
-    + closureGap * AP_CLOSURE_GAP_FACTOR
-    + apOverLevel * AP_CLOSURE_AP_LEVEL_FACTOR
-    + nearApOverLevel * AP_CLOSURE_NEAR_AP_FACTOR
-    + closeRatePenalty * AP_CLOSURE_CLOSE_RATE_FACTOR;
+    + apOverLevel * AP_CEILING_AP_LEVEL_FACTOR
+    + nearApOverLevel * AP_CEILING_NEAR_AP_FACTOR;
 }
 
 function computeLegacyAccDifficultyMultiplier(midpoint: number): number {
@@ -618,12 +795,15 @@ export const __lilithRecommendationTestables = {
   computeOverReachPenalty,
   computeEffectiveCost,
   buildStableAccEstimator,
+  fitClosureProbability,
+  computeExpectedDelta,
   computePlayerRks,
   hasProofedCeiling,
   computeAbsoluteAccCeiling,
   computeMaxJump,
   computeAllowedDelta,
   selectPotentialTarget,
+  compareCandidates,
   compareCandidatesByPotential,
 };
 
@@ -729,8 +909,13 @@ function computeQuota(status: LilithStructureStatus, limit: number): LilithRecom
   return { total: safeLimit, top27, top3phi };
 }
 
+// 阶段9: 效率视图按 roi 降序（roi = 期望收益 / max(成本下限, 有效成本)），
+// 期望收益与 Δ总RKS 作为平手时的次级键。
+// 由于成本下限的存在，"几乎不动的微推分" ROI ≈ 它的期望收益（≈0），自然沉到列表末尾，
+// 而不会被硬过滤掉——玩家仍能在备选目标里看到它。
 function compareCandidates(a: LilithRecommendationItem, b: LilithRecommendationItem): number {
-  if (a.roi !== b.roi) return b.roi - a.roi;
+  if (Math.abs(a.roi - b.roi) > EPS) return b.roi - a.roi;
+  if (Math.abs(a.expectedDelta - b.expectedDelta) > EPS) return b.expectedDelta - a.expectedDelta;
   if (a.deltaTotal !== b.deltaTotal) return b.deltaTotal - a.deltaTotal;
   if (a.deltaAcc !== b.deltaAcc) return a.deltaAcc - b.deltaAcc;
   if (a.targetAcc !== b.targetAcc) return a.targetAcc - b.targetAcc;
@@ -1006,7 +1191,16 @@ function generateCandidateTargets(
       absCeiling,
       allowedDelta,
     });
-    const roi = deltaTotal / Math.max(0.01, effectiveCost);
+    // 阶段9: 期望收益 = 达成概率 × Δ总RKS（φ 目标按 P(φ|定数) 折算）
+    const { expectedDelta, targetProbability } = computeExpectedDelta(
+      deltaTotal,
+      targetAcc,
+      record.difficulty_value,
+      profile.closure.probability,
+    );
+
+    // 效率指标 = 期望收益 / max(成本下限, 有效成本)
+    const roi = expectedDelta / Math.max(ROI_COST_FLOOR, effectiveCost);
     if (!Number.isFinite(roi) || roi <= EPS) continue;
 
     evaluatedTargets.push({
@@ -1017,6 +1211,8 @@ function generateCandidateTargets(
       deltaTop3Phi,
       deltaTotal,
       roi,
+      expectedDelta,
+      targetProbability,
       pool,
       label,
       overReach: Math.max(0, targetAcc - stableAcc),
@@ -1027,14 +1223,23 @@ function generateCandidateTargets(
 
   if (evaluatedTargets.length === 0) return null;
 
-  // 选出 ROI 最优的作为主推荐
+  // 选出效率最优的作为主推荐（阶段9: roi 已含期望收益与成本下限，其次期望收益、再其次 Δ总RKS）。
+  // 这样"ΔACC≈0.001 的微推分"不会凭虚高的 ROI 挤掉同一谱面上真正值钱的 φ 目标。
   let bestIdx = 0;
   for (let i = 1; i < evaluatedTargets.length; i++) {
-    if (evaluatedTargets[i].roi > evaluatedTargets[bestIdx].roi + EPS) {
+    const candidate = evaluatedTargets[i];
+    const best = evaluatedTargets[bestIdx];
+    if (candidate.roi > best.roi + EPS) {
       bestIdx = i;
     } else if (
-      Math.abs(evaluatedTargets[i].roi - evaluatedTargets[bestIdx].roi) <= EPS &&
-      evaluatedTargets[i].deltaTotal > evaluatedTargets[bestIdx].deltaTotal
+      Math.abs(candidate.roi - best.roi) <= EPS &&
+      candidate.expectedDelta > best.expectedDelta + EPS
+    ) {
+      bestIdx = i;
+    } else if (
+      Math.abs(candidate.roi - best.roi) <= EPS &&
+      Math.abs(candidate.expectedDelta - best.expectedDelta) <= EPS &&
+      candidate.deltaTotal > best.deltaTotal + EPS
     ) {
       bestIdx = i;
     }
@@ -1054,6 +1259,8 @@ function generateCandidateTargets(
       deltaTop3Phi: best.deltaTop3Phi,
       deltaTotal: best.deltaTotal,
       roi: best.roi,
+      expectedDelta: best.expectedDelta,
+      targetProbability: best.targetProbability,
       pool: best.pool,
       targetLabel: best.label,
       needsGodRun: best.needsGodRun,
@@ -1141,6 +1348,8 @@ function buildPotentialItem(
     deltaTop3Phi: potentialTarget.deltaTop3Phi,
     deltaTotal: potentialTarget.deltaTotal,
     roi: potentialTarget.roi,
+    expectedDelta: potentialTarget.expectedDelta,
+    targetProbability: potentialTarget.targetProbability,
     pool: potentialTarget.pool,
     targetLabel: potentialTarget.label,
     needsGodRun: potentialTarget.needsGodRun,
@@ -1215,6 +1424,7 @@ export function buildLilithRecommendations(records: RksRecord[], options?: Build
     potentialOverReachCap: potentialCap,
     potentialMaxLevelPenalty: potentialLevelCap,
     playerRks: policy.playerRks,
+    closure: playerProfile.closure,
     proofedCeiling: policy.proofed,
     status,
     quota,
