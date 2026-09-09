@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { ImageAPI } from '../lib/api/image';
 import { useGenerationBusy, useGenerationManager, useGenerationResult } from '../contexts/GenerationContext';
-import { MultipleMatchesError, searchSongId, type SongCandidate } from '../lib/api/song';
+import { searchSong, type SongCandidate } from '../lib/api/song';
+import { SongCandidateList } from './SongCandidateList';
 import { LoadingPlaceholder, LoadingSpinner } from './LoadingIndicator';
 import { useClientValue } from '../hooks/useClientValue';
 import { describeRenderStage, useSvgToWatermarkedPng } from '../hooks/useSvgToWatermarkedPng';
@@ -31,6 +32,8 @@ export function SongSearchGenerator({ showTitle = true, showDescription = true }
   const imageUrl = useMemo(() => (resultBlob ? URL.createObjectURL(resultBlob) : null), [resultBlob]);
   const [error, setError] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<SongCandidate[] | null>(null);
+  const [candidateTotal, setCandidateTotal] = useState(0);
+  const [candidateHint, setCandidateHint] = useState<string | null>(null);
   const [selectedCandidate, setSelectedCandidate] = useState<SongCandidate | null>(null);
 
   // ── 渲染管线（后端 SVG → 客户端带水印 PNG）──
@@ -74,28 +77,31 @@ export function SongSearchGenerator({ showTitle = true, showDescription = true }
 
     setError(null);
     setCandidates(null);
+    setCandidateHint(null);
 
-    // 先通过搜索接口验证歌曲是否存在
+    // 先通过搜索接口解析歌曲：唯一命中直接出图，多命中则展示候选供用户选择。
     let songId: string | null =
       selectedCandidate && (selectedCandidate.id === query || selectedCandidate.name === query)
         ? selectedCandidate.id
         : null;
     try {
       if (!songId) {
-        songId = await searchSongId(query);
+        const outcome = await searchSong(query);
+        if (outcome.kind === 'multiple') {
+          setCandidates(outcome.candidates);
+          setCandidateTotal(outcome.total);
+          setCandidateHint(outcome.message);
+          setSelectedCandidate(null);
+          return;
+        }
+        if (outcome.kind === 'none') {
+          setError('未找到匹配的歌曲，请检查输入的歌曲名称或尝试使用歌曲ID。');
+          return;
+        }
+        songId = outcome.songId;
       }
-      if (!songId) {
-        setError('未找到匹配的歌曲，请检查输入的歌曲名称或尝试使用歌曲ID。');
-        return;
-      }
-    } catch (error) {
-      if (error instanceof MultipleMatchesError) {
-        setError(error.message);
-        setCandidates(error.candidates);
-        setSelectedCandidate(null);
-        return;
-      }
-      const message = error instanceof Error ? error.message : '搜索歌曲失败';
+    } catch (searchError) {
+      const message = searchError instanceof Error ? searchError.message : '搜索歌曲失败';
       setError(message);
       return;
     }
@@ -135,7 +141,7 @@ export function SongSearchGenerator({ showTitle = true, showDescription = true }
       </div>
 
       {/* 自适应输入区：移动端纵向排列，避免按钮在小屏溢出 */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row gap-3 mb-2">
         <input
           type="text"
           value={songQuery}
@@ -144,7 +150,7 @@ export function SongSearchGenerator({ showTitle = true, showDescription = true }
             setSelectedCandidate(null);
           }}
           onKeyPress={handleKeyPress}
-          placeholder="例如：Spasmodic、Cthugha 等"
+          placeholder="例如：Spasmodic、雪降 A39、三只狗"
           className="flex-1 min-w-0 w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <button
@@ -161,27 +167,27 @@ export function SongSearchGenerator({ showTitle = true, showDescription = true }
         </button>
       </div>
 
+      {/* 检索能力提示：支持黑话/缩写别名，以及「曲名 + 曲师」组合查询 */}
+      <p className="mb-6 text-xs text-gray-500 dark:text-gray-400">
+        支持黑话/缩写别名（如「三只狗」「bq」）；多个关键词按空格分隔可组合曲名与曲师（如「雪降 A39」），
+        用 <span className="font-mono">-</span> 可排除词条。
+      </p>
+
       {error && (
         <div className="mb-4 rounded-lg border border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">
           <p>{error}</p>
-          {candidates && candidates.length > 0 && (
-            <div className="mt-3">
-              <p className="mb-2 font-medium">请选择您想要查询的歌曲：</p>
-              <div className="flex flex-wrap gap-2">
-                {candidates.map((candidate) => (
-                  <button
-                    key={candidate.id}
-                    onClick={() => handleCandidateClick(candidate)}
-                    className="inline-flex items-center rounded-full border border-red-200 bg-white px-3 py-1 text-xs text-red-800 hover:bg-red-50 dark:border-red-700 dark:bg-red-900/40 dark:text-red-200 dark:hover:bg-red-900/60 transition-colors"
-                  >
-                    {candidate.name}
-                    {candidate.artist && <span className="ml-1 opacity-75">({candidate.artist})</span>}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
+      )}
+
+      {candidates && candidates.length > 0 && (
+        <SongCandidateList
+          className="mb-4"
+          candidates={candidates}
+          total={candidateTotal}
+          title={candidateHint ?? undefined}
+          disabled={isLoading}
+          onSelect={handleCandidateClick}
+        />
       )}
 
       {imageUrl ? (

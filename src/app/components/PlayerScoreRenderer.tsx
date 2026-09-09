@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { StyledSelect } from './ui/Select';
-import { MultipleMatchesError, searchSongId, type SongCandidate } from '../lib/api/song';
+import { searchSong, type SongCandidate } from '../lib/api/song';
+import { SongCandidateList } from './SongCandidateList';
 import { LoadingSpinner } from './LoadingIndicator';
 import { ImageAPI } from '../lib/api/image';
 import { useSvgToWatermarkedPng } from '../hooks/useSvgToWatermarkedPng';
@@ -63,6 +64,7 @@ export function PlayerScoreRenderer() {
   const [songDifficulty, setSongDifficulty] = useState<'EZ' | 'HD' | 'IN' | 'AT'>('IN');
 
   const [candidates, setCandidates] = useState<SongCandidate[]>([]);
+  const [candidateTotal, setCandidateTotal] = useState(0);
   const [isValidating, setIsValidating] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [selectedCandidate, setSelectedCandidate] = useState<SongCandidate | null>(null);
@@ -152,20 +154,31 @@ export function PlayerScoreRenderer() {
 
     setValidationError(null);
     setCandidates([]);
+
+    // 说明：候选列表清空后需同步归零总数，避免下次消歧时展示过期的「共 N 首」。
+    setCandidateTotal(0);
     setIsValidating(true);
 
     try {
-      // 校验歌曲是否存在
+      // 校验歌曲是否存在：唯一命中直接添加；多命中则展示候选供用户选择。
       let songId: string | null =
         selectedCandidate && (selectedCandidate.id === trimmedSongName || selectedCandidate.name === trimmedSongName)
           ? selectedCandidate.id
           : null;
       if (!songId) {
-        songId = await searchSongId(trimmedSongName);
-      }
-      if (!songId) {
-        setValidationError('未找到该歌曲，请检查名称');
-        return;
+        const outcome = await searchSong(trimmedSongName);
+        if (outcome.kind === 'multiple') {
+          setCandidates(outcome.candidates);
+          setCandidateTotal(outcome.total);
+          setSelectedCandidate(null);
+          setValidationError(outcome.message);
+          return;
+        }
+        if (outcome.kind === 'none') {
+          setValidationError('未找到该歌曲，请检查名称');
+          return;
+        }
+        songId = outcome.songId;
       }
 
       // 校验通过，添加到列表
@@ -190,14 +203,8 @@ export function PlayerScoreRenderer() {
       setSongDifficulty('IN');
       setSelectedCandidate(null);
     } catch (error) {
-      if (error instanceof MultipleMatchesError) {
-        setCandidates(error.candidates);
-        setSelectedCandidate(null);
-        setValidationError('找到多个匹配歌曲，请选择：');
-      } else {
-        const message = error instanceof Error ? error.message : '查询歌曲失败';
-        setValidationError(message);
-      }
+      const message = error instanceof Error ? error.message : '查询歌曲失败';
+      setValidationError(message);
     } finally {
       setIsValidating(false);
     }
@@ -207,6 +214,7 @@ export function PlayerScoreRenderer() {
     setSongName(candidate.id);
     setSelectedCandidate(candidate);
     setCandidates([]);
+    setCandidateTotal(0);
     setValidationError(null);
   };
 
@@ -321,25 +329,20 @@ export function PlayerScoreRenderer() {
                 className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               {/* 候选项和错误提示区域 */}
-              {(validationError || candidates.length > 0) && (
+              {candidates.length > 0 ? (
+                <SongCandidateList
+                  className="mt-2"
+                  candidates={candidates}
+                  total={candidateTotal}
+                  title={validationError ?? undefined}
+                  disabled={isValidating}
+                  onSelect={selectCandidate}
+                />
+              ) : validationError ? (
                 <div className="mt-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
-                  {validationError && <p className="mb-2">{validationError}</p>}
-                  {candidates.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {candidates.map((candidate) => (
-                        <button
-                          key={candidate.id}
-                          onClick={() => selectCandidate(candidate)}
-                          className="rounded-full border border-red-200 bg-white px-3 py-1 text-xs text-red-800 hover:bg-red-50 dark:border-red-700 dark:bg-red-900/40 dark:text-red-200 dark:hover:bg-red-900/60 transition-colors"
-                        >
-                          {candidate.name}
-                          {candidate.artist && <span className="ml-1 opacity-75">({candidate.artist})</span>}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  <p>{validationError}</p>
                 </div>
-              )}
+              ) : null}
             </div>
 
             <div>

@@ -4,6 +4,14 @@
 
 ## Unreleased
 
+- 优化（单曲检索）：启用后端多关键词模式 + 候选消歧信息补全（对应问卷「同名/相近名混淆」「曲师不好搜」）
+  - `lib/api/song.ts` 重构为 `searchSong()`：含多词的查询（如「雪降 A39」）优先走 `mode=and`（后端该模式下官方名/别名/曲师/曲目 ID 均参与匹配，支持双引号短语与 `-` 排除）；`mode=and` 未命中时自动回退默认单串模式，保证「祈 -我ら神祖と共に歩む者なり-」这类含连字符的完整曲名仍可命中
+  - 多命中（409）时用同查询的非 unique 请求补全候选的曲师/画师/四难度定数（后端候选预览只含 id/name），补全失败不影响消歧
+  - 新增 `SongCandidateList` 组件（单曲查询 / 玩家成绩渲染共用）：展示曲绘缩略图（`/_ill/illLow`，immutable 缓存，加载失败退回占位图标）、曲名、曲师/画师、各难度定数与曲目 ID；由红色错误框改为独立的消歧面板
+  - 单曲查询输入区补充检索能力提示（黑话/缩写别名、「曲名 + 曲师」组合、`-` 排除），占位文案同步更新
+  - 检索结果按查询词做 10 分钟 LRU 缓存（上限 200），同一查询不重复回源
+  - 单测：`song.test.ts`（mode 选择/回退/409 补全/补全失败降级/缓存去重）、`song-candidate-list.test.tsx`（渲染与交互）
+
 - 新增（PWA，MVP）：站点可安装为渐进式 Web 应用
   - `src/app/manifest.ts` 生成 `/manifest.webmanifest`（name/short_name/start_url/scope/display=standalone/theme_color/background_color/lang/id + 192/512 与 maskable 图标）
   - `scripts/gen-pwa-icons.mjs`：由站点头像生成 `public/icons/{icon-192,icon-512,icon-maskable-512,apple-touch-icon,favicon-32}.png`
