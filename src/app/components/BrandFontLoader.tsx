@@ -1,28 +1,14 @@
 'use client';
 
 import { useEffect } from 'react';
-
-const DEFAULT_BRAND_FONT_CSS =
-  '/fonts/Source%20Han%20Sans%20%26%20Saira%20Hybrid-Regular%20%235446/result.css';
-
-function normalizeCssHref(raw: string | undefined): string | undefined {
-  const trimmed = raw?.trim();
-  if (!trimmed) return undefined;
-
-  const first = trimmed[0];
-  const last = trimmed[trimmed.length - 1];
-  const wrap = (first === last && (first === '"' || first === "'" || first === '`')) ? first : null;
-  const unwrapped = wrap ? trimmed.slice(1, -1).trim() : trimmed;
-  return unwrapped || undefined;
-}
-
-const BRAND_FONT_CSS = (() => {
-  const envHref = normalizeCssHref(process.env.NEXT_PUBLIC_BRAND_FONT_CSS);
-  return envHref ? envHref : DEFAULT_BRAND_FONT_CSS;
-})();
-
-const BRAND_FONT_STYLESHEET_ID = 'brand-font-stylesheet';
-const BRAND_FONT_PRECONNECT_ID = 'brand-font-preconnect';
+import {
+  BRAND_FONT_CSS,
+  BRAND_FONT_FAMILY,
+  BRAND_FONT_PRECONNECT_ID,
+  BRAND_FONT_STORAGE_KEY,
+  BRAND_FONT_STYLESHEET_ID,
+  BRAND_FONT_SWAP_CLASS,
+} from '../lib/brand-font';
 
 function ensurePreconnect(href: string) {
   try {
@@ -39,8 +25,49 @@ function ensurePreconnect(href: string) {
   }
 }
 
+/**
+ * 品牌字体真正可用了才写标记：复访时 <head> 的内联脚本据此在首帧前接上字体。
+ * 用当前页面实际出现的文字做 sample，只会拉取首屏真正需要的 unicode-range 子集。
+ */
+function persistBrandFontReady() {
+  try {
+    if (!document.fonts || typeof document.fonts.load !== 'function') return;
+    const raw = document.body?.innerText ?? '';
+    const sample = (raw.replace(/\s+/g, ' ').trim() || 'Phigros Query').slice(0, 512);
+    document.fonts
+      .load(`16px "${BRAND_FONT_FAMILY}"`, sample)
+      .catch(() => {})
+      .then(() => document.fonts.ready)
+      .then(
+        () => {
+          try {
+            localStorage.setItem(BRAND_FONT_STORAGE_KEY, String(Date.now()));
+          } catch {
+            /* ignore */
+          }
+        },
+        () => {},
+      );
+  } catch {
+    /* ignore */
+  }
+}
+
 export function BrandFontLoader() {
   useEffect(() => {
+    // 复访路径：<head> 的内联脚本已经在首帧前完成加类 + 注入渲染阻塞样式表，
+    // 这里只需要补一次「字体已缓存」的时间戳。
+    try {
+      if (document.getElementById(BRAND_FONT_STYLESHEET_ID)) {
+        if (document.documentElement.classList.contains(BRAND_FONT_SWAP_CLASS)) {
+          persistBrandFontReady();
+        }
+        return;
+      }
+    } catch {
+      /* ignore */
+    }
+
     const loadBrandFonts = () => {
       try {
         if (document.getElementById(BRAND_FONT_STYLESHEET_ID)) return;
@@ -55,7 +82,8 @@ export function BrandFontLoader() {
         link.onload = () => {
           try {
             link.media = 'all';
-            document.documentElement.classList.add('brand-font');
+            document.documentElement.classList.add(BRAND_FONT_SWAP_CLASS);
+            persistBrandFontReady();
           } catch {
             /* ignore */
           }

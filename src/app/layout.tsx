@@ -16,6 +16,7 @@ import WebVitals from "./components/WebVitals";
 import { DiagnosticsInit } from "./components/DiagnosticsInit";
 import { TipsProvider } from "./components/TipsProvider";
 import { BrandFontLoader } from "./components/BrandFontLoader";
+import { buildBrandFontBootstrapScript } from "./lib/brand-font";
 import ServiceWorkerRegister from "./components/ServiceWorkerRegister";
 import { SITE_URL } from "./utils/site-url";
 
@@ -34,6 +35,9 @@ const ENABLE_VERCEL_ANALYTICS = (() => {
   const raw = (process.env.NEXT_PUBLIC_VERCEL_ANALYTICS || "").toLowerCase();
   return raw === "1" || raw === "true";
 })();
+
+// 复访首帧前接管品牌字体的内联脚本（详见 lib/brand-font.ts 的说明）
+const BRAND_FONT_BOOTSTRAP = buildBrandFontBootstrapScript();
 
 
 export const metadata: Metadata = {
@@ -96,7 +100,12 @@ export default async function RootLayout({
         <link rel="dns-prefetch" href="//cloud.umami.is" />
         <link rel="dns-prefetch" href="//api-gateway.umami.dev" />
         <link rel="dns-prefetch" href="//somnia.xtower.site" />
-        {/* font preload removed to reduce blocking download */}
+        {/* font preload removed to reduce blocking download —— 首访仍然不 preload，
+            复访由下面这段内联脚本在首帧前接管（见 lib/brand-font.ts） */}
+        <script
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{ __html: BRAND_FONT_BOOTSTRAP }}
+        />
         <Script
           src="https://cloud.umami.is/script.js"
           data-website-id="fcb3f5e6-8b71-4abe-bf83-684c3690b476"

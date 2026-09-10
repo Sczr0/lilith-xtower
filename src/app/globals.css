@@ -24,9 +24,26 @@ html, body {
   background: var(--background);
 }
 
+/* 度量匹配的后备字体。
+   品牌字体（思源黑体 & Saira 混合）与系统字体（Windows 上是微软雅黑）的
+   ascent / descent / 行高差别很大，切换时文字会在行内上下跳动。
+   这里把本地字体的度量覆盖成品牌字体的实测值（Chrome 实测 100px 下：
+   ascent 88 / descent 12 / normal 行高 150，宽度比 99.44%），
+   于是即使发生切换，也只是字形变化，行盒与基线都不动。
+   数值可用 `node scripts/first-paint-check.mjs --metrics` 重新测得。 */
+@font-face {
+  font-family: 'Brand Fallback';
+  src: local('Microsoft YaHei'), local('PingFang SC'), local('Noto Sans CJK SC'),
+    local('Source Han Sans SC'), local('Hiragino Sans GB');
+  size-adjust: 99.44%;
+  ascent-override: 88%;
+  descent-override: 12%;
+  line-gap-override: 50%;
+}
+
 body {
   /* 首屏默认使用系统栈，避免触发自定义中文字体下载进入关键路径 */
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+  font-family: 'Brand Fallback', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
     'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
     'Noto Sans CJK SC', 'Source Han Sans SC', 'Droid Sans Fallback',
     Arial, Helvetica, sans-serif;
@@ -34,7 +51,7 @@ body {
 
 /* 字体就绪后再切换为品牌字体（通过在 <html> 上添加 .brand-font 类触发） */
 html.brand-font body {
-  font-family: 'Source Han Sans & Saira Hybrid',
+  font-family: 'Source Han Sans & Saira Hybrid', 'Brand Fallback',
     system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
     'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
     'Noto Sans CJK SC', 'Source Han Sans SC', 'Droid Sans Fallback',

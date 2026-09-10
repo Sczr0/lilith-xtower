@@ -2,9 +2,13 @@
  * Phigros Query — Service Worker (PWA)
  *
  * 策略摘要：
- *  - 静态资源 (/_next/static, /fonts, /chunks, /precompiled, /icons, favicon,
+ *  - 静态资源 (/_next/static, /chunks, /precompiled, /icons, favicon,
  *    manifest)  → cache-first（这些资源均由 next.config 配置了 long/immutable
  *    Cache-Control，缓存命中即不再发网，离线可复用）。
+ *  - /fonts/*（品牌字体 CSS 与子集）→ 不拦截，交给浏览器 HTTP 缓存
+ *    （同样是 immutable 一年）。原因：复访要靠 <head> 里的渲染阻塞样式表
+ *    在首帧前拿到字体，Service Worker 的 respondWith 会多一跳异步（SW 冷启动
+ *    时更久），那一跳足以让字体错过首帧、退回「先系统字体再切换」。
  *  - 公开只读 API（白名单）→ stale-while-revalidate（先回缓存，后台刷新）。
  *  - 页面导航（HTML）→ network-first；离线时回退到已缓存的公开页，否则给出
  *    /offline.html。
@@ -15,7 +19,7 @@
  * 注意：当静态资源布局或缓存策略变化时，请将 CACHE_VERSION 递增以清空旧缓存。
  * ========================================================================== */
 
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v2";
 const STATIC_CACHE = `lilith-static-${CACHE_VERSION}`;
 const PAGES_CACHE = `lilith-pages-${CACHE_VERSION}`;
 const API_CACHE = `lilith-api-${CACHE_VERSION}`;
@@ -66,9 +70,9 @@ function isSameOrigin(url) {
 function isCacheFirstCandidate(url) {
   if (!isSameOrigin(url)) return false;
   const p = url.pathname;
+  // 注意：/fonts/ 刻意不在此列，见文件头「策略摘要」中的说明。
   return (
     p.startsWith("/_next/static/") ||
-    p.startsWith("/fonts/") ||
     p.startsWith("/chunks/") ||
     p.startsWith("/precompiled/") ||
     p.startsWith("/icons/") ||
