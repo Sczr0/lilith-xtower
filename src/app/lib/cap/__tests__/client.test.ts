@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { getCapToken, initCap, resetCapClient } from '../client';
+import { getCapOutcome, getCapStatus, getCapToken, initCap, resetCapClient } from '../client';
 
 const CAP_ENDPOINT = 'https://cap.xtower.site/58ea82a280/';
 
@@ -164,5 +164,76 @@ describe('cap client（程序化模式）', () => {
       expect.stringContaining('solve failed after 1/2'),
       expect.anything(),
     );
+  });
+
+  it('solve 迟迟不返回时，等待预算耗尽即降级，且不会把 solve 的 rejection 泄漏到 window', async () => {
+    // 关键回归：cap-widget 内部单任务硬超时为 60s（[cap] rsw worker #0 timed out after 60000ms）。
+    // 若我们在 12s 放弃时没有消费 solve() 的 rejection，Cap 的 60s 任务超时就会以
+    // unhandledrejection 形式泄漏到 window，被 Sentry 全局 onunhandledrejection 误报。
+    let rejectSolve: ((error: unknown) => void) | undefined;
+    setSolveImpl(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectSolve = reject;
+        }),
+    );
+
+    vi.useFakeTimers();
+    initCap(CAP_ENDPOINT);
+    await flushMicrotasks();
+
+    expect(getCapStatus()).toBe('solving');
+
+    // 等待预算（12s）耗尽：客户端放弃等待
+    await vi.advanceTimersByTimeAsync(12_000);
+    await flushMicrotasks();
+
+    expect(await getCapToken()).toBeUndefined();
+    expect(getCapStatus()).toBe('failed');
+
+    // 此后 Cap 内部 60s 任务超时才真正 reject：该 rejection 必须已被消费
+    rejectSolve?.(new Error('[cap] rsw worker #0 timed out after 60000ms'));
+    await flushMicrotasks();
+  });
+
+  it('solve 自身失败时保留原始错误（供按 code 判定是否重试）', async () => {
+    setSolveImpl(async () => {
+      throw Object.assign(new Error('[cap] rsw worker #0 timed out after 60000ms'), {
+        code: 'solve_failed',
+      });
+    });
+
+    initCap(CAP_ENDPOINT);
+    await flushMicrotasks();
+
+    expect(await getCapToken()).toBeUndefined();
+    // 瞬时错误会先重试一次；重试用尽后降级
+    expect(capInstances.length).toBeGreaterThanOrEqual(2);
+    expect(console.warn).toHaveBeenCalledWith(
+      expect.stringContaining('transient error [solve_failed]'),
+    );
+  });
+
+  it('getCapOutcome 暴露解题状态：成功返回 token，失败返回 failed', async () => {
+    setSolveImpl(async () => ({ success: true, token: 'outcome-token' }));
+
+    initCap(CAP_ENDPOINT);
+
+    expect(await getCapOutcome()).toEqual({ token: 'outcome-token', status: 'solved' });
+    expect(getCapStatus()).toBe('solved');
+  });
+
+  it('getCapOutcome 在解题失败时返回 failed，未调用 initCap 时为 idle', async () => {
+    setSolveImpl(async () => {
+      throw Object.assign(new Error('Invalid solution'), { code: 'invalid_solution' });
+    });
+
+    initCap(CAP_ENDPOINT);
+    await flushMicrotasks();
+
+    expect(await getCapOutcome()).toEqual({ token: undefined, status: 'failed' });
+
+    resetCapClient();
+    expect(await getCapOutcome()).toEqual({ status: 'idle' });
   });
 });
