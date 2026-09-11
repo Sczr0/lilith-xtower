@@ -1,4 +1,4 @@
-import { withSentryConfig } from "@sentry/nextjs";
+import { withSentryConfig } from "@sentry/nextjs/config";
 import type { NextConfig } from "next";
 import { execSync } from "node:child_process";
 import bundleAnalyzer from "@next/bundle-analyzer";
@@ -32,6 +32,25 @@ const nextConfig: NextConfig = {
     // 供客户端（诊断信息块/页脚）读取当前构建版本
     NEXT_PUBLIC_BUILD_ID: BUILD_ID,
   },
+  /**
+   * 关闭「流式 metadata」（streaming metadata）以规避 React 19 的宿主提升资源崩溃。
+   *
+   * 背景：Next 16 默认对普通浏览器启用 streaming metadata，把 `<title>`/`<meta>`/`<link>`
+   * 渲染进一个 `<div hidden>` 并交给 React 19 hoist 到 `<head>`。客户端软导航（如
+   * /dashboard → /login 的鉴权跳转）删除该子树时，某个已被 hoist 的节点 parentNode 已被置空，
+   * React 的 commitDeletionEffectsOnFiber（HostHoistable 分支）仍执行
+   * `stateNode.parentNode.removeChild(stateNode)`，抛出：
+   *   TypeError: Cannot read properties of null (reading 'removeChild')
+   * 详见 node_modules/next/dist/lib/metadata/metadata.js 的 MetadataWrapper。
+   *
+   * shouldServeStreamingMetadata() 里 htmlLimitedBots 是唯一开关：UA 命中正则即返回 false，
+   * 走非流式的 MetadataBoundary 分支（无 hidden div）。该配置仅影响 metadata 的流式与否，
+   * 不参与 is-bot / 动态渲染判定。匹配全部 UA 等价于「所有请求都用阻塞式 metadata」，
+   * 即 Next 15.2 之前的既有行为。
+   *
+   * TODO: 升级 next（当前 16.2.12 → 16.3.4）验证上游修复后，可移除此开关。
+   */
+  htmlLimitedBots: /.*/,
   experimental: {
     optimizePackageImports: ["lucide-react", "@radix-ui/react-select"],
   },

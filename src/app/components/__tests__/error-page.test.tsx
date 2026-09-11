@@ -19,8 +19,17 @@ vi.mock('@/app/contribute/actions', () => ({
   submitFeedback: vi.fn(),
 }));
 
+import type { ReactElement } from 'react';
+
 import { pushEvent, reportErrorToServer } from '@/app/lib/diagnostics/collector';
+import { InstallPromptProvider } from '@/app/contexts/InstallPromptContext';
 import ErrorPage from '../../error';
+
+// ErrorPage → SiteHeader → InstallButton 依赖 InstallPromptContext；
+// 与 install-button.test.tsx 一致，用真实 Provider 包裹而非 mock。
+function renderErrorPage(ui: ReactElement) {
+  return render(<InstallPromptProvider>{ui}</InstallPromptProvider>);
+}
 
 const reportErrorToServerMock = vi.mocked(reportErrorToServer);
 const pushEventMock = vi.mocked(pushEvent);
@@ -35,7 +44,7 @@ describe('ErrorPage', () => {
   });
 
   it('渲染 500 提示与重试/反馈按钮', () => {
-    render(<ErrorPage error={new Error('boom')} reset={vi.fn()} />);
+    renderErrorPage(<ErrorPage error={new Error('boom')} reset={vi.fn()} />);
     expect(screen.getByText('500')).toBeTruthy();
     expect(screen.getByText('出错了')).toBeTruthy();
     expect(screen.getByRole('button', { name: '重试' })).toBeTruthy();
@@ -44,8 +53,12 @@ describe('ErrorPage', () => {
 
   it('挂载时自动上报错误并写入轨迹（仅一次）', async () => {
     const error = new Error('boom');
-    const { rerender } = render(<ErrorPage error={error} reset={vi.fn()} />);
-    rerender(<ErrorPage error={error} reset={vi.fn()} />);
+    const { rerender } = renderErrorPage(<ErrorPage error={error} reset={vi.fn()} />);
+    rerender(
+      <InstallPromptProvider>
+        <ErrorPage error={error} reset={vi.fn()} />
+      </InstallPromptProvider>,
+    );
 
     await waitFor(() =>
       expect(reportErrorToServerMock).toHaveBeenCalledTimes(1),
@@ -58,13 +71,13 @@ describe('ErrorPage', () => {
 
   it('点击重试调用 reset', () => {
     const reset = vi.fn();
-    render(<ErrorPage error={new Error('boom')} reset={reset} />);
+    renderErrorPage(<ErrorPage error={new Error('boom')} reset={reset} />);
     fireEvent.click(screen.getByRole('button', { name: '重试' }));
     expect(reset).toHaveBeenCalledTimes(1);
   });
 
   it('点击反馈按钮打开反馈弹窗', async () => {
-    render(<ErrorPage error={new Error('boom')} reset={vi.fn()} />);
+    renderErrorPage(<ErrorPage error={new Error('boom')} reset={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: '反馈这个问题' }));
     expect(await screen.findByRole('dialog', { name: '遇到问题？' })).toBeTruthy();
   });
