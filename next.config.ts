@@ -26,6 +26,15 @@ const outputMode: NextConfig["output"] =
 
 const nextConfig: NextConfig = {
   output: outputMode,
+  /**
+   * 生成浏览器端 source map。
+   *
+   * Next 默认 false，Turbopack 只会为 `server/**` 出 map，`static/chunks/*.js` 没有 .map，
+   * 导致 Sentry 只收到带 debugId 的 chunk、收不到对应 source file，栈永远无法符号化
+   * （“No Source File With Matching Debug ID”）。
+   * 这些 map 会由 withSentryConfig 上传到 Sentry，并在上传后删除（见下方 sourcemaps 选项）。
+   */
+  productionBrowserSourceMaps: true,
   // 静态资源 URL 附带构建版本，部署后旧缓存自动失效
   generateBuildId: async () => BUILD_ID,
   env: {
@@ -305,6 +314,12 @@ export default withSentryConfig(withAxiom(withBundleAnalyzer(nextConfig)), {
 
   // Upload a larger set of source maps for prettier stack traces (increases build time)
   widenClientFileUpload: true,
+
+  sourcemaps: {
+    // 上传成功后删除 map（Turbopack 下还会顺带剥掉 chunk 末尾的 sourceMappingURL 注释），
+    // 避免把源码 map 公开到 static/chunks。上传在构建期由 SENTRY_AUTH_TOKEN 完成。
+    deleteSourcemapsAfterUpload: true,
+  },
 
   // Route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.
   // This can increase your server load as well as your hosting bill.
