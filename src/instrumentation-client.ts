@@ -37,16 +37,56 @@ function isCapWidgetNoise(message: string | undefined): boolean {
   return CAP_NOISE_PATTERNS.some((pattern) => pattern.test(message));
 }
 
+/**
+ * 第三方浏览器扩展的「CSP 拦截 eval」噪音，统一不上报。
+ *
+ * 背景：部分扩展（如 AIX 下载器，bundle 名为 `sm.bundle.js`，模块名形如
+ * `aixdownload-v3_<buildId>_<rand>`）会把脚本注入 MAIN world，内部用
+ * `new Function` 解析 JSON。本站 CSP 只放行 `'wasm-unsafe-eval'`、未放行
+ * `'unsafe-eval'`，于是扩展脚本抛 EvalError：
+ *
+ *   EvalError: Evaluating a string as JavaScript violates the following Content
+ *   Security Policy directive ... because 'unsafe-eval' is not an allowed source of script
+ *
+ * 由于扩展是在页面世界注册事件监听（EventTarget/addEventListener），该 EvalError 会
+ * 经过 Sentry BrowserApiErrors 包装过的监听器冒泡（mechanism:
+ * auto.browser.browserapierrors.addEventListener），被记成「本站未捕获异常」。
+ * 注意 Sentry 的 NextjsClientStackFrameNormalization 会把
+ * `chrome-extension://<id>/sm.bundle.js` 改写成 `app:///sm.bundle.js`，容易误判成本站代码。
+ *
+ * 判定条件（两者同时满足才过滤，宁可多报也不吞自家问题）：
+ * 1. 消息是 CSP 拒绝 eval 的 EvalError；
+ * 2. 原始栈（未经 Sentry 改写的 hint.originalException.stack）里出现扩展协议 scheme。
+ * 本站代码全部走 /_next/static/，不会产生扩展 scheme 的帧。
+ */
+const CSP_EVAL_VIOLATION_PATTERN =
+  /violates the following content security policy directive/i;
+const EXTENSION_FRAME_PATTERN =
+  /(?:chrome|moz|safari-web|safari|ms-browser)-extension:\/\//i;
+
+function isThirdPartyCspEvalNoise(
+  message: string | undefined,
+  originalException: unknown,
+): boolean {
+  if (!message || !CSP_EVAL_VIOLATION_PATTERN.test(message)) return false;
+  if (!originalException || typeof originalException !== 'object') return false;
+  const stack = (originalException as { stack?: unknown }).stack;
+  return typeof stack === 'string' && EXTENSION_FRAME_PATTERN.test(stack);
+}
+
 Sentry.init({
   dsn: "https://62ab27a5251bb7c188c069542dee68d9@o4512039224737792.ingest.de.sentry.io/4512039239286864",
 
   // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
   tracesSampleRate: 1,
 
-  // cap-widget 的预期失败不上报（见上方 CAP_NOISE_PATTERNS 说明）
+  // 预期噪声不上报（见上方 CAP_NOISE_PATTERNS / CSP eval 说明）
   beforeSend(event, hint) {
     const message = event.exception?.values?.[0]?.value ?? hint?.originalException?.toString();
     if (isCapWidgetNoise(message)) {
+      return null;
+    }
+    if (isThirdPartyCspEvalNoise(message, hint?.originalException)) {
       return null;
     }
     return event;
