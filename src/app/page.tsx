@@ -85,9 +85,9 @@ export default async function Home() {
           <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
             查询成绩、生成图片、分析数据，欢迎来到空间站「塔弦」旗下的 Phigros Query。
           </p>
-          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-500 max-w-2xl mx-auto">
+          <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
             本项目为非官方玩家项目，与南京鸽游网络有限公司及《Phigros》官方不存在授权、合作或运营关系。
-            参见<a href="/agreement" className="underline underline-offset-2 hover:text-gray-700 dark:hover:text-gray-300">《用户协议》</a>
+            参见<a href="/agreement" className="text-gray-700 dark:text-gray-300 underline underline-offset-2 hover:text-gray-900 dark:hover:text-gray-100">《用户协议》</a>
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
             <HomeStartButton className={buttonStyles({ size: 'lg', variant: 'primary' })} />
@@ -99,6 +99,7 @@ export default async function Home() {
 
         {/* 功能概览 */}
         <section id="features" className="scroll-mt-20 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <h2 className="sr-only">功能概览</h2>
           <div className={cardStyles({ padding: 'sm' })}>
             <div className="mb-3 flex items-center justify-center">
               <ImageIcon className="w-6 h-6 text-blue-600 dark:text-blue-400" aria-hidden="true" />
