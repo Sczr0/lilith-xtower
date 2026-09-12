@@ -1,3 +1,5 @@
+import { isAbortNoise } from '../utils/abortNoise';
+
 /**
  * 前端诊断信息采集器（isomorphic：无顶层浏览器访问，可在服务端组件导入）
  *
@@ -213,6 +215,8 @@ export function installErrorCapture(
 
   const handleWindowError = (event: ErrorEvent) => {
     const message = event.message || event.error?.message || 'Unknown error';
+    // 主动取消请求产生的 AbortError 属于预期行为，不作为错误轨迹/上报。
+    if (isAbortNoise(message)) return;
     const stack = typeof event.error?.stack === 'string' ? event.error.stack : undefined;
     pushEvent({ t: Date.now(), type: 'error', message, stack });
     onCapture({ message, stack });
@@ -220,13 +224,19 @@ export function installErrorCapture(
 
   const handleRejection = (event: PromiseRejectionEvent) => {
     const reason = event.reason;
+    // 注意：DOMException（AbortError 等）在部分浏览器不是 Error 实例，
+    // 这里按「带字符串 message 的对象」读取，避免丢失 abort 指纹。
+    const reasonObject =
+      typeof reason === 'object' && reason !== null ? (reason as { message?: unknown; stack?: unknown }) : null;
     const message =
-      reason instanceof Error
-        ? reason.message
+      reasonObject && typeof reasonObject.message === 'string'
+        ? reasonObject.message
         : typeof reason === 'string'
           ? reason
           : 'Unhandled promise rejection';
-    const stack = reason instanceof Error ? reason.stack : undefined;
+    // 主动取消请求产生的 AbortError 属于预期行为，不作为错误轨迹/上报。
+    if (isAbortNoise(message)) return;
+    const stack = reasonObject && typeof reasonObject.stack === 'string' ? reasonObject.stack : undefined;
     pushEvent({ t: Date.now(), type: 'error', message, stack });
     onCapture({ message, stack });
   };

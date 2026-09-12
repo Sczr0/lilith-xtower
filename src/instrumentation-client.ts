@@ -4,6 +4,8 @@
 
 import * as Sentry from "@sentry/nextjs";
 
+import { isAbortNoise } from "./app/lib/utils/abortNoise";
+
 /**
  * cap-widget 内部的「预期失败」噪音，统一不上报。
  *
@@ -80,13 +82,18 @@ Sentry.init({
   // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
   tracesSampleRate: 1,
 
-  // 预期噪声不上报（见上方 CAP_NOISE_PATTERNS / CSP eval 说明）
+  // 预期噪声不上报（见上方 CAP_NOISE_PATTERNS / CSP eval / abort 说明）
   beforeSend(event, hint) {
     const message = event.exception?.values?.[0]?.value ?? hint?.originalException?.toString();
     if (isCapWidgetNoise(message)) {
       return null;
     }
     if (isThirdPartyCspEvalNoise(message, hint?.originalException)) {
+      return null;
+    }
+    // 主动取消请求产生的 AbortError（含 WebKit 的 "Fetch is aborted" 上游 bug）。
+    // 详见 src/app/lib/utils/abortNoise.ts。
+    if (isAbortNoise(message)) {
       return null;
     }
     return event;

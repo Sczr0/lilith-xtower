@@ -4,6 +4,11 @@
 
 ## Unreleased
 
+- 修复（可观测性）：过滤主动取消请求产生的 AbortError 噪音（WebKit bug 215771）
+  - 新增 `lib/utils/abortNoise.ts`：按消息指纹识别「请求被主动取消」的 AbortError（含 WebKit 的 `Fetch is aborted`），刻意不做宽泛的 `name === 'AbortError'` 匹配，也不会吞掉往往代表真实问题的 `TimeoutError`
+  - `instrumentation-client.ts` 的 Sentry `beforeSend` 与诊断采集器 `installErrorCapture` 统一接入该过滤器：登录页切换登录方式/卸载、二维码过期取消轮询时，WebKit 在原始 Promise 链之外抛出的 `AbortError: Fetch is aborted` 不再被上报为未捕获异常（该 rejection 无法被 `try/catch` 捕获）
+  - 诊断采集器读取 rejection reason 时兼容 DOMException（部分浏览器中不是 Error 实例），避免丢失 abort 指纹
+
 - 优化（实验室-Lilith「RKS 提升助手」）：收尾能力建模为 P(φ|定数)，效率视图改为期望收益排序
   - `lib/utils/lilithRecommendation.ts` 新增 `fitClosureProbability()`：用近-φ 记录（ACC ≥ 99.8）按定数拟合单调递减的 logistic 曲线（带斜率岭惩罚的牛顿法，样本不足或单一类别时回退全局 closeRate），得到「收掉把握」——把「能打到 99.8%」与「能收掉」拆成两个维度
   - `computeApClosurePenalty` 拆成两维、不再重复计入：①「收掉率」改由 P(φ|定数) 进入期望收益；②「目标定数相对玩家个人 AP 天花板（已 φ 谱面 Top3 定数均值）的距离」保留为 `computeApCeilingPenalty` 成本乘子，并继续受潜力视图 `levelPenalty ≤ 2.0` 硬上限约束——避免要求玩家去收远超自己 AP 天花板的谱面
