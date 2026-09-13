@@ -5,6 +5,7 @@
 import * as Sentry from "@sentry/nextjs";
 
 import { isAbortNoise } from "./app/lib/utils/abortNoise";
+import { isThirdPartyRumNoise } from "./app/lib/utils/thirdPartyRumNoise";
 
 /**
  * cap-widget 内部的「预期失败」噪音，统一不上报。
@@ -76,13 +77,39 @@ function isThirdPartyCspEvalNoise(
   return typeof stack === 'string' && EXTENSION_FRAME_PATTERN.test(stack);
 }
 
+/**
+ * 汇总用于第三方 RUM 噪音指纹匹配的文本（调用栈帧 + breadcrumb URL）。
+ * 详见 src/app/lib/utils/thirdPartyRumNoise.ts。
+ */
+function collectRumFingerprintHaystack(
+  event: Sentry.Event,
+  originalException: unknown,
+): string {
+  const parts: string[] = [];
+  for (const exception of event.exception?.values ?? []) {
+    for (const frame of exception.stacktrace?.frames ?? []) {
+      if (frame.filename) parts.push(frame.filename);
+      if (frame.abs_path) parts.push(frame.abs_path);
+    }
+  }
+  for (const breadcrumb of event.breadcrumbs ?? []) {
+    const url = (breadcrumb.data as { url?: unknown } | undefined)?.url;
+    if (typeof url === 'string') parts.push(url);
+  }
+  if (originalException && typeof originalException === 'object') {
+    const stack = (originalException as { stack?: unknown }).stack;
+    if (typeof stack === 'string') parts.push(stack);
+  }
+  return parts.join('\n');
+}
+
 Sentry.init({
   dsn: "https://62ab27a5251bb7c188c069542dee68d9@o4512039224737792.ingest.de.sentry.io/4512039239286864",
 
   // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
   tracesSampleRate: 1,
 
-  // 预期噪声不上报（见上方 CAP_NOISE_PATTERNS / CSP eval / abort 说明）
+  // 预期噪声不上报（见上方 CAP_NOISE_PATTERNS / CSP eval / abort / ESA RUM 说明）
   beforeSend(event, hint) {
     const message = event.exception?.values?.[0]?.value ?? hint?.originalException?.toString();
     if (isCapWidgetNoise(message)) {
@@ -94,6 +121,11 @@ Sentry.init({
     // 主动取消请求产生的 AbortError（含 WebKit 的 "Fetch is aborted" 上游 bug）。
     // 详见 src/app/lib/utils/abortNoise.ts。
     if (isAbortNoise(message)) {
+      return null;
+    }
+    // 阿里云 ESA 边缘注入的 RUM 拨测脚本（rum_common.js）的网络失败噪音。
+    // 详见 src/app/lib/utils/thirdPartyRumNoise.ts。
+    if (isThirdPartyRumNoise(message, collectRumFingerprintHaystack(event, hint?.originalException))) {
       return null;
     }
     return event;

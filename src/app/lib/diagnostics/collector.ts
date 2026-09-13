@@ -1,4 +1,5 @@
 import { isAbortNoise } from '../utils/abortNoise';
+import { isThirdPartyRumNoise } from '../utils/thirdPartyRumNoise';
 
 /**
  * 前端诊断信息采集器（isomorphic：无顶层浏览器访问，可在服务端组件导入）
@@ -213,11 +214,25 @@ export function installErrorCapture(
 ): () => void {
   if (!isBrowser()) return () => {};
 
+  /**
+   * 第三方 RUM 噪音指纹文本 = 调用栈 + 最近 fetch 轨迹 URL。
+   * 阿里云 ESA 注入的 rum_common.js 拨测失败时，栈里可能有 rum_common.js，
+   * 也可能因跨域被浏览器裁掉（只剩消息），因此补上刚失败的拨测 URL。
+   */
+  const collectNoiseHaystack = (stack?: string): string => {
+    const fetchUrls = getEvents()
+      .filter((e) => e.type === 'fetch' && typeof e.url === 'string')
+      .map((e) => e.url as string);
+    return [stack ?? '', ...fetchUrls].join('\n');
+  };
+
   const handleWindowError = (event: ErrorEvent) => {
     const message = event.message || event.error?.message || 'Unknown error';
+    const stack = typeof event.error?.stack === 'string' ? event.error.stack : undefined;
     // 主动取消请求产生的 AbortError 属于预期行为，不作为错误轨迹/上报。
     if (isAbortNoise(message)) return;
-    const stack = typeof event.error?.stack === 'string' ? event.error.stack : undefined;
+    // 阿里云 ESA 注入的 RUM 拨测脚本的网络失败噪音，同样不上报。
+    if (isThirdPartyRumNoise(message, collectNoiseHaystack(stack))) return;
     pushEvent({ t: Date.now(), type: 'error', message, stack });
     onCapture({ message, stack });
   };
@@ -237,6 +252,8 @@ export function installErrorCapture(
     // 主动取消请求产生的 AbortError 属于预期行为，不作为错误轨迹/上报。
     if (isAbortNoise(message)) return;
     const stack = reasonObject && typeof reasonObject.stack === 'string' ? reasonObject.stack : undefined;
+    // 阿里云 ESA 注入的 RUM 拨测脚本的网络失败噪音，同样不上报。
+    if (isThirdPartyRumNoise(message, collectNoiseHaystack(stack))) return;
     pushEvent({ t: Date.now(), type: 'error', message, stack });
     onCapture({ message, stack });
   };

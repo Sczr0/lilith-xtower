@@ -110,6 +110,22 @@ describe('collector 浏览器行为（jsdom）', () => {
       }
     });
 
+    it('RUM 拨测脚本的网络失败噪音不上报', () => {
+      const onCapture = vi.fn();
+      const off = installErrorCapture(onCapture);
+      try {
+        const event = new Event('unhandledrejection') as PromiseRejectionEvent;
+        const err = new TypeError('Load failed');
+        err.stack = 'TypeError: Load failed\n    at h (app:///rum_common.js:1:1997)';
+        Object.defineProperty(event, 'reason', { value: err });
+        window.dispatchEvent(event);
+        expect(onCapture).not.toHaveBeenCalled();
+        expect(getEvents()).toHaveLength(0);
+      } finally {
+        off();
+      }
+    });
+
     it('卸载后不再回调', () => {
       const onCapture = vi.fn();
       const off = installErrorCapture(onCapture);

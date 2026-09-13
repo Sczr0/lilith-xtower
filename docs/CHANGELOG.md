@@ -4,6 +4,12 @@
 
 ## Unreleased
 
+- 修复（可观测性）：过滤阿里云 ESA 注入的 RUM 拨测脚本的「网络失败」噪音
+  - 背景：ESA 在边缘注入 `rum_common.js`，其「网络质量拨测」会 fetch `https://rumprbjs-sp.ialicdn.com/target*/test*.jpg`；本站 CSP `connect-src` 原先只放行了上报域名 `*.myalicdn.com`、未放行拨测域名 `*.ialicdn.com`，请求被拦后 Safari 抛 `TypeError: Load failed`，且该脚本顶层 `try/catch` 包的是 async 调用、捕获不到 rejection，冒泡成 `unhandledrejection` 被 Sentry 误报成本站未捕获异常
+  - 根因修复：`lib/security/csp.ts` 的 `connect-src` 放行 `https://*.ialicdn.com`（拨测域名，与上报用的 `*.myalicdn.com` 不同域）；仅限 `connect-src`，不并入 `wildcards`，避免顺带放开脚本/图片来源
+  - 新增 `lib/utils/thirdPartyRumNoise.ts`：仅在「消息是浏览器网络失败固定文案（Load failed / Failed to fetch / NetworkError…）」且「调用栈/breadcrumb 含 `rum_common.js`、`ialicdn.com`、`myalicdn.com` 等第三方指纹」时过滤，不误伤本站同名错误；CSP 放行后仍可兜住拨测真网络失败 / 被扩展拦截等场景
+  - `instrumentation-client.ts` 的 Sentry `beforeSend` 与诊断采集器 `installErrorCapture` 统一接入；采集器额外用最近 fetch 轨迹 URL 补齐指纹，兼容跨域导致栈被裁掉的情况
+
 - 修复（可观测性）：过滤主动取消请求产生的 AbortError 噪音（WebKit bug 215771）
   - 新增 `lib/utils/abortNoise.ts`：按消息指纹识别「请求被主动取消」的 AbortError（含 WebKit 的 `Fetch is aborted`），刻意不做宽泛的 `name === 'AbortError'` 匹配，也不会吞掉往往代表真实问题的 `TimeoutError`
   - `instrumentation-client.ts` 的 Sentry `beforeSend` 与诊断采集器 `installErrorCapture` 统一接入该过滤器：登录页切换登录方式/卸载、二维码过期取消轮询时，WebKit 在原始 Promise 链之外抛出的 `AbortError: Fetch is aborted` 不再被上报为未捕获异常（该 rejection 无法被 `try/catch` 捕获）
