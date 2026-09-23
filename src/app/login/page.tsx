@@ -7,7 +7,7 @@ import { AuthDetailsModal } from '../components/AuthDetailsModal';
 import { useAuth } from '../contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { AuthStorage } from '../lib/storage/auth';
-import { getPreloadPolicy, preloadTapTapQr, runWhenIdle, shouldPreload } from '../lib/utils/preload';
+import { runWhenIdle, shouldPreload } from '../lib/utils/preload';
 import { SiteHeader } from '../components/SiteHeader';
 import { PageShell } from '../components/PageShell';
 import { cardStyles } from '../components/ui/styles';
@@ -32,30 +32,27 @@ export default function LoginPage() {
     initCap(endpoint);
   }, []);
 
+  // 客户端挂载后才渲染登录面板：
+  // hydration 之前只能拿到服务端默认值 'cn'，若此时就挂载 QRCodeLogin，国际版用户会先以
+  // 'cn' 拉一次二维码、再因 key 变化重挂载拉第二次 —— 既浪费一次 device_code（撞限流），
+  // 又可能让用户扫到错误版本的二维码。延后到客户端版本号就绪后一次性挂载即可杜绝。
+  const isClient = useClientValue(() => true, false);
   const storedTapTapVersion = useClientValue(() => AuthStorage.getTapTapVersion(), 'cn');
   const [taptapVersionOverride, setTaptapVersionOverride] = useState<TapTapVersion | null>(null);
   const taptapVersion = taptapVersionOverride ?? storedTapTapVersion;
 
-  // 预加载二维码数据（在空闲时执行），并预取 dashboard 页面（使用 Next Router 预取机制）
+  // 空闲时预取 dashboard 路由（Next Router 预取，不涉及任何二维码/device_code 请求）
   useEffect(() => {
-    if (shouldPreload()) {
-      const policy = getPreloadPolicy();
-      runWhenIdle(() => {
-        preloadTapTapQr(taptapVersion);
-        void router.prefetch('/dashboard');
-      }, policy.loginIdleTimeout);
-    }
-  }, [router, taptapVersion]);
+    if (!shouldPreload()) return;
+    runWhenIdle(() => {
+      void router.prefetch('/dashboard');
+    });
+  }, [router]);
 
-  // 保存TapTap版本配置并预加载对应版本的二维码
+  // 保存 TapTap 版本配置（二维码由登录面板按当前版本自行获取，无需额外预加载）
   const handleVersionChange = (version: 'cn' | 'global') => {
     setTaptapVersionOverride(version);
     AuthStorage.saveTapTapVersion(version);
-    
-    // 切换版本时预加载新版本的二维码
-    if (shouldPreload()) {
-      preloadTapTapQr(version);
-    }
   };
 
   useEffect(() => {
@@ -149,7 +146,13 @@ export default function LoginPage() {
                 onLogout={logout}
               />
             )}
-            <LoginFormPanel activeMethod={activeMethod} taptapVersion={taptapVersion} />
+            {isClient ? (
+              <LoginFormPanel activeMethod={activeMethod} taptapVersion={taptapVersion} />
+            ) : (
+              <div className="flex items-center justify-center py-10">
+                <span className="text-sm text-gray-600 dark:text-gray-400">正在加载…</span>
+              </div>
+            )}
 
             {/* 协议提示 — 放在表单卡片内，确保始终可见 */}
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-6 pt-4 border-t border-gray-200/50 dark:border-gray-700/50 text-center">

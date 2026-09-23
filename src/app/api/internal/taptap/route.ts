@@ -59,14 +59,30 @@ export const dynamic = 'force-dynamic';
 
 // —— 按 action 的 IP 限流（滑动窗口，单实例） ——
 const RATE_LIMITS: Record<Action, { limit: number; windowMs: number }> = {
-  device_code: { limit: 10, windowMs: 60_000 }, // 二维码获取：低频
+  device_code: { limit: 30, windowMs: 60_000 }, // 二维码获取：每次登录仅 1 次，留出重试余量
   poll_token: { limit: 240, windowMs: 60_000 }, // 轮询：间隔 1s 时 120 秒最多 ~120 次
   profile: { limit: 30, windowMs: 60_000 },
   leancloud: { limit: 10, windowMs: 60_000 }, // 登录落库：低频
 };
 
+/**
+ * 拿不到可信客户端 IP 时（resolveClientIp 返回 'unknown'），所有访客会共享同一个限流桶。
+ * 若沿用单 IP 的严格限额，一旦部署侧未配置 TRUSTED_CLIENT_IP_HEADER，整站登录会被一起限流成 429。
+ * 这里对共享桶放宽到 N 倍：既保留兜底上限（防止伪造头绕过），又不至于把正常访客挡在门外。
+ */
+const UNKNOWN_IP_LIMIT_MULTIPLIER = 10;
+
 function rateLimitKey(ip: string, action: Action): string {
   return `taptap:${ip}:${action}`;
+}
+
+function resolveRateLimit(ip: string, action: Action): { key: string; limit: number; windowMs: number } {
+  const { limit, windowMs } = RATE_LIMITS[action];
+  return {
+    key: rateLimitKey(ip, action),
+    limit: ip === 'unknown' ? limit * UNKNOWN_IP_LIMIT_MULTIPLIER : limit,
+    windowMs,
+  };
 }
 
 // —— 授权流程状态绑定 ——
@@ -131,8 +147,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
     }
 
-    const { limit, windowMs } = RATE_LIMITS[action];
-    if (!slidingWindowAllow(rateLimitKey(ip, action), limit, windowMs)) {
+    const { key, limit, windowMs } = resolveRateLimit(ip, action);
+    if (!slidingWindowAllow(key, limit, windowMs)) {
       return NextResponse.json({ error: '请求过于频繁，请稍后重试' }, { status: 429 });
     }
 
@@ -237,11 +253,13 @@ async function requestDeviceCodeServer(config: ReturnType<typeof getTapConfig>):
   };
 }
 
+type PollStatus = 'pending' | 'waiting' | 'slow_down' | 'denied' | 'error' | 'ok';
+
 async function pollTokenOnceServer(
   config: ReturnType<typeof getTapConfig>,
   deviceCode: string,
   deviceId: string,
-): Promise<{ status: 'pending' | 'waiting' | 'denied' | 'ok'; token?: TokenResponse; msg?: string }> {
+): Promise<{ status: PollStatus; token?: TokenResponse; msg?: string }> {
   const form = new URLSearchParams({
     grant_type: 'device_token',
     client_id: config.clientId,
@@ -252,20 +270,31 @@ async function pollTokenOnceServer(
     info: JSON.stringify({ device_id: deviceId }),
   });
 
-  const res = await fetch(config.tokenEndpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: form.toString(),
-  });
-  const json = (await res.json().catch(() => ({}))) as TokenApiResponse;
+  let res: Response;
+  try {
+    res = await fetch(config.tokenEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: form.toString(),
+    });
+  } catch (err) {
+    // 上游网络异常按瞬时故障返回，交由客户端退避重试，避免一次抖动就判死整个登录
+    return { status: 'error', msg: err instanceof Error ? err.message : '轮询上游失败' };
+  }
+
+  const json = (await res.json().catch(() => null)) as TokenApiResponse | null;
   if (json?.success === true && json?.data) {
     return { status: 'ok', token: json.data as TokenResponse };
   }
+
   const err = json?.data?.error;
   if (err === 'authorization_pending') return { status: 'pending' };
   if (err === 'authorization_waiting') return { status: 'waiting' };
+  if (err === 'slow_down') return { status: 'slow_down' };
   if (err === 'access_denied') return { status: 'denied', msg: '用户取消或拒绝授权' };
-  return { status: 'denied', msg: json?.data?.msg || '获取授权状态失败' };
+  if (err === 'expired_token') return { status: 'denied', msg: '二维码已过期，请重新获取' };
+  // 未知响应（网关错误 / 非预期响应体等）：不直接判死，标记为可重试的 error
+  return { status: 'error', msg: json?.data?.msg || `获取授权状态失败（${res.status}）` };
 }
 
 async function fetchProfileServer(config: ReturnType<typeof getTapConfig>, token: TokenResponse): Promise<TapTapProfile> {

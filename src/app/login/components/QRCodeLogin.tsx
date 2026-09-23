@@ -7,13 +7,11 @@ import { SessionCredential, TapTapVersion } from '../../lib/types/auth';
 import { AuthStorage } from '../../lib/storage/auth';
 import {
   completeTapTapQrLogin,
-  QrCodeData,
   requestTapTapDeviceCode,
 } from '../../lib/taptap/qrLogin';
 import { buildTapTapLoginAuthDeepLink, normalizeTapTapConfirmUrl } from '../../lib/taptap/deeplink';
 import { getCapToken } from '../../lib/cap/client';
 import QRCode from 'qrcode';
-import { getPreloadedQrData, clearPreloadedQrData } from '../../lib/utils/preload';
 import { useClientValue } from '../../hooks/useClientValue';
 import { buildGoHref } from '../../utils/outbound';
 
@@ -22,7 +20,7 @@ interface QRCodeLoginProps {
 }
 
 export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
-  const { login } = useAuth();
+  const { login, consentRequired } = useAuth();
   // AuthProvider 每次渲染都会生成新的 login 引用；这里用 ref 持有最新值，避免触发“依赖变化导致重复拉码”
   const loginRef = useRef(login);
   useEffect(() => {
@@ -67,16 +65,7 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
       const controller = new AbortController();
       pollAbortRef.current = controller;
 
-      // 尝试使用预加载的二维码数据
-      let codeData: QrCodeData;
-      const preloadedData = getPreloadedQrData(version);
-      if (preloadedData && typeof preloadedData === 'object' && 'deviceCode' in preloadedData) {
-        codeData = preloadedData as QrCodeData;
-        // 清除已使用的预加载数据
-        clearPreloadedQrData(version);
-      } else {
-        codeData = await requestTapTapDeviceCode(version, controller.signal);
-      }
+      const codeData = await requestTapTapDeviceCode(version, controller.signal);
 
       setQrCodeImage(codeData.qrcodeUrl);
       try {
@@ -237,7 +226,7 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
             登录成功
           </p>
           <p className="text-gray-600 dark:text-gray-400">
-            正在跳转到首页...
+            {consentRequired ? '请在弹窗中阅读并同意用户协议后继续' : '正在跳转到首页...'}
           </p>
         </div>
       )}

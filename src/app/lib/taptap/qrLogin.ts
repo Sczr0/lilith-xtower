@@ -104,11 +104,31 @@ const proxyFetch = async <T>(action: string, payload: Record<string, unknown>, s
     signal,
   });
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || `请求失败: ${res.status}`);
+    // 服务端错误体为 { error } / { msg }：优先提取其中的可读文案，
+    // 避免把原始 JSON（如 {"error":"请求过于频繁，请稍后重试"}）直接抛到界面。
+    const text = await res.text().catch(() => '');
+    throw new Error(extractFriendlyError(text) || `请求失败: ${res.status}`);
   }
   return (await res.json()) as T;
 };
+
+/** 从代理返回的错误体里提取人类可读文案（兼容 JSON / 纯文本）。 */
+function extractFriendlyError(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed) return '';
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed) as { error?: unknown; msg?: unknown; message?: unknown };
+      for (const candidate of [parsed?.error, parsed?.msg, parsed?.message]) {
+        if (typeof candidate === 'string' && candidate.trim()) return candidate.trim();
+      }
+      return '';
+    } catch {
+      return '';
+    }
+  }
+  return trimmed;
+}
 
 export async function requestTapTapDeviceCode(
   version: TapTapVersion,
@@ -153,6 +173,95 @@ export async function requestTapTapDeviceCode(
   };
 }
 
+/**
+ * 单次轮询的归一化结果。
+ *
+ * 说明：轮询期间上游可能返回各种瞬时异常（网关 5xx、限流 slow_down、非预期响应体…）。
+ * 这些都不应被当作「用户拒绝授权」直接判死，统一归为 error / slow_down 交给调用方退避重试；
+ * 只有明确的 access_denied / expired_token 才终止流程。
+ */
+type PollOutcome =
+  | { kind: 'ok'; token: TokenResponse }
+  | { kind: 'pending' }
+  | { kind: 'slow_down' }
+  | { kind: 'denied'; msg?: string }
+  | { kind: 'error'; msg?: string };
+
+type PollStatusResponse = {
+  status?: 'pending' | 'waiting' | 'slow_down' | 'denied' | 'error' | 'ok';
+  token?: TokenResponse;
+  msg?: string;
+};
+
+/** 轮询期间允许的连续瞬时失败次数，超过则终止并提示重新获取。 */
+const MAX_CONSECUTIVE_POLL_ERRORS = 5;
+/** 退避间隔上限，避免 slow_down / 抖动把等待拖得过长。 */
+const MAX_POLL_INTERVAL_MS = 8_000;
+
+async function pollOnceViaProxy(
+  version: TapTapVersion,
+  deviceCode: string,
+  deviceId: string,
+  flowId: string | undefined,
+  signal?: AbortSignal,
+): Promise<PollOutcome> {
+  const res = await proxyFetch<PollStatusResponse>(
+    'poll_token',
+    { version, flowId, deviceCode, deviceId },
+    signal,
+  );
+  switch (res.status) {
+    case 'ok':
+      return res.token ? { kind: 'ok', token: res.token } : { kind: 'error', msg: '上游未返回授权令牌' };
+    case 'denied':
+      return { kind: 'denied', msg: res.msg };
+    case 'slow_down':
+      return { kind: 'slow_down' };
+    case 'error':
+      return { kind: 'error', msg: res.msg };
+    default:
+      // pending / waiting / 未知状态：按可继续处理，避免误伤
+      return { kind: 'pending' };
+  }
+}
+
+async function pollOnceDirect(
+  version: TapTapVersion,
+  deviceCode: string,
+  deviceId: string,
+  signal?: AbortSignal,
+): Promise<PollOutcome> {
+  const config = TAP_CONFIG[version];
+  const body = toFormBody({
+    grant_type: 'device_token',
+    client_id: config.clientId,
+    secret_type: 'hmac-sha-1',
+    code: deviceCode,
+    version: '1.0',
+    platform: 'unity',
+    info: JSON.stringify({ device_id: deviceId }),
+  });
+
+  const res = await fetch(config.tokenEndpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+    signal,
+  });
+  const json = (await res.json().catch(() => null)) as
+    | { success?: boolean; data?: TokenResponse & { error?: string; msg?: string } }
+    | null;
+
+  if (json?.success === true && json.data) return { kind: 'ok', token: json.data };
+
+  const err = json?.data?.error;
+  if (err === 'access_denied') return { kind: 'denied', msg: '用户取消或拒绝授权' };
+  if (err === 'expired_token') return { kind: 'denied', msg: '二维码已过期，请重新获取' };
+  if (err === 'slow_down') return { kind: 'slow_down' };
+  if (err === 'authorization_pending' || err === 'authorization_waiting') return { kind: 'pending' };
+  return { kind: 'error', msg: json?.data?.msg || `获取授权状态失败（${res.status}）` };
+}
+
 export async function pollTapTapToken(
   version: TapTapVersion,
   deviceCode: string,
@@ -162,51 +271,48 @@ export async function pollTapTapToken(
   signal?: AbortSignal,
   flowId?: string,
 ): Promise<TokenResponse> {
-  const config = TAP_CONFIG[version];
   const start = Date.now();
+  const baseInterval = intervalMs > 0 ? intervalMs : 1000;
+  let interval = baseInterval;
+  let consecutiveErrors = 0;
 
   while (true) {
     if (signal?.aborted) throw new DOMException('轮询已取消', 'AbortError');
 
-    if (USE_PROXY) {
-      const res = await proxyFetch<{ status: 'pending' | 'waiting' | 'denied' | 'ok'; token?: TokenResponse; msg?: string }>(
-        'poll_token',
-        { version, flowId, deviceCode, deviceId },
-        signal,
-      );
-      if (res.status === 'ok' && res.token) return res.token;
-      if (res.status === 'denied') throw new Error(res.msg || '用户取消或拒绝授权');
-      // pending/waiting -> continue
-    } else {
-      const body = toFormBody({
-        grant_type: 'device_token',
-        client_id: config.clientId,
-        secret_type: 'hmac-sha-1',
-        code: deviceCode,
-        version: '1.0',
-        platform: 'unity',
-        info: JSON.stringify({ device_id: deviceId }),
-      });
+    let outcome: PollOutcome;
+    try {
+      outcome = USE_PROXY
+        ? await pollOnceViaProxy(version, deviceCode, deviceId, flowId, signal)
+        : await pollOnceDirect(version, deviceCode, deviceId, signal);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') throw err;
+      if (signal?.aborted) throw new DOMException('轮询已取消', 'AbortError');
+      // 到自身代理/上游的网络异常同样按瞬时故障处理，交由下方退避重试
+      outcome = { kind: 'error', msg: err instanceof Error ? err.message : '网络异常' };
+    }
 
-      const res = await fetch(config.tokenEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body,
-        signal,
-      });
-      const json = await res.json().catch(() => ({}));
-      if (json?.success === true && json?.data) return json.data as TokenResponse;
-      const err = json?.data?.error;
-      if (err === 'access_denied') throw new Error('用户取消或拒绝授权');
-      if (err !== 'authorization_pending' && err !== 'authorization_waiting') {
-        throw new Error(json?.data?.msg || '获取授权状态失败');
+    if (outcome.kind === 'ok') return outcome.token;
+    if (outcome.kind === 'denied') throw new Error(outcome.msg || '用户取消或拒绝授权');
+
+    if (outcome.kind === 'error') {
+      consecutiveErrors += 1;
+      if (consecutiveErrors > MAX_CONSECUTIVE_POLL_ERRORS) {
+        throw new Error(outcome.msg || '网络异常，请重新获取二维码');
       }
+      interval = Math.min(interval * 2, MAX_POLL_INTERVAL_MS);
+    } else if (outcome.kind === 'slow_down') {
+      consecutiveErrors = 0;
+      interval = Math.min(interval * 2, MAX_POLL_INTERVAL_MS);
+    } else {
+      // pending / waiting：恢复正常节奏
+      consecutiveErrors = 0;
+      interval = baseInterval;
     }
 
     if (Date.now() - start > timeoutMs) {
       throw new Error('扫描超时，请重新获取二维码');
     }
-    await new Promise((r) => setTimeout(r, intervalMs));
+    await new Promise((r) => setTimeout(r, interval));
   }
 }
 
