@@ -23,7 +23,7 @@ export function SessionExpiredModal({ onReLogin, onDismiss }: SessionExpiredModa
     >
       <Dialog.Portal>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <Dialog.Overlay className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+          <Dialog.Overlay className="ui-overlay-motion absolute inset-0 bg-black/70 backdrop-blur-sm" />
           <Dialog.Content className="relative w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden focus:outline-none">
             {/* Header */}
             <header className="flex items-center p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">

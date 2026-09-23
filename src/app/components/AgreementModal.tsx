@@ -57,7 +57,7 @@ export function AgreementModal({ html, onAgree, onClose }: AgreementModalProps) 
       <Dialog.Root open={open} onOpenChange={setOpen}>
         <Dialog.Portal>
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <Dialog.Overlay className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+            <Dialog.Overlay className="ui-overlay-motion absolute inset-0 bg-black/70 backdrop-blur-sm" />
             <Dialog.Content
               className="relative w-full max-w-xl bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden focus:outline-none"
               onPointerDownOutside={(e) => e.preventDefault()}
@@ -121,7 +121,7 @@ export function AgreementModal({ html, onAgree, onClose }: AgreementModalProps) 
             <button
               onClick={onAgree}
               disabled={!checked}
-              className={`px-6 py-2.5 rounded-lg font-semibold transition-all ${checked ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+              className={`px-6 py-2.5 rounded-lg font-semibold ui-press ${checked ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
             >
               同意并继续
             </button>
@@ -137,7 +137,7 @@ export function AgreementModal({ html, onAgree, onClose }: AgreementModalProps) 
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <Dialog.Portal>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <Dialog.Overlay className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+          <Dialog.Overlay className="ui-overlay-motion absolute inset-0 bg-black/70 backdrop-blur-sm" />
           <Dialog.Content
             className="relative w-full max-w-4xl max-h-[80vh] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden focus:outline-none"
             onPointerDownOutside={(e) => e.preventDefault()}
@@ -201,9 +201,9 @@ export function AgreementModal({ html, onAgree, onClose }: AgreementModalProps) 
               <button
                 onClick={onAgree}
                 disabled={!scrolledToBottom}
-                className={`flex-1 sm:flex-none px-8 py-3 font-semibold rounded-lg transition-all duration-300 ${
+                className={`flex-1 sm:flex-none px-8 py-3 font-semibold rounded-lg transition-[color,background-color,box-shadow,scale] duration-200 ${
                   scrolledToBottom
-                    ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg transform hover:scale-105'
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg motion-safe:transform motion-safe:hover:scale-105'
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 }`}
               >

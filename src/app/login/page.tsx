@@ -10,6 +10,7 @@ import { AuthStorage } from '../lib/storage/auth';
 import { getPreloadPolicy, preloadTapTapQr, runWhenIdle, shouldPreload } from '../lib/utils/preload';
 import { SiteHeader } from '../components/SiteHeader';
 import { PageShell } from '../components/PageShell';
+import { cardStyles } from '../components/ui/styles';
 import { RadioGroup } from '../components/ui/RadioGroup';
 import { LoginMethodSelector } from './components/LoginMethodSelector';
 import { useClientValue } from '../hooks/useClientValue';
@@ -73,7 +74,7 @@ export default function LoginPage() {
       mainClassName="relative z-10 flex-1 flex items-start justify-center p-4 sm:p-6 pt-8 sm:pt-12 lg:pt-16"
       containerClassName="w-full max-w-5xl mx-auto"
       afterMain={(
-        <footer className="relative z-10 flex items-center justify-center h-16 backdrop-blur-sm bg-white/30 dark:bg-gray-900/30 border-t border-gray-200/50 dark:border-gray-700/50">
+        <footer className="relative z-10 flex items-center justify-center h-16 backdrop-blur-sm bg-white/30 dark:bg-neutral-900/50 border-t border-gray-200/50 dark:border-neutral-800/60">
           <p className="text-sm text-gray-500 dark:text-gray-400">
             © 2025-2026 Phigros Query. All Rights Reserved.
           </p>
@@ -92,7 +93,7 @@ export default function LoginPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8 w-full max-w-5xl">
         {/* 登录方式选择 */}
         <div className="lg:col-span-5">
-          <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-2xl p-5 sm:p-6 shadow-lg border border-gray-200/50 dark:border-gray-700/50">
+          <div className={cardStyles({ tone: 'glass', rounded: '2xl' })}>
             <h2 id="login-methods-title" className="text-lg sm:text-xl font-bold mb-5 sm:mb-6">选择登录方式</h2>
             <LoginMethodSelector
               titleId="login-methods-title"
@@ -105,7 +106,7 @@ export default function LoginPage() {
 
         {/* 登录表单 */}
         <div className="lg:col-span-7">
-          <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-2xl p-5 sm:p-6 lg:p-8 shadow-lg border border-gray-200/50 dark:border-gray-700/50">
+          <div className={cardStyles({ tone: 'glass', rounded: '2xl', className: 'lg:p-8' })}>
             {/* TapTap版本选择 */}
             <div className="mb-6">
               <h3 id="taptap-version-title" className="text-sm sm:text-base font-medium mb-3 text-gray-900 dark:text-gray-100">
@@ -120,9 +121,9 @@ export default function LoginPage() {
               >
                 <RadioGroup.Item
                   value="cn"
-                  className={`flex-1 py-2.5 px-4 rounded-xl transition-all duration-300 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                  className={`flex-1 py-2.5 px-4 rounded-xl transition-[color,background-color,border-color,box-shadow] duration-200 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                     taptapVersion === 'cn'
-                      ? 'bg-blue-500 text-white shadow-lg border-2 border-blue-600'
+                      ? 'bg-blue-600 text-white shadow-lg border-2 border-blue-700'
                       : 'bg-gray-100 dark:bg-gray-700/50 border-2 border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-700'
                   }`}
                 >
@@ -130,9 +131,9 @@ export default function LoginPage() {
                 </RadioGroup.Item>
                 <RadioGroup.Item
                   value="global"
-                  className={`flex-1 py-2.5 px-4 rounded-xl transition-all duration-300 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                  className={`flex-1 py-2.5 px-4 rounded-xl transition-[color,background-color,border-color,box-shadow] duration-200 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                     taptapVersion === 'global'
-                      ? 'bg-blue-500 text-white shadow-lg border-2 border-blue-600'
+                      ? 'bg-blue-600 text-white shadow-lg border-2 border-blue-700'
                       : 'bg-gray-100 dark:bg-gray-700/50 border-2 border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-700'
                   }`}
                 >

@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 
 import { ThemeToggle } from './ThemeToggle';
-import { useAuth } from '../contexts/AuthContext';
+import { useOptionalAuth } from '../contexts/AuthContext';
 
 import type { NavItem } from './topbar/nav';
 import { SITE_NAV_ITEMS } from './topbar/nav';
@@ -72,7 +72,7 @@ export function SiteHeader({
   desktopActions,
   enableMobileMenu = true,
 }: SiteHeaderProps) {
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, logout } = useOptionalAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const mobileMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
   const mobileMenuDialogRef = useRef<HTMLDivElement | null>(null);
@@ -141,7 +141,7 @@ export function SiteHeader({
   }, [enableMobileMenu, isMobileMenuOpen]);
 
   const desktopNav = (
-    <nav className="hidden md:flex items-center gap-4">
+    <nav aria-label="主导航" className="hidden md:flex items-center gap-4">
       {links.map((item) => (
         <TopBarLink key={item.href} item={item} />
       ))}
@@ -167,7 +167,7 @@ export function SiteHeader({
         <button
           ref={mobileMenuTriggerRef}
           type="button"
-          className="p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-neutral-800 transition-colors"
+          className="p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 active:bg-gray-200 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-neutral-800 dark:active:bg-neutral-700 ui-press"
           aria-label={isMobileMenuOpen ? '关闭菜单' : '打开菜单'}
           aria-expanded={isMobileMenuOpen}
           aria-haspopup="dialog"
@@ -210,17 +210,17 @@ export function SiteHeader({
       {/* 移动端下拉菜单：轻量实现，避免首屏引入 Radix Dialog 相关依赖 */}
       {enableMobileMenu && isMobileMenuOpen && (
         <>
-          <div className="fixed inset-0 bg-black/20 z-30 md:hidden" onClick={closeMobileMenu} aria-hidden="true" />
+          <div className="ui-fade-in fixed inset-0 bg-black/20 z-30 md:hidden" onClick={closeMobileMenu} aria-hidden="true" />
           <div
             id={MOBILE_MENU_DIALOG_ID}
             ref={mobileMenuDialogRef}
-            className="fixed top-14 left-0 right-0 z-40 bg-white dark:bg-neutral-950 border-b border-gray-200 dark:border-neutral-800 shadow-lg md:hidden"
+            className="ui-pop-in fixed top-14 left-0 right-0 z-40 bg-white dark:bg-neutral-950 border-b border-gray-200 dark:border-neutral-800 shadow-lg md:hidden"
             role="dialog"
             aria-modal="true"
             aria-label="站点导航与账户操作"
             tabIndex={-1}
           >
-            <nav>
+            <nav aria-label="移动端导航">
               <div className="px-4 py-3 space-y-1">
                 {links.map((item) => (
                   <TopBarLink

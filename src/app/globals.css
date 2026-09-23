@@ -5,6 +5,12 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* 动效语汇：全站共用一套时长与曲线，避免每个组件各写一份 */
+  --motion-fast: 150ms;
+  --motion-base: 220ms;
+  --motion-slow: 300ms;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @theme inline {
@@ -138,20 +144,45 @@ html.brand-font body {
   display: none; /* Chrome/Safari */
 }
 
+/* 跳转到主要内容：默认移出视口，仅键盘聚焦时滑入 */
+.skip-link {
+  position: fixed;
+  top: 0;
+  inset-inline-start: -9999px;
+  z-index: 100;
+  padding: 0.5rem 1rem;
+  border-radius: 0 0 0.5rem 0;
+  background: var(--foreground);
+  color: var(--background);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.skip-link:focus {
+  inset-inline-start: 0;
+  outline: 2px solid var(--background);
+  outline-offset: -2px;
+}
+
 /* 动画效果 */
+
+/* 区块入场：位移小、带一点模糊，只用于不常出现的区块（首页段落、空状态） */
 @keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(12px);
+    filter: blur(4px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
+    filter: blur(0);
   }
 }
 
 .fade-in-up {
-  animation: fadeInUp 0.6s ease-out;
+  animation: fadeInUp var(--motion-slow) var(--ease-out-expo) both;
+  animation-delay: var(--reveal-delay, 0ms);
 }
 
 @keyframes slideUp {
@@ -166,7 +197,7 @@ html.brand-font body {
 }
 
 .animate-slide-up {
-  animation: slideUp 0.4s ease-out;
+  animation: slideUp var(--motion-slow) var(--ease-out-expo);
 }
 
 /* 定数表内容切换：轻微上滑 + 淡入 */
@@ -182,7 +213,131 @@ html.brand-font body {
 }
 
 .animate-info-fade {
-  animation: infoFadeSlide 0.28s ease-out;
+  animation: infoFadeSlide 0.28s var(--ease-out-expo);
+}
+
+/* ---- 浮层与弹窗动效 ----
+   退出比进入更快（约 70%），进入用强减速曲线，退出用缓入。
+   Radix Presence 会在 animationend 后再卸载，因此关闭动画得以播放；
+   减弱动态效果时全局把 animation-duration 压到 0.01ms，卸载立刻发生。 */
+@keyframes overlayIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes overlayOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes dialogIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes dialogOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+  }
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes popOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* 遮罩：配合 ui-overlay-motion 一起用 */
+.ui-overlay-motion[data-state='open'] {
+  animation: overlayIn var(--motion-base) var(--ease-out-expo) both;
+}
+
+.ui-overlay-motion[data-state='closed'] {
+  animation: overlayOut var(--motion-fast) ease-in both;
+}
+
+/* 弹窗内容：所有 Radix 对话框共用，无需逐个组件声明 */
+[role='dialog'][data-state='open'] {
+  animation: dialogIn var(--motion-base) var(--ease-out-expo) both;
+}
+
+[role='dialog'][data-state='closed'] {
+  animation: dialogOut var(--motion-fast) ease-in both;
+}
+
+/* 弹出面板（下拉等）：Radix Popper 的定位 transform 在包装层，互不干扰 */
+.ui-pop-motion[data-state='open'] {
+  animation: popIn var(--motion-base) var(--ease-out-expo) both;
+}
+
+.ui-pop-motion[data-state='closed'] {
+  animation: popOut var(--motion-fast) ease-in both;
+}
+
+/* 非 Radix 的轻量展开层（移动端菜单等） */
+.ui-pop-in {
+  animation: popIn var(--motion-base) var(--ease-out-expo) both;
+}
+
+.ui-fade-in {
+  animation: fadeIn var(--motion-base) var(--ease-out-expo) both;
+}
+
+/* 按压反馈：默认静态，仅在允许动效时启用（transform 类属性都在 transition-transform 的覆盖范围内） */
+@media (prefers-reduced-motion: no-preference) {
+  .ui-press {
+    transition-property: color, background-color, border-color, box-shadow, transform, translate, scale, rotate;
+    transition-duration: var(--motion-fast);
+    transition-timing-function: var(--ease-out-expo);
+  }
+
+  .ui-press:active {
+    scale: 0.98;
+  }
 }
 
 /* 玻璃拟态效果 */

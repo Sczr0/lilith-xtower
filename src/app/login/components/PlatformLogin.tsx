@@ -80,6 +80,7 @@ export function PlatformLogin() {
           </label>
           {/* 使用统一风格下拉，完全自定义选项面板样式 */}
           <StyledSelect
+            id="platform"
             options={[
               { label: 'OneBotv11', value: 'OneBotv11' },
               { label: 'QQBot', value: 'QQBot' },
@@ -101,6 +102,9 @@ export function PlatformLogin() {
             id="platform_id"
             name="platform_id"
             type="text"
+            autoComplete="off"
+            spellCheck={false}
+            autoCapitalize="none"
             value={formData.platform_id}
             onChange={handleChange}
             placeholder="请输入您在平台上的用户 ID"
@@ -110,7 +114,7 @@ export function PlatformLogin() {
         </div>
 
         {(error || authError) && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+          <div role="alert" className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
             <p className="text-red-700 dark:text-red-400 text-sm">
               {error || authError}
             </p>

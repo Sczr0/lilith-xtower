@@ -8,7 +8,7 @@ vi.mock('@/app/lib/diagnostics/collector', async (importOriginal) => {
 });
 
 vi.mock('@/app/contexts/AuthContext', () => ({
-  useAuth: vi.fn(() => ({ isAuthenticated: true, isLoading: false })),
+  useOptionalAuth: vi.fn(() => ({ isAuthenticated: true, isLoading: false, logout: vi.fn() })),
 }));
 
 vi.mock('next-themes', () => ({

@@ -74,6 +74,9 @@ export function ManualLogin() {
             id="token"
             name="token"
             type="text"
+            autoComplete="off"
+            spellCheck={false}
+            autoCapitalize="none"
             value={formData.token}
             onChange={handleChange}
             placeholder="请输入您的 SessionToken"
@@ -83,7 +86,7 @@ export function ManualLogin() {
         </div>
 
         {(error || authError) && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+          <div role="alert" className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
             <p className="text-red-700 dark:text-red-400 text-sm">
               {error || authError}
             </p>

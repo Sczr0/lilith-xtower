@@ -471,6 +471,34 @@ export function useAuth(): AuthContextType {
   return context;
 }
 
+/**
+ * 可选读取认证上下文：供「可能被渲染在 AuthProvider 之外」的组件使用。
+ *
+ * 典型场景是根级兜底页（app/error.tsx、app/not-found.tsx）——它们由 Next/React
+ * 在 Provider 未建立/已卸载的错误恢复路径中渲染，此时 useAuth 会抛出二次错误，
+ * 把真正的原始错误掩盖掉。这里缺 Provider 时按「未登录」降级处理。
+ */
+export function useOptionalAuth(): AuthContextType {
+  const context = useContext(AuthContext);
+  return context ?? FALLBACK_AUTH_CONTEXT;
+}
+
+const noopAsync = async (): Promise<void> => {};
+
+// 稳定的降级值：避免每次渲染新建对象而引发无谓的重渲染。
+const FALLBACK_AUTH_CONTEXT: AuthContextType = {
+  isAuthenticated: false,
+  credential: null,
+  isLoading: false,
+  error: null,
+  consentRequired: false,
+  isSessionVerified: false,
+  login: noopAsync,
+  logout: () => {},
+  validateCurrentCredential: async () => false,
+  refreshSession: noopAsync,
+};
+
 export function withAuth<P extends object>(Component: React.ComponentType<P>): React.ComponentType<P> {
   return function AuthenticatedComponent(props: P) {
     const { isAuthenticated, isLoading, isSessionVerified } = useAuth();

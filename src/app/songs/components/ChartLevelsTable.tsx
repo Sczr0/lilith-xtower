@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ArrowDownWideNarrow, ArrowUpNarrowWide, Search } from 'lucide-react';
 
 import type { Difficulty } from '@/app/lib/constants/difficultyColors';
@@ -15,6 +15,7 @@ import {
   matchLevelRange,
 } from '@/app/lib/info/csv';
 import { cardStyles, cx } from '../../components/ui/styles';
+import { RadioGroup } from '../../components/ui/RadioGroup';
 
 /** 难度筛选：'ALL' = 全部难度混排；否则为单一难度。 */
 type DifficultyFilter = Difficulty | 'ALL';
@@ -94,41 +95,27 @@ export function ChartLevelsTable({ songs }: { songs: SongInfo[] }) {
     return `${Math.round(ratio * 100)}%`;
   };
 
-  // 难度切换时，将当前 Tab 平滑滚动到可视区域（移动端横滑）
-  const tabListRef = useRef<HTMLDivElement>(null);
-  const activeTabRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    activeTabRef.current?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'nearest',
-      inline: 'center',
-    });
-  }, [filter]);
-
   const isAll = filter === 'ALL';
 
   return (
     <div className={cardStyles({ className: 'space-y-4 p-4 sm:p-6' })}>
-      {/* 难度切换 + 统计（支持横向滑动） */}
+      {/* 难度切换 + 统计（窄屏自动换行，不隐藏选项） */}
       <div className="flex flex-col gap-3">
-        <div
-          ref={tabListRef}
-          role="tablist"
+        <RadioGroup.Root
           aria-label="选择难度"
-          className="flex gap-1.5 overflow-x-auto hide-scrollbar scroll-smooth snap-x -mx-1 px-1 py-0.5"
+          orientation="horizontal"
+          value={filter}
+          onValueChange={(value) => setFilter(value as DifficultyFilter)}
+          className="flex flex-wrap gap-1.5"
         >
           {FILTERS.map((item) => {
             const active = filter === item;
             return (
-              <button
+              <RadioGroup.Item
                 key={item}
-                ref={active ? activeTabRef : undefined}
-                role="tab"
-                type="button"
-                aria-selected={active}
-                onClick={() => setFilter(item)}
+                value={item}
                 className={cx(
-                  'shrink-0 snap-start px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-colors border',
+                  'px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-colors border',
                   item === 'ALL'
                     ? active
                       ? 'bg-gray-800 text-white dark:bg-gray-200 dark:text-gray-900 border-transparent'
@@ -139,10 +126,10 @@ export function ChartLevelsTable({ songs }: { songs: SongInfo[] }) {
                 )}
               >
                 {FILTER_LABEL[item]}
-              </button>
+              </RadioGroup.Item>
             );
           })}
-        </div>
+        </RadioGroup.Root>
         <div className="text-xs text-gray-500 dark:text-gray-400">
           {stats.count} 首 · 最高 {stats.max?.toFixed(1) ?? '-'}
         </div>
@@ -161,7 +148,7 @@ export function ChartLevelsTable({ songs }: { songs: SongInfo[] }) {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="搜索曲名 / 曲师 / ID"
-            className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-base sm:text-sm outline-none focus:ring-2 focus:ring-blue-500"
           />
         </label>
         <div className="flex items-center gap-2 text-sm">
@@ -176,7 +163,7 @@ export function ChartLevelsTable({ songs }: { songs: SongInfo[] }) {
               min="0"
               max="17"
               aria-label="最小定数"
-              className="w-20 px-2 py-1.5 rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-20 px-2 py-1.5 rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-base sm:text-sm outline-none focus:ring-2 focus:ring-blue-500"
             />
           </label>
           <span className="text-gray-400">~</span>
@@ -189,7 +176,7 @@ export function ChartLevelsTable({ songs }: { songs: SongInfo[] }) {
             min="0"
             max="17"
             aria-label="最大定数"
-            className="w-20 px-2 py-1.5 rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-20 px-2 py-1.5 rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-base sm:text-sm outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
             type="button"

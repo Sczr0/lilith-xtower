@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRef, useState, useTransition } from 'react';
 
 import { submitFeedback } from '../contribute/actions';
-import { useAuth } from '../contexts/AuthContext';
+import { useOptionalAuth } from '../contexts/AuthContext';
 import {
   formatDiagnosticsBlock,
   getDiagnosticsSnapshot,
@@ -27,14 +27,6 @@ interface FeedbackDialogProps {
  * 反馈弹窗可被错误页渲染（此时 AuthProvider 可能已损坏），
  * 因此登录态用“可选”方式读取，缺 Provider 时按未登录处理。
  */
-function useOptionalAuth() {
-  try {
-    return useAuth();
-  } catch {
-    return { isAuthenticated: false, isLoading: false };
-  }
-}
-
 export function FeedbackDialog({
   variant = 'button',
   label = '遇到问题？',
@@ -108,7 +100,7 @@ export function FeedbackDialog({
       </Dialog.Trigger>
       <Dialog.Portal>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <Dialog.Overlay className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <Dialog.Overlay className="ui-overlay-motion absolute inset-0 bg-black/60 backdrop-blur-sm" />
           <Dialog.Content className="relative w-full max-w-xl max-h-[85vh] flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden focus:outline-none">
             {/* Header */}
             <header className="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-700">

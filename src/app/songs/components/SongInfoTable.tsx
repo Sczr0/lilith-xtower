@@ -7,6 +7,7 @@ import type { Difficulty } from '@/app/lib/constants/difficultyColors';
 import { DIFFICULTY_BADGE } from '@/app/lib/constants/difficultyColors';
 import type { SongInfo } from '@/app/lib/info/csv';
 import { cardStyles, cx } from '../../components/ui/styles';
+import { RadioGroup } from '../../components/ui/RadioGroup';
 
 const DIFFICULTIES: Difficulty[] = ['EZ', 'HD', 'IN', 'AT'];
 
@@ -45,19 +46,22 @@ export function SongInfoTable({ songs }: { songs: SongInfo[] }) {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="搜索曲名 / 曲师 / 画师 / ID"
-            className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-base sm:text-sm outline-none focus:ring-2 focus:ring-blue-500"
           />
         </label>
-        <div role="tablist" aria-label="选择谱师难度" className="flex gap-1.5 shrink-0">
+        <RadioGroup.Root
+          aria-label="选择谱师难度"
+          orientation="horizontal"
+          value={selectedDiff}
+          onValueChange={(value) => setSelectedDiff(value as Difficulty)}
+          className="flex gap-1.5 shrink-0"
+        >
           {DIFFICULTIES.map((diff) => {
             const active = selectedDiff === diff;
             return (
-              <button
+              <RadioGroup.Item
                 key={diff}
-                role="tab"
-                type="button"
-                aria-selected={active}
-                onClick={() => setSelectedDiff(diff)}
+                value={diff}
                 className={cx(
                   'px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors border',
                   active
@@ -66,10 +70,10 @@ export function SongInfoTable({ songs }: { songs: SongInfo[] }) {
                 )}
               >
                 {diff}
-              </button>
+              </RadioGroup.Item>
             );
           })}
-        </div>
+        </RadioGroup.Root>
       </div>
 
       {filtered.length === 0 ? (

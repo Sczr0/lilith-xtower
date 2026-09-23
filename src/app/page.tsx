@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import type { CSSProperties } from 'react';
 import { BarChart3, Image as ImageIcon, List } from 'lucide-react';
 import { SiteHeader } from './components/SiteHeader';
 import { HomeStartButton } from './components/HomeStartButton';
@@ -80,7 +81,7 @@ export default async function Home() {
     >
       <div className="space-y-10">
         {/* 简洁 Hero */}
-        <section className="text-center space-y-4">
+        <section className="fade-in-up text-center space-y-4">
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Phigros Query - 不专业的成绩查询与数据分析</h1>
           <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
             查询成绩、生成图片、分析数据，欢迎来到空间站「塔弦」旗下的 Phigros Query。
@@ -98,7 +99,11 @@ export default async function Home() {
         </section>
 
         {/* 功能概览 */}
-        <section id="features" className="scroll-mt-20 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <section
+          id="features"
+          style={{ '--reveal-delay': '80ms' } as CSSProperties}
+          className="fade-in-up scroll-mt-20 grid grid-cols-1 md:grid-cols-3 gap-4"
+        >
           <h2 className="sr-only">功能概览</h2>
           <div className={cardStyles({ padding: 'sm' })}>
             <div className="mb-3 flex items-center justify-center">
@@ -124,7 +129,10 @@ export default async function Home() {
         </section>
 
         {/* 使用指引 */}
-        <section className={cardStyles({ padding: 'sm', className: 'p-4 sm:p-5' })}>
+        <section
+          style={{ '--reveal-delay': '160ms' } as CSSProperties}
+          className={cardStyles({ padding: 'sm', className: 'fade-in-up p-4 sm:p-5' })}
+        >
           <h2 className="text-lg font-semibold mb-4">如何使用</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
             <div>

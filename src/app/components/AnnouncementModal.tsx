@@ -141,7 +141,7 @@ export function AnnouncementModal({
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <Dialog.Portal>
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <Dialog.Overlay className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <Dialog.Overlay className="ui-overlay-motion absolute inset-0 bg-black/60 backdrop-blur-sm" />
           <Dialog.Content className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col focus:outline-none">
             <div
               className={`px-6 py-4 border-b-2 ${typeStyles[current.type]} dark:bg-gray-700 dark:border-gray-600 rounded-t-2xl flex items-center justify-between`}

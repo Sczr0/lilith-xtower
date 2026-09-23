@@ -3,7 +3,7 @@
 import { useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { Download, Share, X } from "lucide-react";
-import { useInstallPrompt } from "../contexts/InstallPromptContext";
+import { useOptionalInstallPrompt } from "../contexts/InstallPromptContext";
 
 type InstallButtonVariant = "row" | "icon";
 
@@ -56,7 +56,7 @@ function IosInstallToast({ onClose }: { onClose: () => void }) {
  * - 已在 standalone 模式下运行（已安装）时不渲染。
  */
 export function InstallButton({ variant = "row", collapsed, className, onAction }: InstallButtonProps) {
-  const { canInstall, isIos, isStandalone, install } = useInstallPrompt();
+  const { canInstall, isIos, isStandalone, install } = useOptionalInstallPrompt();
   const [hintOpen, setHintOpen] = useState(false);
   const client = useIsClient();
 

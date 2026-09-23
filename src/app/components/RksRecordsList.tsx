@@ -550,7 +550,7 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
                 type="button"
                 disabled={isLoading || filteredResult.records.length === 0}
                 onClick={handleDownloadExcel}
-                className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-300"
+                className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
                 title="导出为 TSV（Excel 可直接打开）"
               >
                 下载 Excel

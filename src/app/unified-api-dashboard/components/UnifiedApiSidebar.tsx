@@ -109,7 +109,8 @@ export function UnifiedApiSidebar({
       )}
 
       <aside
-        className={`w-72 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border-r border-gray-200 dark:border-gray-700 transition-all duration-300 flex flex-col transform-gpu will-change-transform
+        id="unified-api-sidebar"
+        className={`w-72 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border-r border-gray-200 dark:border-gray-700 motion-safe:transition-[width,transform] motion-safe:duration-200 flex flex-col transform-gpu will-change-transform
         ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
         lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-50 lg:z-auto`}
         style={{ width: isCollapsed ? 80 : 288 }}
@@ -120,8 +121,12 @@ export function UnifiedApiSidebar({
             <span className="font-semibold text-lg">联合API 菜单</span>
           )}
           <button
+            type="button"
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 ui-press"
+            aria-label={isCollapsed ? '展开侧边栏' : '收起侧边栏'}
+            aria-expanded={!isCollapsed}
+            aria-controls="unified-api-sidebar"
             title={isCollapsed ? '展开侧边栏' : '收起侧边栏'}
           >
             <svg
@@ -136,12 +141,15 @@ export function UnifiedApiSidebar({
         </div>
 
         {/* Sections */}
-        <nav className="flex-1 p-3 space-y-2 overflow-y-auto">
+        <nav aria-label="联合API 菜单" className="flex-1 p-3 space-y-2 overflow-y-auto">
           {sections.map((section) => (
             <button
               key={section.id}
+              type="button"
               onClick={() => handleSectionChange(section.id)}
-              className={`w-full flex items-center ${isCollapsed ? 'justify-center' : ''} gap-3 px-3 py-3 rounded-lg transition-all ${
+              aria-current={activeSection === section.id ? 'page' : undefined}
+              aria-label={isCollapsed ? section.name : undefined}
+              className={`w-full flex items-center ${isCollapsed ? 'justify-center' : ''} gap-3 px-3 py-3 rounded-lg ui-press ${
                 activeSection === section.id
                   ? 'bg-blue-600 text-white shadow-lg'
                   : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -156,7 +164,7 @@ export function UnifiedApiSidebar({
                   <div className="font-medium">{section.name}</div>
                   <div
                     className={`text-xs mt-0.5 ${
-                      activeSection === section.id ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
+                      activeSection === section.id ? 'text-blue-50' : 'text-gray-500 dark:text-gray-400'
                     }`}
                   >
                     {section.description}
@@ -255,6 +263,7 @@ export function UnifiedApiSidebar({
               <Link
                 href="/dashboard"
                 className="w-full flex items-center justify-center px-3 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                aria-label="个人仪表盘"
                 title="个人仪表盘"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -265,6 +274,7 @@ export function UnifiedApiSidebar({
               <Link
                 href="/about"
                 className="w-full flex items-center justify-center px-3 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                aria-label="关于"
                 title="关于"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -275,6 +285,7 @@ export function UnifiedApiSidebar({
               <Link
                 href="/contribute"
                 className="w-full flex items-center justify-center px-3 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                aria-label="投稿"
                 title="投稿"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -283,8 +294,10 @@ export function UnifiedApiSidebar({
               </Link>
 
               <button
+                type="button"
                 onClick={logout}
                 className="w-full flex items-center justify-center px-3 py-3 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                aria-label="退出登录"
                 title="退出登录"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/app/contexts/AuthContext', () => ({
-  useAuth: vi.fn(() => ({ isAuthenticated: true, isLoading: false })),
+  useOptionalAuth: vi.fn(() => ({ isAuthenticated: true, isLoading: false })),
 }));
 
 vi.mock('@/app/contribute/actions', () => ({
@@ -11,11 +11,11 @@ vi.mock('@/app/contribute/actions', () => ({
 }));
 
 import { submitFeedback } from '@/app/contribute/actions';
-import { useAuth } from '@/app/contexts/AuthContext';
+import { useOptionalAuth } from '@/app/contexts/AuthContext';
 import { FeedbackDialog } from '../FeedbackDialog';
 
 const submitFeedbackMock = vi.mocked(submitFeedback);
-const useAuthMock = vi.mocked(useAuth);
+const useAuthMock = vi.mocked(useOptionalAuth);
 
 /** 构造完整的 AuthContextType 假值（FeedbackDialog 只读其中认证相关字段） */
 function authValue(overrides: { isAuthenticated?: boolean; isLoading?: boolean } = {}) {

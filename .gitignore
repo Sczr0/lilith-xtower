@@ -57,7 +57,7 @@ AGENTS.md
 nul
 # ZCode CLI 工作目录
 .zcode/
-
+.commandcode
 survey_data
 
 # Sentry Config File

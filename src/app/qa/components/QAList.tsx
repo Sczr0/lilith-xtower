@@ -79,7 +79,7 @@ export function QAList({ qaData }: QAListProps) {
           {filteredQA.map((item) => (
           <details
             key={item.id}
-            className="group bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-xl border border-gray-200/50 dark:border-gray-700/50 overflow-hidden transition-all duration-200 hover:shadow-lg"
+            className="group bg-white/70 dark:bg-gray-800/70 backdrop-blur-md rounded-xl border border-gray-200/50 dark:border-gray-700/50 overflow-hidden transition-shadow duration-200 hover:shadow-lg"
           >
             <summary className="w-full px-6 py-4 flex items-start justify-between gap-4 text-left cursor-pointer list-none [&::-webkit-details-marker]:hidden">
               <div className="flex-1">

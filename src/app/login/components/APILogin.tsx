@@ -76,6 +76,9 @@ export function APILogin() {
             id="api_user_id"
             name="api_user_id"
             type="text"
+            autoComplete="username"
+            spellCheck={false}
+            autoCapitalize="none"
             value={formData.api_user_id}
             onChange={handleChange}
             placeholder="请输入您的用户 ID"
@@ -92,6 +95,9 @@ export function APILogin() {
             id="api_token"
             name="api_token"
             type="text"
+            autoComplete="off"
+            spellCheck={false}
+            autoCapitalize="none"
             value={formData.api_token}
             onChange={handleChange}
             placeholder="请输入您的 API Token（如需要）"
@@ -101,7 +107,7 @@ export function APILogin() {
         </div>
 
         {(error || authError) && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+          <div role="alert" className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
             <p className="text-red-700 dark:text-red-400 text-sm">
               {error || authError}
             </p>

@@ -53,7 +53,7 @@ function ActionLinkIcon({ href, className }: { href: string; className: string }
   const d = ACTION_LINK_ICON_D_BY_HREF[href] ?? ACTION_LINK_ICON_D_BY_HREF['/about'];
 
   return (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={d} />
     </svg>
   );
@@ -212,9 +212,10 @@ export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobile
 
       {/* Sidebar */}
       <aside
+        id="dashboard-sidebar"
         className={`${
           isCollapsed ? 'w-20' : 'w-64'
-        } bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 flex flex-col transform-gpu will-change-transform
+        } bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 motion-safe:transition-[width,transform] motion-safe:duration-200 flex flex-col transform-gpu will-change-transform
         ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
         lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-50 lg:z-auto`}
       >
@@ -235,8 +236,12 @@ export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobile
             </svg>
           </button>
           <button
+            type="button"
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 ui-press"
+            aria-label={isCollapsed ? '展开侧边栏' : '收起侧边栏'}
+            aria-expanded={!isCollapsed}
+            aria-controls="dashboard-sidebar"
             title={isCollapsed ? '展开侧边栏' : '收起侧边栏'}
           >
             <svg
@@ -252,12 +257,15 @@ export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobile
       </div>
 
       {/* Tabs */}
-      <nav className="flex-1 p-3 space-y-2 overflow-y-auto">
+      <nav aria-label="功能菜单" className="flex-1 p-3 space-y-2 overflow-y-auto">
         {tabs.map((tab) => (
           <button
             key={tab.id}
+            type="button"
             onClick={() => handleTabChange(tab.id)}
-            className={`w-full flex items-center ${isCollapsed ? 'justify-center' : ''} gap-3 px-3 py-3 rounded-lg transition-all ${
+            aria-current={activeTab === tab.id ? 'page' : undefined}
+            aria-label={isCollapsed ? tab.name : undefined}
+            className={`w-full flex items-center ${isCollapsed ? 'justify-center' : ''} gap-3 px-3 py-3 rounded-lg ui-press ${
               activeTab === tab.id
                 ? 'bg-blue-600 text-white shadow-lg'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -271,7 +279,7 @@ export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobile
               <div className="flex-1 text-left">
                 <div className="font-medium">{tab.name}</div>
                 <div className={`text-xs mt-0.5 ${
-                  activeTab === tab.id ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
+                  activeTab === tab.id ? 'text-blue-50' : 'text-gray-500 dark:text-gray-400'
                 }`}>
                   {tab.description}
                 </div>
@@ -361,8 +369,10 @@ export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobile
           <div className="p-3 space-y-2">
             {/* Collapsed - Only show icons */}
             <button
+              type="button"
               onClick={() => { onOpenAnnouncements?.(); onMobileClose?.(); }}
               className="w-full flex items-center justify-center px-3 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              aria-label="公告"
               title="公告"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -374,6 +384,7 @@ export function Sidebar({ activeTab, onTabChange, isMobileOpen = false, onMobile
                 key={item.href}
                 href={item.href}
                 className="w-full flex items-center justify-center px-3 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                aria-label={item.label}
                 title={item.label}
               >
                 <ActionLinkIcon href={item.href} className="w-5 h-5" />

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { ListMusic, Table2, Info } from 'lucide-react';
 
 import type { SongInfoData } from '@/app/lib/info/csv';
@@ -25,6 +25,44 @@ export function InfoPage({
   initialError: string | null;
 }) {
   const [activeTab, setActiveTab] = useState<InfoTabId>('levels');
+  const tabRefs = useRef<Record<InfoTabId, HTMLButtonElement | null>>({
+    levels: null,
+    songs: null,
+    version: null,
+  });
+
+  // 切换面板会重挂载较重的表格，因此方向键只移动焦点，用 Enter/Space 确认切换。
+  const moveFocus = (from: InfoTabId, delta: number) => {
+    const index = TABS.findIndex((tab) => tab.id === from);
+    if (index < 0) return;
+    const next = TABS[(index + delta + TABS.length) % TABS.length];
+    if (!next) return;
+    tabRefs.current[next.id]?.focus();
+  };
+
+  const handleTabKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>, id: InfoTabId) => {
+    if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      moveFocus(id, 1);
+      return;
+    }
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      moveFocus(id, -1);
+      return;
+    }
+    if (event.key === 'Home') {
+      event.preventDefault();
+      const first = TABS[0];
+      if (first) tabRefs.current[first.id]?.focus();
+      return;
+    }
+    if (event.key === 'End') {
+      event.preventDefault();
+      const last = TABS[TABS.length - 1];
+      if (last) tabRefs.current[last.id]?.focus();
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -54,12 +92,17 @@ export function InfoPage({
           return (
             <button
               key={tab.id}
+              ref={(node) => {
+                tabRefs.current[tab.id] = node;
+              }}
               role="tab"
               type="button"
+              id={`info-tab-${tab.id}`}
               aria-selected={active}
               aria-controls={`info-panel-${tab.id}`}
-              id={`info-tab-${tab.id}`}
+              tabIndex={active ? 0 : -1}
               onClick={() => setActiveTab(tab.id)}
+              onKeyDown={(event) => handleTabKeyDown(event, tab.id)}
               className={`flex items-center gap-1.5 rounded-lg px-3 sm:px-4 py-1.5 text-sm font-medium transition-colors ${
                 active
                   ? 'bg-white dark:bg-neutral-900 text-gray-900 dark:text-gray-100 shadow-sm'

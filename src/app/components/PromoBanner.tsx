@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ExternalLink, PlayCircle, X } from "lucide-react";
+import { ExternalLink, Pause, Play, PlayCircle, X } from "lucide-react";
 import { promoBannerConfig } from "../config/promo-banner.config";
 import {
   buildDismissKey,
@@ -13,6 +13,8 @@ import {
 } from "../utils/promoBanner";
 import { useClientValue } from "../hooks/useClientValue";
 import { buildGoHref } from "../utils/outbound";
+import { usePrefersReducedMotion } from "../hooks/usePrefersReducedMotion";
+import { cx } from "./ui/styles";
 
 const AUTO_SCROLL_SPEED_PX_PER_SEC = 580;
 
@@ -42,6 +44,11 @@ export function PromoBanner({ pathname }: { pathname: string }) {
   const rafRef = useRef<number | null>(null);
   const lastFrameTsRef = useRef<number | null>(null);
   const [canLoop, setCanLoop] = useState(false);
+  // 说明：用户显式暂停/继续优先；从未操作过时跟随系统“减弱动态效果”偏好（WCAG 2.2.2）。
+  const [userPaused, setUserPaused] = useState<boolean | null>(null);
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const isPaused = userPaused ?? prefersReducedMotion;
+  const autoScrollEnabled = canLoop && !isPaused;
 
   const visibleSlides = useMemo(
     () => filterSlidesByDismissState(slides, dismissedByStorage),
@@ -109,7 +116,7 @@ export function PromoBanner({ pathname }: { pathname: string }) {
 
   useEffect(() => {
     const scrollContainer = scrollContainerRef.current;
-    if (!scrollContainer || !canLoop) return;
+    if (!scrollContainer || !autoScrollEnabled) return;
 
     lastFrameTsRef.current = null;
     const step = (timestamp: number) => {
@@ -151,7 +158,7 @@ export function PromoBanner({ pathname }: { pathname: string }) {
       }
       lastFrameTsRef.current = null;
     };
-  }, [canLoop]);
+  }, [autoScrollEnabled]);
 
   if (dismissed) return null;
   if (visibleSlides.length === 0) return null;
@@ -196,7 +203,7 @@ export function PromoBanner({ pathname }: { pathname: string }) {
 
         <div
           ref={scrollContainerRef}
-          className="hide-scrollbar min-w-0 flex-1 overflow-x-auto"
+          className={cx('min-w-0 flex-1 overflow-x-auto', autoScrollEnabled && 'hide-scrollbar')}
           onPointerDown={() => {
             isPointerDownRef.current = true;
             pauseAutoScroll(2500);
@@ -267,7 +274,7 @@ export function PromoBanner({ pathname }: { pathname: string }) {
               })}
             </div>
 
-            {canLoop ? (
+            {autoScrollEnabled ? (
               <div aria-hidden="true" className="flex items-center gap-2 pr-8">
                 {visibleSlides.map((slide, index) => {
                   const action = resolveSlideAction(slide);
@@ -306,13 +313,29 @@ export function PromoBanner({ pathname }: { pathname: string }) {
           </div>
         </div>
 
+        {canLoop ? (
+          <button
+            type="button"
+            className="flex-shrink-0 rounded-md p-1.5 text-[color:var(--promo-banner-muted)] transition-colors hover:bg-black/5 hover:text-[color:var(--promo-banner-text)]"
+            onClick={() => setUserPaused(!isPaused)}
+            aria-label={isPaused ? '继续横幅滚动' : '暂停横幅滚动'}
+            aria-pressed={isPaused}
+          >
+            {isPaused ? (
+              <Play className="h-4 w-4" aria-hidden="true" />
+            ) : (
+              <Pause className="h-4 w-4" aria-hidden="true" />
+            )}
+          </button>
+        ) : null}
+
         <button
           type="button"
-          className="flex-shrink-0 rounded-md p-1 text-[color:var(--promo-banner-muted)] transition-colors hover:bg-black/5 hover:text-[color:var(--promo-banner-text)]"
+          className="flex-shrink-0 rounded-md p-1.5 text-[color:var(--promo-banner-muted)] transition-colors hover:bg-black/5 hover:text-[color:var(--promo-banner-text)]"
           onClick={handleDismiss}
           aria-label="关闭活动横幅"
         >
-          <X className="h-4 w-4" />
+          <X className="h-4 w-4" aria-hidden="true" />
         </button>
       </div>
     </div>

@@ -159,7 +159,7 @@ export function BNImage({ svgContent, n, onClear }: BNImageProps) {
             <span className="text-sm font-medium text-blue-700 dark:text-blue-300">{progress.progress}%</span>
           </div>
           <div className="w-full bg-blue-200 dark:bg-blue-900 rounded-full h-2">
-            <div className="bg-blue-600 h-2 rounded-full transition-all duration-300" style={{ width: `${progress.progress}%` }} />
+            <div className="bg-blue-600 h-2 rounded-full transition-[width] duration-300" style={{ width: `${progress.progress}%` }} />
           </div>
         </div>
       )}

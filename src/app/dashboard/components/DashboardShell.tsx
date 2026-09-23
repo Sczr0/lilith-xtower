@@ -45,6 +45,9 @@ export function DashboardShell({
       className="flex h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-950"
       style={{ height: '100dvh' }}
     >
+      <a href="#dashboard-main" className="skip-link">
+        跳到主要内容
+      </a>
       <Sidebar
         activeTab={activeTab}
         onTabChange={onTabChange}
@@ -61,7 +64,11 @@ export function DashboardShell({
 
         {beforeMain}
 
-        <main className={cx('flex-1 overflow-y-auto p-4 sm:p-6', mainClassName)}>
+        <main
+          id="dashboard-main"
+          tabIndex={-1}
+          className={cx('flex-1 overflow-y-auto p-4 sm:p-6 outline-none', mainClassName)}
+        >
           <div className={cx('max-w-6xl mx-auto', containerClassName)}>
             {children}
           </div>

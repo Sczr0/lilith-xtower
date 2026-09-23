@@ -46,7 +46,7 @@ export function DashboardHeader({ onOpenAnnouncements, onOpenMenu }: DashboardHe
             <button
               type="button"
               onClick={onOpenMenu}
-              className="lg:hidden p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-neutral-800 transition-colors"
+              className="lg:hidden p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 active:bg-gray-200 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-neutral-800 dark:active:bg-neutral-700 ui-press"
               aria-label="打开菜单"
               title="菜单"
             >
@@ -82,7 +82,7 @@ export function DashboardHeader({ onOpenAnnouncements, onOpenMenu }: DashboardHe
             </button>
           )}
 
-          <nav className="hidden lg:flex items-center gap-4">
+          <nav aria-label="仪表盘导航" className="hidden lg:flex items-center gap-4">
             {DASHBOARD_NAV_ITEMS.map((item) => (
               <TopBarLink key={item.href} item={item} />
             ))}

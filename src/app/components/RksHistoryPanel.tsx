@@ -372,7 +372,7 @@ export function RksHistoryPanel({ showTitle = true }: RksHistoryPanelProps) {
           </div>
         ) : (
           <>
-            <div className={`space-y-2 overflow-hidden transition-all duration-300 ${isExpanded ? 'max-h-[500px] overflow-y-auto' : 'max-h-[200px]'}`}>
+            <div className={`space-y-2 overflow-hidden motion-safe:transition-[max-height] motion-safe:duration-300 ${isExpanded ? 'max-h-[500px] overflow-y-auto' : 'max-h-[200px]'}`}>
               {displayItems.map((item, index) => (
                 <div
                   key={`${item.createdAt}-${index}`}

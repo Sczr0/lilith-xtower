@@ -318,7 +318,7 @@ function RecommendationCard({ item, index }: { item: DisplaySuggestion; index: n
             )}
             <Link
               href={buildSingleQueryHref(record.song_name)}
-              className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500 transition-colors"
+              className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition-colors"
             >
               去单曲查询
             </Link>
@@ -510,7 +510,7 @@ export function LilithLabsPanel() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">实验室-Lilith</h2>
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">试验各种奇奇怪怪想法的地方！</p>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">试验各种奇奇怪怪想法的地方。</p>
             <div className="mt-3 rounded-lg border border-yellow-200 bg-yellow-50/80 dark:border-yellow-900/50 dark:bg-yellow-950/20 px-3 py-2 text-xs leading-5 text-yellow-900 dark:text-yellow-200">
               <p className="font-semibold">注：根据本服务的用户协议 6.1：</p>
               <p className="mt-1">
@@ -547,7 +547,7 @@ export function LilithLabsPanel() {
             </button>
             <Link
               href="/contribute"
-              className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500 transition-colors"
+              className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
             >
               反馈想法
             </Link>

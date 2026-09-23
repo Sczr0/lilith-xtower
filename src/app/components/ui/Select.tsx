@@ -45,6 +45,7 @@
    className?: string
    error?: boolean
    size?: 'sm' | 'md' | 'lg'
+   id?: string
  }
 
  // 统一风格下拉：完全自定义下拉面板样式，支持圆角/暗色/键盘可达
@@ -57,6 +58,7 @@
    className,
    error,
    size = 'md',
+   id,
  }: Props<T>) {
    const sizeCls =
      size === 'sm' ? 'h-9 text-sm' : size === 'lg' ? 'h-11 text-base' : 'h-10 text-sm'
@@ -65,6 +67,7 @@
      <Select.Root value={value} onValueChange={(v) => onValueChange?.(v as T)} disabled={disabled}>
        {/* 触发器：与站点输入框一致，圆角+边框+焦点环；错误态高亮 */}
        <Select.Trigger
+         id={id}
          className={
            `inline-flex w-full items-center justify-between rounded-xl border px-3 ${sizeCls} shadow-sm outline-none transition
             bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100
@@ -86,7 +89,7 @@
          <Select.Content
            position="popper"
            sideOffset={8}
-           className="z-50 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-1 shadow-xl ring-1 ring-black/5"
+           className="ui-pop-motion z-50 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-1 shadow-xl ring-1 ring-black/5"
          >
            <Select.ScrollUpButton className="flex items-center justify-center py-1 text-gray-500 dark:text-gray-400"><ChevronUp className="h-4 w-4" aria-hidden="true" /></Select.ScrollUpButton>
            <Select.Viewport className="p-1">

@@ -75,7 +75,7 @@ export function RksRecordsResultsSection({
               <button
                 type="button"
                 onClick={() => onOpenSongQuery(record.song_name)}
-                className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500"
+                className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
               >
                 单曲查询
               </button>
@@ -174,7 +174,7 @@ export function RksRecordsResultsSection({
                     <button
                       type="button"
                       onClick={() => onOpenSongQuery(record.song_name)}
-                      className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-500"
+                      className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-700"
                     >
                       查询
                     </button>

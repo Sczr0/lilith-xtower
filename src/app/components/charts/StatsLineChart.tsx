@@ -4,6 +4,8 @@ import dynamic from 'next/dynamic';
 import { useMemo } from 'react';
 import { useTheme } from 'next-themes';
 
+import { usePrefersReducedMotion } from '../../hooks/usePrefersReducedMotion';
+
 const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
 
 export type StatsLineChartSeries = {
@@ -19,15 +21,6 @@ type Props = {
   series: StatsLineChartSeries[];
   height?: number;
   className?: string;
-};
-
-const usePrefersReducedMotion = () => {
-  if (typeof window === 'undefined') return false;
-  try {
-    return window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false;
-  } catch {
-    return false;
-  }
 };
 
 export function StatsLineChart({ title, xAxis, series, height = 260, className }: Props) {

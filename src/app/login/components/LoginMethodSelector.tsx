@@ -70,9 +70,9 @@ export function LoginMethodSelector<T extends string = string>({
             ref={(node) => {
               itemRefs.current.set(method.id, node)
             }}
-            className={`w-full text-left p-3 sm:p-4 rounded-xl transition-all duration-300 transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+            className={`w-full text-left p-3 sm:p-4 rounded-xl transition-[color,background-color,border-color,scale] duration-200 motion-safe:hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
               isActive
-                ? 'bg-blue-500 text-white shadow-lg'
+                ? 'bg-blue-600 text-white shadow-lg'
                 : 'bg-gray-100 dark:bg-gray-700/50 border-2 border-transparent hover:bg-gray-200 dark:hover:bg-gray-700'
             }`}
           >
@@ -87,7 +87,7 @@ export function LoginMethodSelector<T extends string = string>({
                 <div className={`text-sm sm:text-base font-semibold ${isActive ? 'text-white' : 'text-gray-900 dark:text-gray-100'}`}>
                   {method.name}
                 </div>
-                <div className={`text-xs sm:text-sm mt-0.5 sm:mt-1 ${isActive ? 'text-white/80' : 'text-gray-600 dark:text-gray-400'}`}>
+                <div className={`text-xs sm:text-sm mt-0.5 sm:mt-1 ${isActive ? 'text-blue-50' : 'text-gray-600 dark:text-gray-400'}`}>
                   {method.description}
                 </div>
               </div>

@@ -119,3 +119,19 @@ export function useInstallPrompt(): InstallPromptValue {
   if (!ctx) throw new Error("useInstallPrompt 必须在 InstallPromptProvider 中使用");
   return ctx;
 }
+
+const FALLBACK_INSTALL_PROMPT: InstallPromptValue = {
+  canInstall: false,
+  isIos: false,
+  isStandalone: false,
+  install: async () => {},
+};
+
+/**
+ * 可选读取安装引导上下文：供可能被渲染在 InstallPromptProvider 之外的组件使用
+ *（例如根级兜底页 error.tsx / not-found.tsx 在 Provider 未建立的错误恢复路径）。
+ * 缺少 Provider 时降级为“不可安装”，避免抛出二次错误掩盖真实错误。
+ */
+export function useOptionalInstallPrompt(): InstallPromptValue {
+  return useContext(InstallPromptContext) ?? FALLBACK_INSTALL_PROMPT;
+}

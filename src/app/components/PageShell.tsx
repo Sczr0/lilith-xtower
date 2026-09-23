@@ -59,9 +59,16 @@ export function PageShell({
 
   return (
     <div className={cx('min-h-screen text-gray-900 dark:text-gray-50', surfaceClassName, className)}>
+      <a href="#main-content" className="skip-link">
+        跳到主要内容
+      </a>
       {beforeMain}
       {header}
-      <main className={cx(mainBaseClassName, mainClassName)}>
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className={cx('outline-none', mainBaseClassName, mainClassName)}
+      >
         <div className={cx(containerBaseClassName, containerClassName)}>
           {children}
           {footerVariant !== 'none' && <SiteFooter variant={footerVariant} text={footerText} />}
