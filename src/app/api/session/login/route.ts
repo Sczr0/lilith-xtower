@@ -8,6 +8,7 @@ import { ensureAuthSessionKey, getAuthSession } from '@/app/lib/auth/session';
 import { getSeekendApiBaseUrl } from '@/app/lib/auth/upstream';
 import { verifyCapToken } from '@/app/lib/api/withCap';
 import { resolveClientIp, slidingWindowAllow } from '@/app/lib/api/rateLimit';
+import { upstreamFetch } from '@/app/lib/api/upstreamFetch';
 import type { AuthCredential, TapTapVersion } from '@/app/lib/types/auth';
 
 export const runtime = 'nodejs';
@@ -134,12 +135,30 @@ export async function POST(request: NextRequest) {
     const taptapVersion = normalizeTapTapVersion(body.taptapVersion);
     const authBody = buildAuthRequestBody(credential, taptapVersion);
     const upstream = `${getSeekendApiBaseUrl()}/save`;
-    const response = await fetch(upstream, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify(authBody),
-      cache: 'no-store',
-    });
+
+    // token 交换与 /save 校验彼此独立（都只依赖 authBody），并行发起以省掉一跳延迟。
+    // 内部自行捕获错误并降级为 null；/save 失败时其结果会被丢弃，不影响响应。
+    const backendTokenPromise: Promise<{ accessToken: string; expiresIn: number } | null> = (async () => {
+      try {
+        // authBody 中可能包含 null 字段，exchangeBackendToken 类型定义为 optional。
+        // @ts-expect-error 类型兼容处理
+        return await exchangeBackendToken(authBody);
+      } catch (error) {
+        console.warn('Token exchange failed (non-blocking):', error);
+        return null;
+      }
+    })();
+
+    const response = await upstreamFetch(
+      upstream,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(authBody),
+        cache: 'no-store',
+      },
+      { timeoutMs: 15_000 },
+    );
 
     if (!response.ok) {
       const { code } = await parseUpstreamError(response);
@@ -162,14 +181,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let backendTokenData: { accessToken: string; expiresIn: number } | null = null;
-    try {
-      // authBody 中可能包含 null 字段，exchangeBackendToken 类型定义为 optional。
-      // @ts-expect-error 类型兼容处理
-      backendTokenData = await exchangeBackendToken(authBody);
-    } catch (error) {
-      console.warn('Token exchange failed (non-blocking):', error);
-    }
+    const backendTokenData = await backendTokenPromise;
 
     const session = await getAuthSession();
     ensureAuthSessionKey(session);

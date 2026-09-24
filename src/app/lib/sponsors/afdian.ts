@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { unstable_cache } from 'next/cache';
 
+import { upstreamFetch } from '../api/upstreamFetch';
 import type { SponsorsApiResponse } from '../types/sponsors';
 
 export type AfdianSponsorsResult = {
@@ -50,17 +51,21 @@ async function fetchAfdianSponsors(
   const sign = md5(`${credentials.token}${kvString}`);
 
   try {
-    const res = await fetch(AFDIAN_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        user_id: credentials.userId,
-        params: paramsStr,
-        ts,
-        sign,
-      }),
-      cache: 'no-store',
-    });
+    const res = await upstreamFetch(
+      AFDIAN_API_URL,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: credentials.userId,
+          params: paramsStr,
+          ts,
+          sign,
+        }),
+        cache: 'no-store',
+      },
+      { timeoutMs: 10_000 },
+    );
 
     const payload = (await res.json().catch(() => null)) as SponsorsApiResponse | null;
     const safePayload: SponsorsApiResponse = payload && typeof payload === 'object'

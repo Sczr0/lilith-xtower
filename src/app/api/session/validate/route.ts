@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { buildAuthRequestBody } from '@/app/lib/auth/authRequest';
 import { getAuthSession } from '@/app/lib/auth/session';
 import { getSeekendApiBaseUrl } from '@/app/lib/auth/upstream';
+import { upstreamFetch } from '@/app/lib/api/upstreamFetch';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -64,12 +65,16 @@ export async function POST() {
 
     const authBody = buildAuthRequestBody(credential, taptapVersion);
     const upstream = `${getSeekendApiBaseUrl()}/save`;
-    const response = await fetch(upstream, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify(authBody),
-      cache: 'no-store',
-    });
+    const response = await upstreamFetch(
+      upstream,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(authBody),
+        cache: 'no-store',
+      },
+      { timeoutMs: 15_000 },
+    );
 
     if (response.ok) {
       const payload: ValidateResponse = { isValid: true, shouldLogout: false };

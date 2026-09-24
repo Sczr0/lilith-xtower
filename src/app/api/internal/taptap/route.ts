@@ -5,6 +5,7 @@ import { URL } from 'url';
 import { TapTapVersion } from '@/app/lib/types/auth';
 import { getTapConfig, TapTapProfile, QrCodeData } from '@/app/lib/taptap/qrLogin';
 import { resolveClientIp, slidingWindowAllow } from '@/app/lib/api/rateLimit';
+import { upstreamFetch } from '@/app/lib/api/upstreamFetch';
 
 type TokenResponse = {
   access_token?: string;
@@ -232,11 +233,15 @@ async function requestDeviceCodeServer(config: ReturnType<typeof getTapConfig>):
     info: JSON.stringify({ device_id: deviceId }),
   });
 
-  const res = await fetch(config.deviceCodeEndpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: form.toString(),
-  });
+  const res = await upstreamFetch(
+    config.deviceCodeEndpoint,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: form.toString(),
+    },
+    { timeoutMs: 15_000 },
+  );
   const json = (await res.json().catch(() => ({}))) as DeviceCodeApiResponse;
   if (!res.ok || !json?.data?.device_code) {
     throw new Error(json?.data?.msg || '获取设备码失败');
@@ -272,11 +277,15 @@ async function pollTokenOnceServer(
 
   let res: Response;
   try {
-    res = await fetch(config.tokenEndpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: form.toString(),
-    });
+    res = await upstreamFetch(
+      config.tokenEndpoint,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: form.toString(),
+      },
+      { timeoutMs: 10_000 },
+    );
   } catch (err) {
     // 上游网络异常按瞬时故障返回，交由客户端退避重试，避免一次抖动就判死整个登录
     return { status: 'error', msg: err instanceof Error ? err.message : '轮询上游失败' };
@@ -309,11 +318,15 @@ async function fetchProfileServer(config: ReturnType<typeof getTapConfig>, token
   url.searchParams.set('client_id', config.clientId);
 
   const auth = generateMacHeaderServer(token, 'GET', url);
-  const res = await fetch(url.toString(), {
-    headers: {
-      Authorization: auth,
+  const res = await upstreamFetch(
+    url,
+    {
+      headers: {
+        Authorization: auth,
+      },
     },
-  });
+    { timeoutMs: 10_000 },
+  );
   if (!res.ok) throw new Error(`获取用户资料失败: ${res.status}`);
   return (await res.json()) as TapTapProfile;
 }
@@ -354,15 +367,19 @@ async function loginLeanCloudServer(
     token,
   };
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-LC-Id': config.leancloudAppId,
-      'X-LC-Sign': sign,
+  const res = await upstreamFetch(
+    url,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-LC-Id': config.leancloudAppId,
+        'X-LC-Sign': sign,
+      },
+      body: JSON.stringify({ authData: { taptap: authPayload } }),
     },
-    body: JSON.stringify({ authData: { taptap: authPayload } }),
-  });
+    { timeoutMs: 15_000 },
+  );
   if (!res.ok) throw new Error(`LeanCloud 登录失败: ${res.status} ${await res.text()}`);
   const data = (await res.json()) as LeanCloudUserResponse;
   if (!data.sessionToken) throw new Error('LeanCloud 未返回 sessionToken');
