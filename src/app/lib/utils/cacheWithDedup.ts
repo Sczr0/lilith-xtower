@@ -3,7 +3,7 @@
  *
  * - TTL 自动过期
  * - 缓存失效时，对同一 key 的并发调用共享同一个 Promise（防击穿）
- * - 请求失败后自动清除 dedup，允许后续调用重试
+ * - 请求失败时：并发调用共享同一个失败（不放大回源）；dedup 随即清除，后续串行调用可重试
  * - 可选 maxSize：LRU 淘汰，防止高基数 key（如用户输入的搜索词）无限增长
  */
 export function createDedupedCache<T>(config: {
@@ -48,13 +48,13 @@ export function createDedupedCache<T>(config: {
       // 2. 已有相同 key 的进行中请求 → 共享 promise（防击穿核心）
       const pending = pendingCache.get(key);
       if (pending) {
-        try {
-          return await pending;
-        } catch {
-          // 共享的 promise 失败，清除后递归重试
-          pendingCache.delete(key);
-          return this.get(key, fetcher);
-        }
+        // 失败直接向上传播。pendingCache 已由下方 .finally 清理，
+        // 后续（非并发）调用会自然重新触发 fetcher。
+        //
+        // 注意：此处不可递归重试 —— N 个并发调用共享同一个失败 promise 时，
+        // 递归会退化成「一代一个 fetch」的串行重试，把上游一次故障放大成 N 次回源
+        // （公开代理在 404/409 等确定性错误上也会抛错，故必然触发）。
+        return await pending;
       }
 
       // 3. 发起新请求

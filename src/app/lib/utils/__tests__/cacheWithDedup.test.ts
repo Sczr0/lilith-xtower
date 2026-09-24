@@ -73,6 +73,25 @@ describe('createDedupedCache', () => {
     expect(retried).toBe(2);
   });
 
+  it('并发调用共享同一个失败，不放大回源', async () => {
+    let calls = 0;
+    const cache = createDedupedCache<number>({ ttlMs: 60_000 });
+
+    const fetcher = async () => {
+      calls += 1;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      throw new Error('upstream 500');
+    };
+
+    const results = await Promise.allSettled(
+      Array.from({ length: 10 }, () => cache.get('k', fetcher)),
+    );
+
+    // 10 个并发调用只触发一次上游请求（旧的递归重试实现最多会放大到 10 次）
+    expect(calls).toBe(1);
+    expect(results.every((result) => result.status === 'rejected')).toBe(true);
+  });
+
   it('maxSize：超过容量时按 LRU 淘汰（命中会刷新最近使用顺序）', async () => {
     const seq: number[] = [];
     const cache = createDedupedCache<number>({ ttlMs: 60_000, maxSize: 2 });
