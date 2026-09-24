@@ -106,7 +106,10 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        source: "/api/:path*",
+        // 排除 /api/stats：其缓存由路由按响应状态自行下发（成功 public s-maxage=60 /
+        // 失败 no-store）。必须在此让路——Next 的 config headers 会覆盖路由设置的同名头，
+        // 否则这条兜底 no-store 会把 stats 的公开缓存一起盖掉。
+        source: "/api/((?!stats(?:/|$)).*)",
         headers: [
           {
             key: "Cache-Control",
@@ -160,15 +163,10 @@ const nextConfig: NextConfig = {
           },
         ],
       },
-      {
-        source: "/api/stats/:path*",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "public, max-age=60, s-maxage=60, stale-while-revalidate=300",
-          },
-        ],
-      },
+      // 注意：/api/stats/:path* 的缓存规则已移除 —— 它统一下发 public 60s，
+      // 会把上游 5xx 一起缓存 60s；且 Next 的 config headers 会覆盖路由自行设置的头，
+      // 导致路由无法按状态区分。现由 src/app/api/stats/[...path]/route.ts 按响应状态下发
+      // （成功 public s-maxage=60 / 失败 no-store）。
       {
         source: "/internal/:path*",
         headers: [
