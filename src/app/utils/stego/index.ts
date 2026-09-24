@@ -11,7 +11,10 @@
  * 1. 加载 PNG 到 canvas → 获取 ImageData
  * 2. 提取水印 → extractWatermark(imageData, sigHash)
  * 
- * 注意：模块导入即启动调试器检测（guard._startDebugGuard）
+ * 注意：调试器检测（guard）需显式启动，不再随模块导入自动激活。
+ * 原因：guard 的检测结果（_isDebugDetected）当前无任何消费方，自动启动只会留下
+ * 一个永不清理的 2s 定时器（内含 debugger，DevTools 打开时每 2s 冻结页面）。
+ * 若将来要真正启用反调试，请在具体使用水印的组件里按生命周期 _startDebugGuard()/_stopDebugGuard()。
  */
 
 // 类型
@@ -30,6 +33,5 @@ export { embedWatermark, extractWatermark, type EmbedResult } from './embed'
 // 底层编解码（仅测试用）
 export { encodePayload, bytesToBits, bitsToBytes, spreadBits, despreadBits } from './payload'
 
-// ── 运行时保护（模块加载时自动激活）──
-import { _startDebugGuard } from './guard'
-_startDebugGuard()
+// 运行时保护：导出但不再自动启动（见文件头说明），由调用方按生命周期显式启停。
+export { _startDebugGuard, _stopDebugGuard, _isDebugDetected } from './guard'
