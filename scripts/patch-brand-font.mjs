@@ -28,6 +28,23 @@ const CHECK_ONLY = process.argv.includes('--check');
 const FROM = /font-display\s*:\s*swap/gi;
 const TO = 'font-display:fallback';
 
+// 若线上实际加载的是 CDN 上的 result.css，本地这份补丁不会被用到：
+// 直接跳过写盘（避免每次构建都改动被跟踪的文件），只提示需在 CDN 侧同样处理。
+const configured = readConfiguredCss();
+const usesRemoteCss =
+  Boolean(configured) &&
+  /^https?:\/\//i.test(configured) &&
+  !/^https?:\/\/(localhost|127\.0\.0\.1)/i.test(configured);
+
+if (usesRemoteCss) {
+  console.log(
+    `[patch-brand-font] NEXT_PUBLIC_BRAND_FONT_CSS 指向远端 ${configured}，跳过本地 result.css 修补。\n` +
+      '[patch-brand-font]       本地补丁不影响线上，请确保 CDN 上那份 result.css 的 font-display 已是 fallback，\n' +
+      '[patch-brand-font]       否则「复访不闪」只能依赖 preload 时序，少了 fallback 的阻塞期兜底。',
+  );
+  process.exit(0);
+}
+
 const files = globSync('public/fonts/**/result.css', { cwd: ROOT });
 if (files.length === 0) {
   console.warn('[patch-brand-font] 未找到 public/fonts/**/result.css，跳过');
@@ -72,21 +89,6 @@ for (const rel of files) {
 
 if (CHECK_ONLY && patched > 0) process.exit(1);
 if (patched === 0 && clean === 0 && missing > 0) process.exit(1);
-
-// 若线上实际加载的是 CDN 上的那份 result.css，本地这份补丁不会被用到，必须显式提醒。
-const configured = readConfiguredCss();
-if (
-  configured &&
-  /^https?:\/\//i.test(configured) &&
-  !/^https?:\/\/(localhost|127\.0\.0\.1)/i.test(configured)
-) {
-  console.warn(
-    `[patch-brand-font] 注意：NEXT_PUBLIC_BRAND_FONT_CSS 指向远端 ${configured}\n` +
-      '[patch-brand-font]       本地 result.css 的 font-display 已改为 fallback，但线上走的是远端那份，\n' +
-      '[patch-brand-font]       需要把同样处理过的 result.css 重新上传到 CDN（或去掉该环境变量改用本地版本），\n' +
-      '[patch-brand-font]       否则「复访不闪」只能依赖 preload 时序，少了 fallback 的阻塞期兜底。',
-  );
-}
 
 function readConfiguredCss() {
   const fromEnv = process.env.NEXT_PUBLIC_BRAND_FONT_CSS?.trim();
