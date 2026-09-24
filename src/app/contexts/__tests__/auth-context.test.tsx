@@ -6,10 +6,16 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { AuthProvider, useAuth } from '../AuthContext';
 import { AuthStorage } from '../../lib/storage/auth';
 
-const { pathnameMock } = vi.hoisted(() => ({ pathnameMock: { current: '/' } }));
+const { pathnameMock, routerMock } = vi.hoisted(() => ({
+  pathnameMock: { current: '/' },
+  // 真实的 useRouter() 在每次渲染返回同一个稳定对象，mock 必须与之一致：
+  // 否则 useCallback([router]) 的依赖会在每次渲染都变，进而让 Context value 身份变化，
+  // 把「软导航不该改变 value 身份」的断言误判为失败。
+  routerMock: { replace: vi.fn(), push: vi.fn(), prefetch: vi.fn() },
+}));
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ replace: vi.fn(), push: vi.fn(), prefetch: vi.fn() }),
+  useRouter: () => routerMock,
   usePathname: () => pathnameMock.current,
 }));
 
@@ -286,5 +292,47 @@ describe('AuthContext 协议确认弹窗', () => {
     );
 
     expect(screen.getByTestId('dynamic-modal')).toBeTruthy();
+  });
+});
+
+describe('AuthContext value 身份稳定性', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    pathnameMock.current = '/';
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  it('软导航（pathname 变化）不改变 value 身份，避免消费者全量重渲染', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(GUEST_PAYLOAD)));
+
+    const seen: unknown[] = [];
+    function ValueProbe() {
+      const value = useAuth();
+      seen.push(value);
+      return <span data-testid="value-probe">{value.isLoading ? 'loading' : 'ready'}</span>;
+    }
+
+    const { rerender } = render(
+      <AuthProvider>
+        <ValueProbe />
+      </AuthProvider>,
+    );
+
+    expect(await screen.findByText('ready')).toBeTruthy();
+    const identityBeforeNavigation = seen[seen.length - 1];
+
+    // 模拟软导航：AuthProvider 会重渲染，但 value 身份应保持不变
+    pathnameMock.current = '/dashboard';
+    rerender(
+      <AuthProvider>
+        <ValueProbe />
+      </AuthProvider>,
+    );
+
+    expect(seen[seen.length - 1]).toBe(identityBeforeNavigation);
   });
 });

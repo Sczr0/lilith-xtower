@@ -5,6 +5,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -128,6 +129,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const sessionRequestIdRef = useRef(0);
   // 通过 ref 暴露 refreshSession 给「服务可达」回调，避免声明顺序与依赖循环。
   const refreshSessionRef = useRef<(() => Promise<void>) | null>(null);
+  // pathname 经 ref 读取：若直接作为 loadSessionStatus 的依赖，软导航会改变其身份，
+  // 进而让 Context value 变化、触发所有 useAuth/useOptionalAuth 消费者重渲染。
+  const pathnameRef = useRef(pathname);
+  useEffect(() => {
+    pathnameRef.current = pathname;
+  }, [pathname]);
 
   const shouldPollStatus =
     !!authState.error &&
@@ -157,7 +164,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // 清除缓存并弹窗引导重新登录。登录页/封禁页本身信息已足够，不重复弹窗。
       if (!payload.isAuthenticated && AuthStorage.getCachedLogin()) {
         AuthStorage.clearCachedLogin();
-        if (pathname !== '/login' && pathname !== '/banned') {
+        const currentPath = pathnameRef.current;
+        if (currentPath !== '/login' && currentPath !== '/banned') {
           setShowSessionExpired(true);
         }
       }
@@ -219,7 +227,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         isSessionVerified: false,
       });
     }
-  }, [pathname]);
+    // 无 pathname 依赖：软导航不应重建本回调（见上方 pathnameRef 说明）
+  }, []);
 
   /** 手动重试会话状态查询（服务器抽风时的显式重试入口）。 */
   const refreshSession = useCallback(async (): Promise<void> => {
@@ -439,13 +448,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [logout]);
 
-  const value: AuthContextType = {
-    ...authState,
-    login,
-    logout,
-    validateCurrentCredential,
-    refreshSession,
-  };
+  // 稳定的 value 身份：软导航（pathname 变化）不应改变该对象，
+  // 否则所有消费 useAuth/useOptionalAuth 的组件都会随之重渲染。
+  const value = useMemo<AuthContextType>(
+    () => ({
+      ...authState,
+      login,
+      logout,
+      validateCurrentCredential,
+      refreshSession,
+    }),
+    [authState, login, logout, validateCurrentCredential, refreshSession],
+  );
 
   return (
     <AuthContext.Provider value={value}>
