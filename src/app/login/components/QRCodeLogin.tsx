@@ -11,7 +11,6 @@ import {
 } from '../../lib/taptap/qrLogin';
 import { buildTapTapLoginAuthDeepLink, normalizeTapTapConfirmUrl } from '../../lib/taptap/deeplink';
 import { getCapToken } from '../../lib/cap/client';
-import QRCode from 'qrcode';
 import { useClientValue } from '../../hooks/useClientValue';
 import { buildGoHref } from '../../utils/outbound';
 
@@ -69,6 +68,8 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
 
       setQrCodeImage(codeData.qrcodeUrl);
       try {
+        // qrcode 仅此处使用：延迟到真正出码时再加载，避免其进入扫码面板的首屏 chunk。
+        const { default: QRCode } = await import('qrcode');
         const dataUrl = await QRCode.toDataURL(codeData.qrcodeUrl, { width: 256, margin: 1 });
         setQrCodeDataUrl(dataUrl);
       } catch {

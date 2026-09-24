@@ -4,7 +4,6 @@ import dynamic from 'next/dynamic';
 
 import type { SongUpdate } from '../../lib/types/content';
 import type { TabId } from './Sidebar';
-import { ServiceStats } from '../../components/ServiceStats';
 
 function PanelSkeleton(props: { rows?: number }) {
   const rows = props.rows ?? 5;
@@ -72,6 +71,11 @@ const LeaderboardPanel = dynamic(() => import('../../components/LeaderboardPanel
 const LilithLabsPanel = dynamic(() => import('../../components/LilithLabsPanel').then((m) => m.LilithLabsPanel), {
   ssr: false,
   loading: () => <PanelSkeleton rows={8} />,
+});
+// 与其余面板保持一致：此前是静态引入，会把 ServiceStats 及其依赖带进 dashboard 首屏包。
+const ServiceStats = dynamic(() => import('../../components/ServiceStats').then((m) => m.ServiceStats), {
+  ssr: false,
+  loading: () => <PanelSkeleton rows={6} />,
 });
 
 type DashboardTabContentProps = {

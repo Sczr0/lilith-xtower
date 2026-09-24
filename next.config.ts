@@ -63,7 +63,13 @@ const nextConfig: NextConfig = {
    * 的正则」即可回退（等价于 Next 15.2 之前的阻塞式 metadata 行为）。
    */
   experimental: {
-    optimizePackageImports: ["lucide-react", "@radix-ui/react-select"],
+    // Radix 的这几个包都以桶文件方式导出，加入按需导入优化以避免整包进入客户端 chunk。
+    optimizePackageImports: [
+      "lucide-react",
+      "@radix-ui/react-select",
+      "@radix-ui/react-dialog",
+      "@radix-ui/react-radio-group",
+    ],
   },
   async redirects() {
     return [
