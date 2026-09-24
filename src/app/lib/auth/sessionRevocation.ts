@@ -6,7 +6,8 @@
  * 也无法跨 worker 共享（需配合 PM2 instances: 1）。
  *
  * 设计（单机部署模型）：
- * - 读路径永不落盘：isAuthSessionRevoked / isCredentialRevoked 只查内存 Map，无磁盘 IO。
+ * - 读路径永不落盘：isAuthSessionRevoked / isCredentialRevoked 只查内存 Map，无磁盘 IO，
+ *   也不做全表清扫（避免每个鉴权请求 O(n) 扫描，详见各函数内注释）。
  * - 持久化后端按需惰性初始化，二选一：
  *   - sqlite（推荐）：node:sqlite 内建模块，ACID + 索引；撤销是低频操作，
  *     写路径立即 upsert（不再防抖）。
@@ -496,7 +497,9 @@ export function isAuthSessionRevoked(sessionKey: string): boolean {
 
   ensureLoaded()
   const now = Date.now()
-  cleanupExpired(now)
+  // 读路径刻意不做全表清扫：这是每个需鉴权请求都会走的热路径，
+  // cleanupExpired 的 O(n) 遍历会随撤销记录数（TTL 最长 7 天）线性增长。
+  // 过期项在下方按 key 精确删除；全量清扫交给写路径与持久化前清理。
 
   const expireAt = sessionStore.get(normalizedKey)
   if (!expireAt) return false
@@ -537,7 +540,7 @@ export function isCredentialRevoked(credentialKey: string, issuedAt: number): bo
 
   ensureLoaded()
   const now = Date.now()
-  cleanupExpired(now)
+  // 同 isAuthSessionRevoked：读路径不做全表清扫，过期项按 key 精确删除。
 
   const record = credentialStore.get(normalizedKey)
   if (!record) return false
