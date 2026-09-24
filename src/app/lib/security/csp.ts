@@ -7,7 +7,7 @@ export function buildContentSecurityPolicy() {
   // https://rumprbjs-sp.ialicdn.com/target*/test*.jpg 做网络质量拨测。注意拨测域名是
   // *.ialicdn.com，与上报用的 *.myalicdn.com 不同域（少了 my 前缀），所以没有被上面的
   // wildcards 覆盖，会被 connect-src 拦下并产生 unhandledrejection（详见
-  // lib/utils/thirdPartyRumNoise.ts）。这里仅放行 connect-src，不并入 wildcards，
+  // lib/utils/browserNetworkNoise.ts）。这里仅放行 connect-src，不并入 wildcards，
   // 避免顺带放开脚本/样式/字体/图片来源。
   const esaRumProbe = 'https://*.ialicdn.com';
 

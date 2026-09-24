@@ -5,7 +5,8 @@
 import * as Sentry from "@sentry/nextjs";
 
 import { isAbortNoise } from "./app/lib/utils/abortNoise";
-import { isThirdPartyRumNoise } from "./app/lib/utils/thirdPartyRumNoise";
+import { isBrowserNetworkFailureNoise } from "./app/lib/utils/browserNetworkNoise";
+import { isInjectedScriptNoise } from "./app/lib/utils/injectedScriptNoise";
 
 /**
  * cap-widget 内部的「预期失败」噪音，统一不上报。
@@ -41,81 +42,66 @@ function isCapWidgetNoise(message: string | undefined): boolean {
 }
 
 /**
- * 第三方浏览器扩展的「CSP 拦截 eval」噪音，统一不上报。
+ * 第三方注入脚本被 CSP 拦截 eval 的噪音，统一不上报。
  *
- * 背景：部分扩展（如 AIX 下载器，bundle 名为 `sm.bundle.js`，模块名形如
- * `aixdownload-v3_<buildId>_<rand>`）会把脚本注入 MAIN world，内部用
- * `new Function` 解析 JSON。本站 CSP 只放行 `'wasm-unsafe-eval'`、未放行
- * `'unsafe-eval'`，于是扩展脚本抛 EvalError：
+ * 背景：部分浏览器扩展 / 宿主 WebView 会把脚本注入页面主世界（MAIN world），内部用
+ * `new Function` / `eval` 解析数据。本站 CSP 只放行 `'wasm-unsafe-eval'`、未放行
+ * `'unsafe-eval'`，于是这些脚本抛 EvalError。由于脚本是在页面世界注册监听器
+ * （EventTarget/addEventListener / setTimeout），异常会经 Sentry BrowserApiErrors
+ * 的包装冒泡，被记成「本站未捕获异常」。
  *
- *   EvalError: Evaluating a string as JavaScript violates the following Content
- *   Security Policy directive ... because 'unsafe-eval' is not an allowed source of script
+ * 各引擎文案不同，两种都要覆盖：
+ *   - Chromium：`Evaluating a string as JavaScript violates the following Content
+ *     Security Policy directive …`（含 "violates the following … directive"）
+ *   - WebKit  ：`Refused to evaluate a string as JavaScript because 'unsafe-eval' or
+ *     'trusted-types-eval' is not an allowed source of script in the following
+ *     Content Security Policy directive …`（含 "is not an allowed source of script"）
+ * 此前只匹配 Chromium 措辞，导致 iPad/WKWebView 上的同类噪音漏报
+ * （LILITH-XTOWER-T 即为此例）。
  *
- * 由于扩展是在页面世界注册事件监听（EventTarget/addEventListener），该 EvalError 会
- * 经过 Sentry BrowserApiErrors 包装过的监听器冒泡（mechanism:
- * auto.browser.browserapierrors.addEventListener），被记成「本站未捕获异常」。
- * 注意 Sentry 的 NextjsClientStackFrameNormalization 会把
- * `chrome-extension://<id>/sm.bundle.js` 改写成 `app:///sm.bundle.js`，容易误判成本站代码。
- *
- * 判定条件（两者同时满足才过滤，宁可多报也不吞自家问题）：
- * 1. 消息是 CSP 拒绝 eval 的 EvalError；
- * 2. 原始栈（未经 Sentry 改写的 hint.originalException.stack）里出现扩展协议 scheme。
- * 本站代码全部走 /_next/static/，不会产生扩展 scheme 的帧。
+ * 为什么不再要求栈里出现扩展 scheme？
+ * WKWebView 的注入脚本来自 WKUserScript，并没有 `*-extension://` 帧，旧条件在 Safari 上
+ * 永远不成立。改为「只看文案」是安全的：本仓库全部代码都不使用 eval / new Function
+ * （CSP 也未放行 `unsafe-eval`），因此任何「CSP 拒绝 eval」的异常都不可能是本站代码。
  */
 const CSP_EVAL_VIOLATION_PATTERN =
-  /violates the following content security policy directive/i;
-const EXTENSION_FRAME_PATTERN =
-  /(?:chrome|moz|safari-web|safari|ms-browser)-extension:\/\//i;
+  /(?:violates the following content security policy directive|is not an allowed source of script in the following content security policy directive|refused to evaluate a string as javascript)/i;
 
-function isThirdPartyCspEvalNoise(
-  message: string | undefined,
-  originalException: unknown,
-): boolean {
-  if (!message || !CSP_EVAL_VIOLATION_PATTERN.test(message)) return false;
-  if (!originalException || typeof originalException !== 'object') return false;
-  const stack = (originalException as { stack?: unknown }).stack;
-  return typeof stack === 'string' && EXTENSION_FRAME_PATTERN.test(stack);
+function isThirdPartyCspEvalNoise(message: string | undefined): boolean {
+  if (!message) return false;
+  return CSP_EVAL_VIOLATION_PATTERN.test(message);
 }
 
-/**
- * 汇总用于第三方 RUM 噪音指纹匹配的文本（调用栈帧 + breadcrumb URL）。
- * 详见 src/app/lib/utils/thirdPartyRumNoise.ts。
- */
-function collectRumFingerprintHaystack(
-  event: Sentry.Event,
-  originalException: unknown,
-): string {
-  const parts: string[] = [];
+/** 汇总异常调用栈各帧的文件名，用于「注入脚本」判定。 */
+function collectFrameFilenames(event: Sentry.Event): string[] {
+  const frames: string[] = [];
   for (const exception of event.exception?.values ?? []) {
     for (const frame of exception.stacktrace?.frames ?? []) {
-      if (frame.filename) parts.push(frame.filename);
-      if (frame.abs_path) parts.push(frame.abs_path);
+      frames.push(frame.filename ?? "");
     }
   }
-  for (const breadcrumb of event.breadcrumbs ?? []) {
-    const url = (breadcrumb.data as { url?: unknown } | undefined)?.url;
-    if (typeof url === 'string') parts.push(url);
-  }
-  if (originalException && typeof originalException === 'object') {
-    const stack = (originalException as { stack?: unknown }).stack;
-    if (typeof stack === 'string') parts.push(stack);
-  }
-  return parts.join('\n');
+  return frames;
 }
 
 Sentry.init({
   dsn: "https://62ab27a5251bb7c188c069542dee68d9@o4512039224737792.ingest.de.sentry.io/4512039239286864",
 
+  // 仅生产环境上报。本地开发与自测（/boom-test、/bt/* 冒烟路由、curl 直打
+  // server action）此前都会以默认的 environment=production 打进线上视图，
+  // 污染真实缺陷的排查（对应 LILITH-XTOWER-A/B/C/D/F/G/H/K/M/J/E/9）。
+  enabled: process.env.NODE_ENV === "production",
+  environment: process.env.NODE_ENV,
+
   // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
   tracesSampleRate: 1,
 
-  // 预期噪声不上报（见上方 CAP_NOISE_PATTERNS / CSP eval / abort / ESA RUM 说明）
+  // 预期噪声不上报（见上方 CAP / CSP eval / abort / 网络失败 / 注入脚本 说明）
   beforeSend(event, hint) {
     const message = event.exception?.values?.[0]?.value ?? hint?.originalException?.toString();
     if (isCapWidgetNoise(message)) {
       return null;
     }
-    if (isThirdPartyCspEvalNoise(message, hint?.originalException)) {
+    if (isThirdPartyCspEvalNoise(message)) {
       return null;
     }
     // 主动取消请求产生的 AbortError（含 WebKit 的 "Fetch is aborted" 上游 bug）。
@@ -123,9 +109,14 @@ Sentry.init({
     if (isAbortNoise(message)) {
       return null;
     }
-    // 阿里云 ESA 边缘注入的 RUM 拨测脚本（rum_common.js）的网络失败噪音。
-    // 详见 src/app/lib/utils/thirdPartyRumNoise.ts。
-    if (isThirdPartyRumNoise(message, collectRumFingerprintHaystack(event, hint?.originalException))) {
+    // 浏览器网络层失败（WebKit "Load failed" / Chromium "Failed to fetch" /
+    // Firefox "NetworkError …"）。详见 src/app/lib/utils/browserNetworkNoise.ts。
+    if (isBrowserNetworkFailureNoise(message)) {
+      return null;
+    }
+    // 第三方 / 宿主 WebView 注入脚本的异常（LIDNotify、window.android 等）。
+    // 详见 src/app/lib/utils/injectedScriptNoise.ts。
+    if (isInjectedScriptNoise(message, collectFrameFilenames(event))) {
       return null;
     }
     return event;

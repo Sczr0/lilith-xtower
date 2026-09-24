@@ -8,6 +8,11 @@ import * as Sentry from "@sentry/nextjs";
 Sentry.init({
   dsn: "https://62ab27a5251bb7c188c069542dee68d9@o4512039224737792.ingest.de.sentry.io/4512039239286864",
 
+  // 仅生产环境上报。本地开发与自测（/boom-test、/bt/* 冒烟路由、curl 直打 server
+  // action）此前都会以默认的 environment=production 打进线上视图，污染真实缺陷排查。
+  enabled: process.env.NODE_ENV === "production",
+  environment: process.env.NODE_ENV,
+
   // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
   tracesSampleRate: 1,
 
