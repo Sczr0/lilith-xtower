@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { revalidatePath, revalidateTag } from 'next/cache';
 
+import { invalidateAgreementCache } from '@/app/lib/content/agreement';
 import { invalidateContentCache } from '@/app/lib/content/parser';
 import { invalidateQACache } from '@/app/lib/qa';
 import { clearPublicProxyCache } from '@/app/lib/api/publicProxyCache';
@@ -128,6 +129,7 @@ export async function POST(request: NextRequest) {
     // 同步清空进程内存层，保证本实例立即生效（多实例需逐实例调用或依赖短 TTL 自然过期）
     invalidateContentCache();
     invalidateQACache();
+    invalidateAgreementCache();
     clearPublicProxyCache();
   }
 
