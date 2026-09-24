@@ -5,6 +5,15 @@ import { DIFFICULTY_BG, DIFFICULTY_TEXT } from '../../lib/constants/difficultyCo
 import { formatFixedNumber, formatLocaleNumber } from '../../lib/utils/number';
 import { ScoreCard } from '../ScoreCard';
 import { RotatingTips } from '../RotatingTips';
+import { cx } from '../ui/styles';
+import {
+  getSpacerHeights,
+  useVirtualRows,
+  virtualItemStyle,
+  VirtualSpacerRow,
+  VIRTUAL_VIEWPORT_MAX_HEIGHT,
+} from '../ui/virtualRows';
+import { useIsDesktop } from '../../hooks/useIsDesktop';
 
 type PushAccCell = {
   text: string;
@@ -33,6 +42,21 @@ export function RksRecordsResultsSection({
   onOpenSongQuery,
   formatPushAcc,
 }: RksRecordsResultsSectionProps) {
+  // 桌面端表格虚拟化（RKS 记录可达数百条）。注意 hook 必须在提前 return 之前调用。
+  const { scrollRef, virtualItems, totalSize, measureElement, scrollClassName } = useVirtualRows(
+    records.length,
+    52,
+  );
+  // 移动端卡片列表虚拟化
+  const {
+    scrollRef: mobileScrollRef,
+    virtualItems: mobileVirtualItems,
+    totalSize: mobileTotalSize,
+    measureElement: mobileMeasureElement,
+    scrollClassName: mobileScrollClassName,
+  } = useVirtualRows(records.length, 180);
+  const isDesktop = useIsDesktop();
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
@@ -50,20 +74,43 @@ export function RksRecordsResultsSection({
     );
   }
 
+  // 断点未确定（SSR 与 hydration 首帧）时两套都渲染，由 CSS 决定显隐；确定后只渲染一套。
+  const desktopRows = isDesktop === false ? [] : virtualItems;
+  const mobileRows = isDesktop === true ? [] : mobileVirtualItems;
+  const { paddingTop, paddingBottom } = getSpacerHeights(
+    desktopRows,
+    desktopRows.length ? totalSize : 0,
+  );
+  const virtualRows = desktopRows.map((virtualItem) => ({
+    virtualItem,
+    record: records[virtualItem.index],
+  }));
+  const mobileVirtualRows = mobileRows.map((virtualItem) => ({
+    virtualItem,
+    record: records[virtualItem.index],
+  }));
+
   return (
     <div className="space-y-4">
       <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
         显示 {records.length} 条记录{totalMatched !== records.length ? `（匹配 ${totalMatched} 条）` : ''}
       </div>
 
-      {/* Mobile: Card list */}
-      <div className="grid grid-cols-1 gap-3 md:hidden">
-        {records.map((record, index) => (
+      {/* Mobile: Card list（虚拟化，仅渲染可视卡片） */}
+      <div
+        ref={mobileScrollRef}
+        className={cx('md:hidden', mobileScrollClassName)}
+        style={{ maxHeight: VIRTUAL_VIEWPORT_MAX_HEIGHT, height: mobileTotalSize, position: 'relative' }}
+      >
+        {mobileVirtualRows.map(({ virtualItem, record }) => (
           <div
             key={`${record.song_name}|${record.difficulty}|${record.difficulty_value}|${record.score}`}
-            className="space-y-2"
+            data-index={virtualItem.index}
+            ref={mobileMeasureElement}
+            style={virtualItemStyle(virtualItem.start)}
+            className="space-y-2 mb-3"
           >
-            <ScoreCard record={record} rank={index + 1} nameMaxLines={2} />
+            <ScoreCard record={record} rank={virtualItem.index + 1} nameMaxLines={2} />
             <div className="flex flex-wrap items-center justify-end gap-2">
               <button
                 type="button"
@@ -84,10 +131,14 @@ export function RksRecordsResultsSection({
         ))}
       </div>
 
-      {/* Desktop: Table */}
-      <div className="hidden md:block overflow-x-auto">
+      {/* Desktop: Table（虚拟化，仅渲染可视行） */}
+      <div
+        ref={scrollRef}
+        className={cx('hidden md:block', scrollClassName)}
+        style={{ maxHeight: VIRTUAL_VIEWPORT_MAX_HEIGHT }}
+      >
         <table className="min-w-[980px] w-full border-collapse">
-          <thead>
+          <thead className="sticky top-0 z-10 bg-white dark:bg-gray-900">
             <tr className="border-b border-gray-200 dark:border-gray-700">
               <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
                 排名
@@ -122,13 +173,16 @@ export function RksRecordsResultsSection({
             </tr>
           </thead>
           <tbody>
-            {records.map((record, index) => (
+            <VirtualSpacerRow height={paddingTop} />
+            {virtualRows.map(({ virtualItem, record }) => (
               <tr
                 key={`${record.song_name}|${record.difficulty}|${record.difficulty_value}|${record.score}`}
+                data-index={virtualItem.index}
+                ref={measureElement}
                 className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors"
               >
                 <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                  #{index + 1}
+                  #{virtualItem.index + 1}
                 </td>
                 <td className="py-3 px-4 text-sm font-medium text-gray-900 dark:text-gray-100 whitespace-normal break-words">
                   {record.song_name}
@@ -182,6 +236,7 @@ export function RksRecordsResultsSection({
                 </td>
               </tr>
             ))}
+            <VirtualSpacerRow height={paddingBottom} />
           </tbody>
         </table>
       </div>

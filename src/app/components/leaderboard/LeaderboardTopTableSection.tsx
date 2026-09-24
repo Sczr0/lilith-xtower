@@ -3,7 +3,15 @@
 import type { LeaderboardTopItem } from '../../lib/types/leaderboard';
 import { formatFixedNumber } from '../../lib/utils/number';
 import { StyledSelect } from '../ui/Select';
-import { buttonStyles, cardStyles } from '../ui/styles';
+import { buttonStyles, cardStyles, cx } from '../ui/styles';
+import {
+  getSpacerHeights,
+  useVirtualRows,
+  virtualItemStyle,
+  VirtualSpacerRow,
+  VIRTUAL_VIEWPORT_MAX_HEIGHT,
+} from '../ui/virtualRows';
+import { useIsDesktop } from '../../hooks/useIsDesktop';
 
 type SelectOption = {
   label: string;
@@ -76,6 +84,37 @@ export function LeaderboardTopTableSection({
   onScrollToTop,
   formatDateTime,
 }: LeaderboardTopTableSectionProps) {
+  // 桌面端表格虚拟化（榜单支持「加载更多」无限累加，全量渲染会越来越卡）
+  const { scrollRef, virtualItems, totalSize, measureElement, scrollClassName } = useVirtualRows(
+    topItems.length,
+    57,
+  );
+  // 移动端卡片列表虚拟化
+  const {
+    scrollRef: mobileScrollRef,
+    virtualItems: mobileVirtualItems,
+    totalSize: mobileTotalSize,
+    measureElement: mobileMeasureElement,
+    scrollClassName: mobileScrollClassName,
+  } = useVirtualRows(topItems.length, 150);
+  const isDesktop = useIsDesktop();
+
+  // 断点未确定（SSR 与 hydration 首帧）时两套都渲染，由 CSS 决定显隐；确定后只渲染一套。
+  const desktopRows = isDesktop === false ? [] : virtualItems;
+  const mobileRows = isDesktop === true ? [] : mobileVirtualItems;
+  const { paddingTop, paddingBottom } = getSpacerHeights(
+    desktopRows,
+    desktopRows.length ? totalSize : 0,
+  );
+  const virtualRows = desktopRows.map((virtualItem) => ({
+    virtualItem,
+    item: topItems[virtualItem.index],
+  }));
+  const mobileVirtualRows = mobileRows.map((virtualItem) => ({
+    virtualItem,
+    item: topItems[virtualItem.index],
+  }));
+
   return (
     <section className={cardStyles({ tone: 'glass-subtle', rounded: '2xl', padding: 'md', className: 'transition-colors' })}>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -177,12 +216,25 @@ export function LeaderboardTopTableSection({
         </div>
       )}
 
-      {/* 移动端卡片列表 */}
-      <div className="mt-4 space-y-3 md:hidden">
-        {topItems.map((item) => (
+      {/* 移动端卡片列表（虚拟化，仅渲染可视卡片） */}
+      <div
+        ref={mobileScrollRef}
+        className={cx('mt-4 md:hidden', mobileScrollClassName)}
+        style={{
+          maxHeight: VIRTUAL_VIEWPORT_MAX_HEIGHT,
+          // 有数据时才显式撑高（配合绝对定位的卡片）；为空时保持自适应，
+          // 否则下面内联的空态块会被 height=0 的滚动容器裁掉。
+          ...(mobileTotalSize > 0 ? { height: mobileTotalSize } : {}),
+          position: 'relative',
+        }}
+      >
+        {mobileVirtualRows.map(({ virtualItem, item }) => (
           <div
             key={`mobile-${item.rank}-${item.user}`}
-            className="rounded-xl border border-gray-200 bg-white/80 p-4 transition-colors hover:border-blue-300 dark:border-neutral-700 dark:bg-neutral-900/60 dark:hover:border-blue-700/60"
+            data-index={virtualItem.index}
+            ref={mobileMeasureElement}
+            style={virtualItemStyle(virtualItem.start)}
+            className="mb-3 rounded-xl border border-gray-200 bg-white/80 p-4 transition-colors hover:border-blue-300 dark:border-neutral-700 dark:bg-neutral-900/60 dark:hover:border-blue-700/60"
           >
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -260,10 +312,14 @@ export function LeaderboardTopTableSection({
         )}
       </div>
 
-      {/* 桌面端表格 */}
-      <div className="mt-4 hidden overflow-x-auto md:block">
+      {/* 桌面端表格（虚拟化，仅渲染可视行） */}
+      <div
+        ref={scrollRef}
+        className={cx('mt-4 hidden md:block', scrollClassName)}
+        style={{ maxHeight: VIRTUAL_VIEWPORT_MAX_HEIGHT }}
+      >
         <table className="min-w-full text-sm">
-          <thead className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          <thead className="sticky top-0 z-10 bg-white/80 text-xs uppercase tracking-wide text-gray-500 backdrop-blur-sm dark:bg-neutral-900/90 dark:text-gray-400">
             <tr className="border-b border-gray-200/70 dark:border-neutral-800/70">
               <th className="px-4 py-3 text-left font-medium">排名</th>
               <th className="px-4 py-3 text-left font-medium">玩家</th>
@@ -273,9 +329,12 @@ export function LeaderboardTopTableSection({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100/70 dark:divide-neutral-800/70">
-            {topItems.map((item) => (
+            <VirtualSpacerRow height={paddingTop} />
+            {virtualRows.map(({ virtualItem, item }) => (
               <tr
                 key={`desktop-${item.rank}-${item.user}`}
+                data-index={virtualItem.index}
+                ref={measureElement}
                 className="bg-white/80 transition-colors hover:bg-blue-50/60 dark:bg-neutral-900/60 dark:hover:bg-blue-900/20"
               >
                 <td className="px-4 py-3">
@@ -332,6 +391,7 @@ export function LeaderboardTopTableSection({
                 </td>
               </tr>
             ))}
+            <VirtualSpacerRow height={paddingBottom} />
 
             {topItems.length === 0 && !isTopLoading && !topError && (
               <tr>

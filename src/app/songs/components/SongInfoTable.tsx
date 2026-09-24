@@ -8,6 +8,14 @@ import { DIFFICULTY_BADGE } from '@/app/lib/constants/difficultyColors';
 import type { SongInfo } from '@/app/lib/info/csv';
 import { cardStyles, cx } from '../../components/ui/styles';
 import { RadioGroup } from '../../components/ui/RadioGroup';
+import {
+  getSpacerHeights,
+  useVirtualRows,
+  virtualItemStyle,
+  VirtualSpacerRow,
+  VIRTUAL_VIEWPORT_MAX_HEIGHT,
+} from '../../components/ui/virtualRows';
+import { useIsDesktop } from '../../hooks/useIsDesktop';
 
 const DIFFICULTIES: Difficulty[] = ['EZ', 'HD', 'IN', 'AT'];
 
@@ -33,6 +41,31 @@ export function SongInfoTable({ songs }: { songs: SongInfo[] }) {
         .includes(q),
     );
   }, [songs, q]);
+
+  // 桌面端表格虚拟化：仅渲染可视行（搜索输入时不再重排数百行 DOM）
+  const { scrollRef, virtualItems, totalSize, measureElement, scrollClassName } = useVirtualRows(
+    filtered.length,
+    56,
+  );
+
+  // 移动端卡片列表虚拟化
+  const {
+    scrollRef: mobileScrollRef,
+    virtualItems: mobileVirtualItems,
+    totalSize: mobileTotalSize,
+    measureElement: mobileMeasureElement,
+    scrollClassName: mobileScrollClassName,
+  } = useVirtualRows(filtered.length, 190);
+
+  // 断点未确定（SSR 与 hydration 首帧）时两套都渲染，由 CSS 决定显隐；
+  // 确定后只渲染对应的一套，避免重复 DOM 与多余的虚拟化行。
+  const isDesktop = useIsDesktop();
+  const desktopRows = isDesktop === false ? [] : virtualItems;
+  const mobileRows = isDesktop === true ? [] : mobileVirtualItems;
+  const { paddingTop, paddingBottom } = getSpacerHeights(
+    desktopRows,
+    desktopRows.length ? totalSize : 0,
+  );
 
   return (
     <div className={cardStyles({ className: 'space-y-4 p-4 sm:p-6' })}>
@@ -80,14 +113,22 @@ export function SongInfoTable({ songs }: { songs: SongInfo[] }) {
         <p className="text-center text-sm text-gray-500 dark:text-gray-400 py-8">没有找到匹配的曲目。</p>
       ) : (
         <>
-          {/* 移动端：卡片列表（信息垂直堆叠，可读性优先） */}
-          <div className="md:hidden space-y-2.5">
-            {filtered.map((song) => {
+          {/* 移动端：卡片列表（虚拟化，仅渲染可视卡片） */}
+          <div
+            ref={mobileScrollRef}
+            className={cx('md:hidden', mobileScrollClassName)}
+            style={{ maxHeight: VIRTUAL_VIEWPORT_MAX_HEIGHT, height: mobileTotalSize, position: 'relative' }}
+          >
+            {mobileRows.map((virtualItem) => {
+              const song = filtered[virtualItem.index];
               const designer = song[DESIGNER_FIELD[selectedDiff]];
               return (
                 <div
                   key={song.id}
-                  className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-3.5 space-y-2"
+                  data-index={virtualItem.index}
+                  ref={mobileMeasureElement}
+                  style={virtualItemStyle(virtualItem.start)}
+                  className="mb-2.5 rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-3.5 space-y-2"
                 >
                   <div>
                     <div className="font-medium text-gray-900 dark:text-gray-100">{song.name}</div>
@@ -112,8 +153,12 @@ export function SongInfoTable({ songs }: { songs: SongInfo[] }) {
             })}
           </div>
 
-          {/* 桌面端：表格（table-fixed 定宽比例 + 省略号截断，保证谱师列首屏可见） */}
-          <div className="hidden md:block">
+          {/* 桌面端：表格（虚拟化，仅渲染可视行） */}
+          <div
+            ref={scrollRef}
+            className={cx('hidden md:block', scrollClassName)}
+            style={{ maxHeight: VIRTUAL_VIEWPORT_MAX_HEIGHT }}
+          >
             <table className="text-sm w-full table-fixed">
               <colgroup>
                 <col className="w-[32%]" />
@@ -121,7 +166,7 @@ export function SongInfoTable({ songs }: { songs: SongInfo[] }) {
                 <col className="w-[24%]" />
                 <col className="w-[20%]" />
               </colgroup>
-              <thead>
+              <thead className="sticky top-0 z-10 bg-white dark:bg-neutral-900">
                 <tr className="text-left text-xs text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-neutral-700">
                   <th className="px-3 py-2 font-medium">曲目/曲目ID</th>
                   <th className="px-2 py-2 font-medium">曲师</th>
@@ -130,12 +175,16 @@ export function SongInfoTable({ songs }: { songs: SongInfo[] }) {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((song) => {
+                <VirtualSpacerRow height={paddingTop} />
+                {desktopRows.map((virtualItem) => {
+                  const song = filtered[virtualItem.index];
                   const designer = song[DESIGNER_FIELD[selectedDiff]];
                   return (
                     <tr
                       key={song.id}
-                      className="border-b border-gray-100 dark:border-neutral-800/70 last:border-0 hover:bg-gray-50 dark:hover:bg-neutral-800/40 transition-colors"
+                      data-index={virtualItem.index}
+                      ref={measureElement}
+                      className="border-b border-gray-100 dark:border-neutral-800/70 hover:bg-gray-50 dark:hover:bg-neutral-800/40 transition-colors"
                     >
                       <td className="px-3 py-2.5">
                         <div className="font-medium text-gray-900 dark:text-gray-100 truncate" title={song.name}>
@@ -157,6 +206,7 @@ export function SongInfoTable({ songs }: { songs: SongInfo[] }) {
                     </tr>
                   );
                 })}
+                <VirtualSpacerRow height={paddingBottom} />
               </tbody>
             </table>
           </div>

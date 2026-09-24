@@ -16,6 +16,14 @@ import {
 } from '@/app/lib/info/csv';
 import { cardStyles, cx } from '../../components/ui/styles';
 import { RadioGroup } from '../../components/ui/RadioGroup';
+import {
+  getSpacerHeights,
+  useVirtualRows,
+  virtualItemStyle,
+  VirtualSpacerRow,
+  VIRTUAL_VIEWPORT_MAX_HEIGHT,
+} from '../../components/ui/virtualRows';
+import { useIsDesktop } from '../../hooks/useIsDesktop';
 
 /** 难度筛选：'ALL' = 全部难度混排；否则为单一难度。 */
 type DifficultyFilter = Difficulty | 'ALL';
@@ -96,6 +104,31 @@ export function ChartLevelsTable({ songs }: { songs: SongInfo[] }) {
   };
 
   const isAll = filter === 'ALL';
+
+  // 桌面端表格虚拟化：仅渲染可视行（筛选/输入时不再重排数百行 DOM）
+  const { scrollRef, virtualItems, totalSize, measureElement, scrollClassName } = useVirtualRows(
+    filtered.length,
+    56,
+  );
+
+  // 移动端卡片列表虚拟化
+  const {
+    scrollRef: mobileScrollRef,
+    virtualItems: mobileVirtualItems,
+    totalSize: mobileTotalSize,
+    measureElement: mobileMeasureElement,
+    scrollClassName: mobileScrollClassName,
+  } = useVirtualRows(filtered.length, 190);
+
+  // 断点未确定（SSR 与 hydration 首帧）时两套都渲染，由 CSS（md:hidden / hidden md:block）
+  // 决定显隐；确定后只渲染对应的一套，避免重复 DOM 与多余的虚拟化行。
+  const isDesktop = useIsDesktop();
+  const desktopRows = isDesktop === false ? [] : virtualItems;
+  const mobileRows = isDesktop === true ? [] : mobileVirtualItems;
+  const { paddingTop, paddingBottom } = getSpacerHeights(
+    desktopRows,
+    desktopRows.length ? totalSize : 0,
+  );
 
   return (
     <div className={cardStyles({ className: 'space-y-4 p-4 sm:p-6' })}>
@@ -199,15 +232,24 @@ export function ChartLevelsTable({ songs }: { songs: SongInfo[] }) {
         <p className="text-center text-sm text-gray-500 dark:text-gray-400 py-8">没有符合条件的曲目，试试调整筛选条件。</p>
       ) : (
         <>
-          {/* 移动端：卡片列表 */}
-          <div key={`${filter}-cards`} className="md:hidden space-y-2.5 animate-info-fade">
-            {filtered.map((song) => {
+          {/* 移动端：卡片列表（虚拟化，仅渲染可视卡片） */}
+          <div
+            key={`${filter}-cards`}
+            ref={mobileScrollRef}
+            className={cx('md:hidden animate-info-fade', mobileScrollClassName)}
+            style={{ maxHeight: VIRTUAL_VIEWPORT_MAX_HEIGHT, height: mobileTotalSize, position: 'relative' }}
+          >
+            {mobileRows.map((virtualItem) => {
+              const song = filtered[virtualItem.index];
               const highest = displayLevelForFilter(song, filter) as number;
               const highlight = highest >= 15;
               return (
                 <div
                   key={song.id}
-                  className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-3.5 space-y-2"
+                  data-index={virtualItem.index}
+                  ref={mobileMeasureElement}
+                  style={virtualItemStyle(virtualItem.start)}
+                  className="mb-2.5 rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-3.5 space-y-2"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -263,10 +305,15 @@ export function ChartLevelsTable({ songs }: { songs: SongInfo[] }) {
             })}
           </div>
 
-          {/* 桌面端：表格 */}
-          <div key={`${filter}-table`} className="hidden md:block overflow-x-auto -mx-4 sm:mx-0 animate-info-fade">
+          {/* 桌面端：表格（虚拟化，仅渲染可视行） */}
+          <div
+            key={`${filter}-table`}
+            ref={scrollRef}
+            className={cx('hidden md:block animate-info-fade', scrollClassName)}
+            style={{ maxHeight: VIRTUAL_VIEWPORT_MAX_HEIGHT }}
+          >
             <table className="w-full text-sm">
-              <thead>
+              <thead className="sticky top-0 z-10 bg-white dark:bg-neutral-900">
                 <tr className="text-left text-xs text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-neutral-700">
                   <th className="px-4 py-2 font-medium">曲目/曲目ID</th>
                   <th className="px-4 py-2 font-medium">曲师</th>
@@ -283,13 +330,17 @@ export function ChartLevelsTable({ songs }: { songs: SongInfo[] }) {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((song) => {
+                <VirtualSpacerRow height={paddingTop} />
+                {desktopRows.map((virtualItem) => {
+                  const song = filtered[virtualItem.index];
                   const highest = displayLevelForFilter(song, filter) as number;
                   const highlight = highest >= 15;
                   return (
                     <tr
                       key={song.id}
-                      className="border-b border-gray-100 dark:border-neutral-800/70 last:border-0 hover:bg-gray-50 dark:hover:bg-neutral-800/40 transition-colors"
+                      data-index={virtualItem.index}
+                      ref={measureElement}
+                      className="border-b border-gray-100 dark:border-neutral-800/70 hover:bg-gray-50 dark:hover:bg-neutral-800/40 transition-colors"
                     >
                       <td className="px-4 py-2.5">
                         <div className="font-medium text-gray-900 dark:text-gray-100">{song.name}</div>
@@ -343,6 +394,7 @@ export function ChartLevelsTable({ songs }: { songs: SongInfo[] }) {
                     </tr>
                   );
                 })}
+                <VirtualSpacerRow height={paddingBottom} />
               </tbody>
             </table>
           </div>
