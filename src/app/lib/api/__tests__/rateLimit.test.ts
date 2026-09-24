@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { NextRequest } from 'next/server';
 
-import { isPubliclyRoutableIp, resolveClientIp, slidingWindowAllow } from '../rateLimit';
+import { isPubliclyRoutableIp, resolveClientIp, resolveClientIpFromHeaders, slidingWindowAllow } from '../rateLimit';
 
 function createRequest(headers: Record<string, string>): NextRequest {
   return { headers: new Headers(headers) } as unknown as NextRequest;
@@ -59,6 +59,31 @@ describe('resolveClientIp', () => {
     vi.stubEnv('TRUSTED_CLIENT_IP_HEADER', 'EO-Client-IP');
     const req = createRequest({ 'x-forwarded-for': '203.0.113.55' });
     expect(resolveClientIp(req)).toBe('unknown');
+  });
+});
+
+describe('resolveClientIpFromHeaders', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('works with a plain read-only Headers (Server Action path)', () => {
+    // Server Action 里只有 headers()（ReadonlyHeaders）可用，不依赖 NextRequest
+    const headers = new Headers({ 'x-forwarded-for': '1.2.3.4, 203.0.113.77' });
+    expect(resolveClientIpFromHeaders(headers)).toBe('203.0.113.77');
+  });
+
+  it('honours TRUSTED_CLIENT_IP_HEADER like resolveClientIp', () => {
+    vi.stubEnv('TRUSTED_CLIENT_IP_HEADER', 'ali-real-client-ip');
+    const headers = new Headers({
+      'ali-real-client-ip': '203.0.113.42',
+      'x-forwarded-for': '1.2.3.4',
+    });
+    expect(resolveClientIpFromHeaders(headers)).toBe('203.0.113.42');
+  });
+
+  it('returns unknown when no headers are present', () => {
+    expect(resolveClientIpFromHeaders(new Headers())).toBe('unknown');
   });
 });
 

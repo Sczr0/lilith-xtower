@@ -3,6 +3,8 @@
 import { headers } from 'next/headers'
 
 import { getAuthSession } from '@/app/lib/auth/session'
+import { resolveClientIpFromHeaders, slidingWindowAllow } from '@/app/lib/api/rateLimit'
+import { upstreamFetch } from '@/app/lib/api/upstreamFetch'
 
 /**
  * 处理通用反馈表单提交，并转发到飞书 Webhook。
@@ -20,9 +22,9 @@ export async function submitFeedback(formData: FormData) {
     return { success: false, message: '请先登录后再提交' }
   }
 
-  // 频控：基于 IP 的滑动窗口限流（单实例有效；多实例部署需替换为 Redis/KV）
-  const ip = await resolveClientIp()
-  if (!allowSubmit(ip)) {
+  // 频控：复用共享滑动窗口限流（含全量清扫，避免按 IP 无界增长）
+  const ip = resolveClientIpFromHeaders(await headers())
+  if (!slidingWindowAllow(`contribute:${ip}`, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS)) {
     return { success: false, message: '请求过于频繁，请稍后再试' }
   }
 
@@ -81,12 +83,16 @@ export async function submitFeedback(formData: FormData) {
   };
 
   try {
-    const res = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(feishuBody),
-      cache: 'no-store',
-    });
+    const res = await upstreamFetch(
+      webhookUrl,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(feishuBody),
+        cache: 'no-store',
+      },
+      { timeoutMs: 8_000 },
+    );
 
     const data = await res.json();
 
@@ -106,31 +112,3 @@ export async function submitFeedback(formData: FormData) {
 
 const RATE_LIMIT_WINDOW_MS = 60_000
 const RATE_LIMIT_MAX = 3
-
-type RateBucket = { timestamps: number[] }
-const rateLimiter = new Map<string, RateBucket>()
-
-function allowSubmit(key: string): boolean {
-  const now = Date.now()
-  const bucket = rateLimiter.get(key) ?? { timestamps: [] }
-  const next = bucket.timestamps.filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS)
-  if (next.length >= RATE_LIMIT_MAX) {
-    rateLimiter.set(key, { timestamps: next })
-    return false
-  }
-  next.push(now)
-  rateLimiter.set(key, { timestamps: next })
-  return true
-}
-
-async function resolveClientIp(): Promise<string> {
-  // Next.js 16 headers() 可能为异步；统一 await，避免类型不兼容
-  const h = await headers()
-  const cf = h.get('cf-connecting-ip')?.trim()
-  if (cf) return cf
-  const real = h.get('x-real-ip')?.trim()
-  if (real) return real
-  const forwarded = h.get('x-forwarded-for')?.split(',')[0]?.trim()
-  if (forwarded) return forwarded
-  return 'unknown'
-}

@@ -87,7 +87,10 @@ export function isPubliclyRoutableIp(ip: string): boolean {
 }
 
 /**
- * 解析客户端 IP：仅作为限流等安全控制的 key 使用。
+ * 从请求头解析客户端 IP：仅作为限流等安全控制的 key 使用。
+ *
+ * 抽出为接受纯 Headers（只读即可），使 Server Action（只有 headers() 可用）能复用同一套信任模型，
+ * 避免各调用方各自实现一套解析逻辑。
  *
  * 信任模型（部署平台：阿里云 ESA）：
  * - 推荐姿势：在 ESA 控制台「规则 → 转换规则 → 托管转换」开启「回源自动注入
@@ -104,13 +107,13 @@ export function isPubliclyRoutableIp(ip: string): boolean {
  * - 拿不到可信 IP 时返回 'unknown'：限流退化为全局共享桶（宁可全站共享限额，
  *   不可放任伪造头绕过）。
  */
-export function resolveClientIp(req: NextRequest): string {
+export function resolveClientIpFromHeaders(headers: Pick<Headers, 'get'>): string {
   const trustedHeader = (process.env.TRUSTED_CLIENT_IP_HEADER ?? '').trim();
   if (trustedHeader) {
-    return req.headers.get(trustedHeader)?.trim() || 'unknown';
+    return headers.get(trustedHeader)?.trim() || 'unknown';
   }
 
-  const xff = req.headers.get('x-forwarded-for');
+  const xff = headers.get('x-forwarded-for');
   if (xff) {
     const hops = xff
       .split(',')
@@ -124,4 +127,9 @@ export function resolveClientIp(req: NextRequest): string {
   }
 
   return 'unknown';
+}
+
+/** Route Handler 入口：从 NextRequest 解析客户端 IP（委托给 resolveClientIpFromHeaders）。 */
+export function resolveClientIp(req: NextRequest): string {
+  return resolveClientIpFromHeaders(req.headers);
 }
