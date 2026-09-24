@@ -42,24 +42,26 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_BUILD_ID: BUILD_ID,
   },
   /**
-   * 关闭「流式 metadata」（streaming metadata）以规避 React 19 的宿主提升资源崩溃。
+   * 已移除 htmlLimitedBots（原用于关闭「流式 metadata」以规避 React 19 宿主提升崩溃）。
    *
-   * 背景：Next 16 默认对普通浏览器启用 streaming metadata，把 `<title>`/`<meta>`/`<link>`
-   * 渲染进一个 `<div hidden>` 并交给 React 19 hoist 到 `<head>`。客户端软导航（如
-   * /dashboard → /login 的鉴权跳转）删除该子树时，某个已被 hoist 的节点 parentNode 已被置空，
-   * React 的 commitDeletionEffectsOnFiber（HostHoistable 分支）仍执行
-   * `stateNode.parentNode.removeChild(stateNode)`，抛出：
+   * 背景：Next 16 默认对普通浏览器启用 streaming metadata，把 title/meta/link 渲染进一个
+   * hidden 容器并交给 React 19 hoist 到 head。客户端软导航删除该子树时，React 的
+   * commitDeletionEffectsOnFiber（HostHoistable 分支）可能对 parentNode 已被置空的节点
+   * 执行 removeChild，抛出：
    *   TypeError: Cannot read properties of null (reading 'removeChild')
    * 详见 node_modules/next/dist/lib/metadata/metadata.js 的 MetadataWrapper。
    *
-   * shouldServeStreamingMetadata() 里 htmlLimitedBots 是唯一开关：UA 命中正则即返回 false，
-   * 走非流式的 MetadataBoundary 分支（无 hidden div）。该配置仅影响 metadata 的流式与否，
-   * 不参与 is-bot / 动态渲染判定。匹配全部 UA 等价于「所有请求都用阻塞式 metadata」，
-   * 即 Next 15.2 之前的既有行为。
+   * 移除依据（next 16.3.4 + react 19.3 实测）：
+   * - 确认开关确实生效：带该配置时页面 HTML 无 hidden metadata 容器（阻塞式），
+   *   移除后出现该容器（流式）；
+   * - 浏览器冒烟：在 /login 与 /dashboard 之间（文档记载的鉴权跳转路径，标题采样证实
+   *   /dashboard 被反复挂载并被软导航卸载）以及 /songs 到 /qa 到 /about 到 / 之间，
+   *   累计 86 次客户端软导航加 6 次整页加载；页内 error / unhandledrejection /
+   *   console.error 采集器（经阳性对照自验证有效）零记录。
    *
-   * TODO: 升级 next（当前 16.2.12 → 16.3.4）验证上游修复后，可移除此开关。
+   * 若后续升级 next/react 后在生产观测到该崩溃，把 htmlLimitedBots 恢复为「匹配全部 UA
+   * 的正则」即可回退（等价于 Next 15.2 之前的阻塞式 metadata 行为）。
    */
-  htmlLimitedBots: /.*/,
   experimental: {
     optimizePackageImports: ["lucide-react", "@radix-ui/react-select"],
   },
