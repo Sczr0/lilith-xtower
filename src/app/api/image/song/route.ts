@@ -1,12 +1,16 @@
 import { NextResponse } from 'next/server'
 
 import { withAuth } from '@/app/lib/api/withAuth'
+import { createSemaphore } from '@/app/lib/api/upstreamSemaphore'
 import { getSeekendApiBaseUrl } from '@/app/lib/auth/upstream'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 const TIMEOUT_MS = 30_000
+
+/** 上游渲染并发上限：避免突发请求同时打满上游（超出的排队等待）。 */
+const upstreamGate = createSemaphore(4)
 
 /**
  * /api/image/song（需要鉴权）
@@ -20,17 +24,18 @@ export const POST = withAuth(async (req, ctx) => {
   }
 
   const upstream = `${getSeekendApiBaseUrl()}/image/song`
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS)
 
   try {
-    const res = await fetch(upstream, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: '*/*' },
-      body: JSON.stringify({ ...rawBody, ...ctx.authBody, song }),
-      cache: 'no-store',
-      signal: controller.signal,
-    })
+    // 过并发闸；超时用 AbortSignal.timeout，从真正发起上游请求时才开始计时（排队时间不计入）
+    const res = await upstreamGate.run(() =>
+      fetch(upstream, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: '*/*' },
+        body: JSON.stringify({ ...rawBody, ...ctx.authBody, song }),
+        cache: 'no-store',
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      }),
+    )
 
     if (!res.ok) {
       const raw = await res.text()
@@ -54,7 +59,5 @@ export const POST = withAuth(async (req, ctx) => {
       { message: isTimeout ? '请求超时，请稍后重试' : '请求失败，请稍后重试' },
       { status: isTimeout ? 504 : 502, headers: { 'Cache-Control': 'no-store' } },
     )
-  } finally {
-    clearTimeout(timeout)
   }
 })
