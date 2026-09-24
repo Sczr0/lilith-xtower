@@ -93,7 +93,9 @@ Sentry.init({
   environment: process.env.NODE_ENV,
 
   // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
-  tracesSampleRate: 1,
+  // 默认 0.1：100% 采样会让每个请求都做全量性能追踪，在低端移动端与 2H2G 源站开销显著。
+  // 需要全量排查时用 NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE=1 临时调回。
+  tracesSampleRate: Math.min(Math.max(Number(process.env.NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE || 0.1), 0), 1),
 
   // 预期噪声不上报（见上方 CAP / CSP eval / abort / 网络失败 / 注入脚本 说明）
   beforeSend(event, hint) {

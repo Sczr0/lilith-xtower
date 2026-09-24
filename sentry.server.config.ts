@@ -13,7 +13,8 @@ Sentry.init({
   environment: process.env.NODE_ENV,
 
   // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
-  tracesSampleRate: 1,
+  // 默认 0.1：100% 采样在 2H2G 源站开销显著；需要全量排查时用 SENTRY_TRACES_SAMPLE_RATE=1 临时调回。
+  tracesSampleRate: Math.min(Math.max(Number(process.env.SENTRY_TRACES_SAMPLE_RATE || 0.1), 0), 1),
 
   dataCollection: {
     // To disable sending user data and HTTP bodies, uncomment the lines below. For more info visit:

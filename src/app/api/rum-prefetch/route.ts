@@ -1,5 +1,7 @@
 import { NextRequest } from 'next/server';
 
+import { resolveClientIp, slidingWindowAllow } from '@/app/lib/api/rateLimit';
+
 type RumPrefetchPayload = {
   t?: number;
   path?: string;
@@ -39,6 +41,11 @@ function sanitizeKeys(value: unknown, maxItems: number): string[] | undefined {
 }
 
 export async function POST(req: NextRequest) {
+  // 限流：预取上报频率高，避免无界 stdout 落盘 I/O
+  if (!slidingWindowAllow(`rum-prefetch:${resolveClientIp(req)}`, 60, 60_000)) {
+    return new Response(null, { status: 204 });
+  }
+
   try {
     const contentType = req.headers.get('content-type') || '';
     if (!contentType.includes('application/json')) {
@@ -73,17 +80,20 @@ export async function POST(req: NextRequest) {
     })();
 
     // 轻量日志：用于评估预取命中率与设备/网络画像（可替换为投递 Axiom/DB）。
-    try {
-      const ua = req.headers.get('user-agent') || '';
-      const country = req.headers.get('x-vercel-ip-country') || undefined;
-      console.log(
-        `[prefetch-rum] t=${t} path=${path ?? ''} cache=${cacheCount} hit=${hitCount} rate=${hitRate.toFixed(3)} net=${
-          connection?.effectiveType ?? ''
-        }/${connection?.downlink ?? ''}Mbps rtt=${connection?.rtt ?? ''} saveData=${connection?.saveData ?? ''} mem=${
-          deviceMemory ?? ''
-        }GB cpu=${hardwareConcurrency ?? ''} ua=${ua.slice(0, 80)} country=${country ?? ''} cacheKeys=${(cacheKeys ?? []).join(',')} hitKeys=${(hitKeys ?? []).join(',')}`
-      );
-    } catch {}
+    // 默认关闭以避免生产环境高频 stdout 落盘 I/O，需要排查时置 PREFETCH_RUM_LOG=1。
+    if (process.env.PREFETCH_RUM_LOG === '1') {
+      try {
+        const ua = req.headers.get('user-agent') || '';
+        const country = req.headers.get('x-vercel-ip-country') || undefined;
+        console.log(
+          `[prefetch-rum] t=${t} path=${path ?? ''} cache=${cacheCount} hit=${hitCount} rate=${hitRate.toFixed(3)} net=${
+            connection?.effectiveType ?? ''
+          }/${connection?.downlink ?? ''}Mbps rtt=${connection?.rtt ?? ''} saveData=${connection?.saveData ?? ''} mem=${
+            deviceMemory ?? ''
+          }GB cpu=${hardwareConcurrency ?? ''} ua=${ua.slice(0, 80)} country=${country ?? ''} cacheKeys=${(cacheKeys ?? []).join(',')} hitKeys=${(hitKeys ?? []).join(',')}`
+        );
+      } catch {}
+    }
 
     // 无正文 204，便于 sendBeacon 快速返回
     return new Response(null, { status: 204 });

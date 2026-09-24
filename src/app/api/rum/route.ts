@@ -1,12 +1,23 @@
 import { NextRequest } from "next/server";
 import { Logger } from 'next-axiom';
 
+import { resolveClientIp, slidingWindowAllow } from '@/app/lib/api/rateLimit';
+
 export const runtime = "nodejs";
 
 const ALLOWED_NAMES = new Set(["LCP", "CLS", "INP", "TTFB", "FCP", "FID"]);
 
+/** 公开端点限流：单 IP 60 次/分钟，防止被刷成对 Axiom 的放大攻击。 */
+const RUM_RATE_LIMIT = 60;
+const RUM_RATE_WINDOW_MS = 60_000;
+
 export async function POST(req: NextRequest) {
   const log = new Logger();
+
+  // 限流先于一切解析：超限直接 204，保持 sendBeacon 快速返回语义
+  if (!slidingWindowAllow(`rum:${resolveClientIp(req)}`, RUM_RATE_LIMIT, RUM_RATE_WINDOW_MS)) {
+    return new Response(null, { status: 204 });
+  }
 
   try {
     const contentType = req.headers.get("content-type") || "";
@@ -72,8 +83,9 @@ export async function POST(req: NextRequest) {
         geo: { country, region, city }
       });
       
-      // 必须 flush 才能确保数据发出
-      await log.flush();
+      // 不阻塞响应：Node 常驻进程由 Axiom SDK 自身批量发送；
+      // 若在此 await，上游外呼延迟会直接计入响应时间（sendBeacon 场景毫无收益）。
+      void log.flush().catch((e) => console.error("Axiom logging error:", e));
     } catch (e) {
       console.error("Axiom logging error:", e);
     }
