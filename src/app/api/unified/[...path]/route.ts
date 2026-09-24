@@ -49,9 +49,6 @@ async function proxyToUnifiedApi(req: NextRequest, pathParts: string[]) {
   const upstream = buildUpstreamUrl(upstreamBaseUrl, pathParts, req.nextUrl.search);
   const method = req.method.toUpperCase();
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
-
   try {
     const contentType = req.headers.get('content-type') || 'application/json';
     const accept = req.headers.get('accept') || 'application/json';
@@ -72,14 +69,16 @@ async function proxyToUnifiedApi(req: NextRequest, pathParts: string[]) {
       method,
       headers,
       body,
-      signal: controller.signal,
+      signal: AbortSignal.timeout(TIMEOUT_MS),
       cache: 'no-store',
     });
 
     const resContentType = res.headers.get('content-type') || 'application/json; charset=utf-8';
-    const text = await res.text();
 
-    return new NextResponse(text, {
+    // 流式透传上游响应体，避免大 body 整体读入内存。
+    // 超时用 AbortSignal.timeout：它由运行时自动回收，且覆盖到 body 传输结束，
+    // 不会像手工 setTimeout + finally clearTimeout 那样在响应体传完前就解除超时保护。
+    return new NextResponse(res.body, {
       status: res.status,
       headers: {
         'Content-Type': resContentType,
@@ -93,7 +92,5 @@ async function proxyToUnifiedApi(req: NextRequest, pathParts: string[]) {
       { error: isTimeout ? '联合API请求超时，请稍后重试' : `联合API请求失败：${message}` },
       { status: isTimeout ? 504 : 502, headers: { 'Cache-Control': 'no-store' } },
     );
-  } finally {
-    clearTimeout(timeout);
   }
 }

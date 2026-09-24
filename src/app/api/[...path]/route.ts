@@ -92,9 +92,6 @@ async function proxy(req: NextRequest, params: { path: string[] }) {
 
   const upstream = buildUpstream(params.path, req.nextUrl.search);
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
-
   try {
     const headers: Record<string, string> = {
       Accept: req.headers.get('accept') || 'application/json',
@@ -119,7 +116,7 @@ async function proxy(req: NextRequest, params: { path: string[] }) {
       method: req.method,
       headers,
       body,
-      signal: controller.signal,
+      signal: AbortSignal.timeout(TIMEOUT_MS),
       cache: 'no-store',
       redirect: 'manual',
     });
@@ -147,8 +144,10 @@ async function proxy(req: NextRequest, params: { path: string[] }) {
       return new NextResponse(null, { status: res.status, headers: responseHeaders });
     }
 
-    const text = await res.text();
-    return new NextResponse(text, { status: res.status, headers: responseHeaders });
+    // 流式透传上游响应体：/api/save 等可能返回较大的云存档，避免整体读入内存。
+    // 超时由 AbortSignal.timeout 覆盖到 body 传输结束（手工 setTimeout + finally
+    // clearTimeout 会在响应体传完前就解除超时保护）。
+    return new NextResponse(res.body, { status: res.status, headers: responseHeaders });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     const isTimeout = /aborted|abort/i.test(message);
@@ -164,8 +163,6 @@ async function proxy(req: NextRequest, params: { path: string[] }) {
         },
       },
     );
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
