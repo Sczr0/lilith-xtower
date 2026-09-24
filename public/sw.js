@@ -19,12 +19,20 @@
  * 注意：当静态资源布局或缓存策略变化时，请将 CACHE_VERSION 递增以清空旧缓存。
  * ========================================================================== */
 
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3";
 const STATIC_CACHE = `lilith-static-${CACHE_VERSION}`;
 const PAGES_CACHE = `lilith-pages-${CACHE_VERSION}`;
 const API_CACHE = `lilith-api-${CACHE_VERSION}`;
 
 const OFFLINE_PATH = "/offline.html";
+
+// API 缓存容量上限（LRU）。SW 的 API 缓存按 URL 累积，其中
+// /api/public/profile/<alias> 是高基数 key（别名由用户产生），不设上限会无界增长；
+// 这里与服务端 publicProxyCache 的 100/300/500 上限对齐取 300。
+// 说明：PAGES_CACHE 的 key 是站内自己的导航 URL，基数由站点路由决定，不设额外上限。
+const API_CACHE_MAX_ENTRIES = 300;
+/** 存放 LRU 顺序的元数据条目（合成 URL，不会与真实请求冲突）。 */
+const API_LRU_KEY = "__sw_api_lru__";
 
 // 安装时预缓存的最小壳（允许个别失败，不阻断安装）。
 const PRECACHE = [
@@ -36,10 +44,14 @@ const PRECACHE = [
 
 // 只对“确定公开且只读的 GET 接口”做 SWR 缓存；其余 /api/* 与 /internal/*
 // （含 catch-all 与 unified 代理）一律不缓存。
+//
+// 注意：这里不含 /api/stats/*。服务端该接口按响应状态下发缓存头：
+// 成功为 `public, s-maxage=60, stale-while-revalidate=30`（刻意不带 max-age，
+// 即只允许 CDN 缓存 60s，不允许客户端持有），失败为 `no-store, no-cache`。
+// SW 的 SWR 会无视新鲜度直接回缓存，会把统计结果展示成陈旧值，故不参与 SWR。
 const SWR_API_PATTERNS = [
   /^\/api\/public\/profile\/.+/,
   /^\/api\/leaderboard\/rks\/(?:top|by-rank)$/,
-  /^\/api\/stats\/.+/,
   /^\/api\/content\/.+/,
   /^\/api\/songs$/,
   /^\/api\/qa$/,
@@ -88,8 +100,70 @@ function isSrwApi(url) {
   );
 }
 
+/**
+ * 判断响应是否可写入 Cache。
+ *
+ * 与服务端的缓存语义对齐：
+ * - 仅缓存成功响应；
+ * - 带 Set-Cookie 的一律不缓存（可能携带用户状态）；
+ * - 显式声明 no-store / private 的一律不缓存
+ *   （服务端错误响应会下发 `no-store, no-cache`，此前 SW 不看该头会照存不误）。
+ */
 function isProbablyCacheableResponse(res) {
-  return res && res.ok && !res.headers.get("set-cookie");
+  if (!res || !res.ok) return false;
+  if (res.headers.get("set-cookie")) return false;
+  const cacheControl = (res.headers.get("cache-control") || "").toLowerCase();
+  if (cacheControl.includes("no-store") || cacheControl.includes("private")) return false;
+  return true;
+}
+
+// ── API 缓存 LRU ──
+// 用一条元数据记录（按使用顺序排列的 URL 列表）实现真实 LRU；
+// 所有簿记都容错，失败只退化为“不做淘汰”，绝不阻断请求。
+
+function apiLruRequest() {
+  return new Request(new URL(`/${API_LRU_KEY}`, self.location.origin));
+}
+
+async function readApiLruList(cache) {
+  try {
+    const res = await cache.match(apiLruRequest());
+    if (!res) return [];
+    const list = await res.json();
+    return Array.isArray(list) ? list.filter((k) => typeof k === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+async function writeApiLruList(cache, list) {
+  try {
+    await cache.put(
+      apiLruRequest(),
+      new Response(JSON.stringify(list), {
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+/** 记录一次写入并做 LRU 淘汰：超上限时删除最久未使用的条目。 */
+async function touchApiCache(cache, req) {
+  const key = req.url;
+  const list = (await readApiLruList(cache)).filter((k) => k !== key);
+  list.push(key);
+  while (list.length > API_CACHE_MAX_ENTRIES) {
+    const evicted = list.shift();
+    if (!evicted) break;
+    try {
+      await cache.delete(evicted);
+    } catch {
+      /* ignore */
+    }
+  }
+  await writeApiLruList(cache, list);
 }
 
 async function cacheFirst(req, cacheName) {
@@ -110,7 +184,11 @@ async function staleWhileRevalidate(req, cacheName) {
   const network = fetch(req)
     .then((res) => {
       if (isProbablyCacheableResponse(res)) {
-        cache.put(req, res.clone()).catch(() => {});
+        const clone = res.clone();
+        cache
+          .put(req, clone)
+          .then(() => touchApiCache(cache, req))
+          .catch(() => {});
       }
       return res;
     })
