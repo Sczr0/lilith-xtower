@@ -6,7 +6,8 @@
  * - difficulty.csv 曲目定数（id, EZ, HD, IN, AT）
  * - version.txt    游戏版本（如 "3.19.5 (153)"）
  *
- * 注意：info.csv 的 EZ/HD/IN/AT 列是各难度的**谱师名**（非定数），
+ * 注意：info.csv 的 EZ/HD/IN/AT 列是各难度的**定数**，EZC/HDC/INC/ATC 列是**谱师名**；
+ * 旧版 8 列布局（EZ..AT 直接存谱师）仍可解析：定数一律以 difficulty.csv 为准。
  * 定数来自 difficulty.csv。
  */
 import type { Difficulty } from '@/app/lib/constants/difficultyColors';
@@ -25,7 +26,7 @@ export interface SongInfo {
   hd: number | null;
   in: number | null;
   at: number | null;
-  /** 各难度谱师（来自 info.csv 的 EZ/HD/IN/AT 列）；该难度无谱师或不存在时为 null。 */
+  /** 各难度谱师（来自 info.csv 的 EZC/HDC/INC/ATC 列；旧版 8 列布局回退到 EZ..AT 列）。该难度无谱师或不存在时为 null。 */
   chartEz: string | null;
   chartHd: string | null;
   chartIn: string | null;
@@ -189,7 +190,7 @@ function parseDesignerCell(raw: string): string | null {
   return value === '' ? null : value;
 }
 
-/** 从 info.csv 解析曲目基础信息（难度列为谱师名）。 */
+/** 从 info.csv 解析曲目基础信息（EZ..AT 为定数、EZC..ATC 为谱师；旧版 8 列布局自动回退）。 */
 export function parseSongInfoCsv(text: string): SongInfo[] {
   const rows = parseCsv(text);
   const songs: SongInfo[] = [];
@@ -206,14 +207,15 @@ export function parseSongInfoCsv(text: string): SongInfo[] {
       name: row[1]?.trim() ?? '',
       composer: row[2]?.trim() ?? '',
       illustrator: row[3]?.trim() ?? '',
-      ez: null,
-      hd: null,
-      in: null,
-      at: null,
-      chartEz: parseDesignerCell(row[4] ?? ''),
-      chartHd: parseDesignerCell(row[5] ?? ''),
-      chartIn: parseDesignerCell(row[6] ?? ''),
-      chartAt: parseDesignerCell(row[7] ?? ''),
+      ez: parseLevelCell(row[4] ?? ''),
+      hd: parseLevelCell(row[5] ?? ''),
+      in: parseLevelCell(row[6] ?? ''),
+      at: parseLevelCell(row[7] ?? ''),
+      // 新版布局谱师在第 8~11 列，旧版布局回退到第 4~7 列
+      chartEz: parseDesignerCell(row[8] ?? row[4] ?? ''),
+      chartHd: parseDesignerCell(row[9] ?? row[5] ?? ''),
+      chartIn: parseDesignerCell(row[10] ?? row[6] ?? ''),
+      chartAt: parseDesignerCell(row[11] ?? row[7] ?? ''),
     };
     songs.push(song);
   }

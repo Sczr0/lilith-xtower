@@ -83,7 +83,7 @@ describe('parseSongInfoCsv / parseDifficultyCsv / mergeSongInfo', () => {
     expect(first.name).toBe('Glaciaxion');
     expect(first.composer).toBe('SunsetRay');
     expect(first.illustrator).toBe('艾若拉');
-    // info.csv 的难度列是谱师名，不是定数
+    // 旧版 8 列布局（EZ..AT 存谱师）：定数解析为 null，谱师回退到第 4~7 列
     expect(first.ez).toBeNull();
     expect(first.chartEz).toBe('Barbarianerman');
     expect(first.chartIn).toBe('Barbarianerman vs. NerSAN');
@@ -126,6 +126,35 @@ describe('parseSongInfoCsv / parseDifficultyCsv / mergeSongInfo', () => {
     const first = data.songs[0];
     expect(getSongLevel(first, 'EZ')).toBe(1.0);
     expect(getSongLevel(first, 'AT')).toBeNull();
+  });
+});
+
+describe('parseSongInfoCsv（新版 12 列布局）', () => {
+  const songCsvV2 = fixture('info-v2.csv');
+
+  it('EZ..AT 列为定数，EZC..ATC 列为谱师', () => {
+    const songs = parseSongInfoCsv(songCsvV2);
+    const first = songs.find((s) => s.id === 'Glaciaxion.SunsetRay');
+    expect(first?.ez).toBe(1.0);
+    expect(first?.hd).toBe(6.5);
+    expect(first?.in).toBe(12.6);
+    expect(first?.chartEz).toBe('Barbarianerman');
+    expect(first?.chartAt).toBeNull();
+  });
+
+  it('含引号的谱师名在新布局下同样被正确还原', () => {
+    const songs = parseSongInfoCsv(songCsvV2);
+    const six = songs.find((s) => s.id === '望影の方舟Six.SeURa');
+    expect(six).toBeDefined();
+    expect(six?.chartIn).toBe('六回目Traveler Scend as "Knight of Arq"');
+  });
+
+  it('mergeSongInfo 仍以 difficulty.csv 的定数为准', () => {
+    const data = mergeSongInfo(songCsvV2, difficultyCsv, versionText);
+    const first = data.songs.find((s) => s.id === 'Glaciaxion.SunsetRay');
+    expect(first?.ez).toBe(1.0);
+    expect(first?.at).toBeNull();
+    expect(first?.chartEz).toBe('Barbarianerman');
   });
 });
 
