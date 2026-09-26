@@ -3,7 +3,9 @@
  *
  * 说明：
  * - 调用 Cap Standalone 的 /<site_key>/siteverify 接口验证客户端提交的 cap-token
- * - 内置 Circuit Breaker：超时/服务不可用时自动降级通过，避免阻断正常用户
+ * - 内置 Circuit Breaker：只统计「5xx / 超时 / 网络不可达」这类上游自身故障并降级
+ *   通过，避免 CAP 服务挂掉时阻断正常用户
+ * - token 无效（4xx 或 success:false）属于验证失败：不计数、不降级，一律拒绝
  * - 通过环境变量 CAP_API_BASE + CAP_SITE_KEY + CAP_SECRET_KEY 配置
  *
  * 强制校验语义（安全）：
@@ -41,6 +43,20 @@ function transitionToOpen() {
   circuitFailureCount = 0;
 }
 
+/** 上游给了可解析响应 → 上游存活，重置熔断计数 */
+function closeCircuit() {
+  circuitState = 'closed';
+  circuitFailureCount = 0;
+}
+
+/** 仅上游自身故障计数：达阈值断路；半开态探测失败立即重新断路 */
+function recordUpstreamFailure() {
+  circuitFailureCount += 1;
+  if (circuitState === 'half-open' || circuitFailureCount >= CIRCUIT_FAILURE_THRESHOLD) {
+    transitionToOpen();
+  }
+}
+
 function shouldAttemptRecovery(): boolean {
   if (circuitState !== 'open') return false;
   return Date.now() - circuitOpenAt >= CIRCUIT_OPEN_MS;
@@ -56,7 +72,8 @@ export type CapVerifyResult =
  * - 服务端未配置密钥 → 灰度放行
  * - 已配置密钥但 token 缺失 → missing_token（明确拒绝，不降级）
  * - 验证成功 → ok
- * - token 无效/远端不可用 → 根据 circuit breaker 决定是否降级
+ * - token 无效（4xx / success:false）→ invalid_token（明确拒绝，不计数、不降级）
+ * - 上游故障（5xx / 超时 / 网络不可达）→ 计入熔断；断路打开期间才降级放行
  */
 export async function verifyCapToken(token: string | undefined | null): Promise<CapVerifyResult> {
   const capSecretKey = getCapSecretKey();
@@ -93,37 +110,34 @@ export async function verifyCapToken(token: string | undefined | null): Promise<
       cache: 'no-store',
     });
 
+    // 5xx：上游自身故障，计入熔断，本次按上游故障降级（不把故障算成「验证码错误」）
+    if (res.status >= 500) {
+      recordUpstreamFailure();
+      console.warn(`Cap siteverify upstream error: ${res.status}`);
+      return { ok: false, reason: 'upstream_error' };
+    }
+
+    // 4xx：上游存活且明确拒绝该 token —— 不计熔断，也不降级
     if (!res.ok) {
-      // Cap 明确拒绝了 token
-      circuitFailureCount += 1;
-      if (circuitState === 'half-open' || circuitFailureCount >= CIRCUIT_FAILURE_THRESHOLD) {
-        transitionToOpen();
-      }
+      closeCircuit();
       return { ok: false, reason: 'invalid_token' };
     }
 
     const data = (await res.json()) as { success?: boolean };
 
+    // 能解析出响应体即证明上游存活，重置熔断计数
+    closeCircuit();
+
     // Cap v3 的验证成功标志。注意：siteverify 兼容 reCAPTCHA 格式，但 Cap v3 可能返回 { success: true }
     if (data.success === true) {
-      // 验证成功 — 重置断路器
-      circuitState = 'closed';
-      circuitFailureCount = 0;
       return { ok: true };
     }
 
-    circuitFailureCount += 1;
-    if (circuitFailureCount >= CIRCUIT_FAILURE_THRESHOLD) {
-      transitionToOpen();
-    }
     return { ok: false, reason: 'invalid_token' };
   } catch (error) {
     const isTimeout = error instanceof DOMException && error.name === 'AbortError';
 
-    circuitFailureCount += 1;
-    if (circuitState === 'half-open' || circuitFailureCount >= CIRCUIT_FAILURE_THRESHOLD) {
-      transitionToOpen();
-    }
+    recordUpstreamFailure();
 
     console.warn(
       `Cap siteverify ${isTimeout ? 'timeout' : 'error'}:`,

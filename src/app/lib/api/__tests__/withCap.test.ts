@@ -83,8 +83,8 @@ describe('verifyCapToken', () => {
     });
 
     it('degrades to ok via circuit breaker after repeated upstream failures (token present)', async () => {
-      // 说明：网络层故障（fetch 抛错）对应 upstream_error；HTTP 4xx/5xx 在
-      // withCap 现有语义下算 invalid_token。这里测的是「上游不可达」的降级路径。
+      // 说明：网络层故障（fetch 抛错）与 HTTP 5xx 才是「上游自身故障」，计入熔断；
+      // HTTP 4xx 与 success:false 属于验证失败，不计数也不降级。
       stubFetch(async () => {
         throw new Error('network down');
       });
@@ -112,6 +112,68 @@ describe('verifyCapToken', () => {
       // 断路打开也不能放过缺 token 的请求（缺 token 检查先于断路器）
       const result = await verifyCapToken(undefined);
       expect(result).toEqual({ ok: false, reason: 'missing_token' });
+    });
+
+    it('does not open the circuit on repeated invalid tokens (success:false)', async () => {
+      const fetchMock = stubFetch(
+        async () => new Response(JSON.stringify({ success: false }), { status: 200 }),
+      );
+
+      // 远超阈值的次数：每次都必须被拒绝，不得因熔断而放行
+      for (let i = 0; i < 8; i += 1) {
+        expect(await verifyCapToken('garbage-token')).toEqual({
+          ok: false,
+          reason: 'invalid_token',
+        });
+      }
+      expect(fetchMock).toHaveBeenCalledTimes(8);
+    });
+
+    it('does not open the circuit on 4xx rejections from siteverify', async () => {
+      const fetchMock = stubFetch(
+        async () => new Response(JSON.stringify({ success: false }), { status: 403 }),
+      );
+
+      for (let i = 0; i < 8; i += 1) {
+        expect(await verifyCapToken('garbage-token')).toEqual({
+          ok: false,
+          reason: 'invalid_token',
+        });
+      }
+      expect(fetchMock).toHaveBeenCalledTimes(8);
+    });
+
+    it('counts 5xx toward the circuit breaker and degrades only after it opens', async () => {
+      stubFetch(async () => new Response('upstream boom', { status: 503 }));
+
+      // 前 5 次按上游故障返回（登录侧据此降级），第 6 次进入断路降级
+      for (let i = 0; i < 5; i += 1) {
+        expect(await verifyCapToken('token')).toEqual({ ok: false, reason: 'upstream_error' });
+      }
+      expect(await verifyCapToken('token')).toEqual({ ok: true });
+    });
+
+    it('closes the circuit once upstream answers again (recovered token still rejected)', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      try {
+        stubFetch(async () => {
+          throw new Error('network down');
+        });
+        for (let i = 0; i < 5; i += 1) {
+          await verifyCapToken('token');
+        }
+        expect(await verifyCapToken('token')).toEqual({ ok: true }); // 断路期降级放行
+
+        // 30s 后半开探测：上游已恢复，并明确拒绝该 token
+        vi.setSystemTime(Date.now() + 31_000);
+        stubFetch(async () => new Response(JSON.stringify({ success: false }), { status: 403 }));
+
+        expect(await verifyCapToken('token')).toEqual({ ok: false, reason: 'invalid_token' });
+        // 断路器已重置：后续无效 token 不再被降级放行
+        expect(await verifyCapToken('token')).toEqual({ ok: false, reason: 'invalid_token' });
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 });
