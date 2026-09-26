@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 
+import { GenerationProvider } from '../contexts/GenerationContext'
+
 /**
  * 强制动态渲染：dashboard 页面使用 useSearchParams() 读取 tab 参数，
  * 若被静态优化则会导致 hydration 后全量重渲染（表现为页面"刷新"），
@@ -36,5 +38,8 @@ export const metadata: Metadata = {
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  return children
+  // GenerationProvider 的消费方（BnImageGenerator / SongSearchGenerator）都是本路由内
+  // 按 tab 懒加载的组件：下沉到这里即可覆盖「切换 tab 后仍能读到上次生成的 Blob」，
+  // 同时不再让全站每个页面都加载它。
+  return <GenerationProvider>{children}</GenerationProvider>
 }

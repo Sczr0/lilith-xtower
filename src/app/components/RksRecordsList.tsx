@@ -166,7 +166,7 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
     sortOrder,
   ]);
 
-  const loadRecords = async (options?: { showLoading?: boolean }) => {
+  const loadRecords = async (options?: { showLoading?: boolean; force?: boolean }) => {
     if (!credential) {
       setError('未找到登录凭证，请重新登录。');
       return;
@@ -177,7 +177,7 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
     setError(null);
 
     try {
-      const response = await ScoreAPI.getRksList();
+      const response = await ScoreAPI.getRksList({ force: options?.force });
       const newRecords = response.data.records || [];
       setRecords(newRecords);
       const now = Date.now();
@@ -523,7 +523,7 @@ function RksRecordsListInner({ showTitle = true, showDescription = true }: { sho
               <button
                 type="button"
                 disabled={!credential || isLoading}
-                onClick={() => loadRecords({ showLoading: true })}
+                onClick={() => loadRecords({ showLoading: true, force: true })}
                 className="inline-flex items-center justify-center rounded-lg border border-gray-300 dark:border-gray-700 bg-white/70 dark:bg-gray-900/50 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
                 title={!credential ? '未找到登录凭证' : undefined}
               >

@@ -1,6 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { getPreloadPolicy, resolvePreloadProfile } from '../preload';
+import {
+  clearPrefetchCache,
+  getPreloadPolicy,
+  prefetchLeaderboard,
+  prefetchRksData,
+  resolvePreloadProfile,
+} from '../preload';
+import { LeaderboardAPI } from '../../api/leaderboard';
+import { ScoreAPI, resetScoreApiCacheForTest } from '../../api/score';
 
 describe('preload profile strategy', () => {
   it('returns off when user enables reduced data preference', () => {
@@ -66,6 +74,76 @@ describe('preload policy mapping', () => {
     expect(policy.homeIdleTimeout).toBeGreaterThanOrEqual(3_000);
     expect(policy.dashboardRoutes).toEqual(['/about', '/qa', '/sponsors']);
     expect(policy.sponsorsDeferredConcurrent).toBe(1);
+  });
+});
+
+/**
+ * 回归：预取必须与组件首次加载落在同一层缓存。
+ * 历史上两者各发一次请求（LeaderboardPanel 带 offset=0、预取不带；RKS 预取结果
+ * 除了「已预取」标记外无人消费），等于白跑一次上游。
+ */
+describe('预取结果可被组件复用', () => {
+  const stubFastDeviceEnv = () => {
+    vi.stubGlobal('window', {});
+    vi.stubGlobal('navigator', {
+      hardwareConcurrency: 8,
+      deviceMemory: 8,
+      connection: { effectiveType: '4g', downlink: 10, rtt: 40 },
+    });
+  };
+
+  const stubJsonFetch = (payload: unknown) => {
+    const fetchMock = vi.fn(async () =>
+      ({
+        ok: true,
+        async json() {
+          return payload;
+        },
+      }) as unknown as Response,
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    return fetchMock;
+  };
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    clearPrefetchCache();
+    resetScoreApiCacheForTest();
+  });
+
+  it('prefetchLeaderboard 与排行榜首屏共用一次请求', async () => {
+    stubFastDeviceEnv();
+    const fetchMock = stubJsonFetch({ items: [], total: 0 });
+    const limit = 200; // 用独立 limit 与其它用例的缓存 key 隔离
+
+    await prefetchLeaderboard(limit);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await LeaderboardAPI.getTop({ limit, offset: 0 });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('prefetchRksData 与 RKS 列表首次加载共用一次请求', async () => {
+    stubFastDeviceEnv();
+    const fetchMock = stubJsonFetch({ save: { gameRecord: {} } });
+
+    await prefetchRksData();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await ScoreAPI.getRksList();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('RKS 列表显式刷新会绕过缓存重新请求', async () => {
+    stubFastDeviceEnv();
+    const fetchMock = stubJsonFetch({ save: { gameRecord: {} } });
+
+    await ScoreAPI.getRksList();
+    await ScoreAPI.getRksList({ force: true });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
 

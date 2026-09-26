@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ScoreAPI } from '../score';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ScoreAPI, resetScoreApiCacheForTest } from '../score';
 import type { DailyDauResponse, DailyFeaturesResponse, DailyHttpResponse, ServiceStatsResponse } from '../../types/score';
 
 const createFetchMock = (payload: unknown, ok = true) =>
@@ -21,6 +21,11 @@ const createFetchMockJsonError = (ok = true) =>
       },
     }) as unknown as Response,
   );
+
+beforeEach(() => {
+  // ScoreAPI 内部有跨调用复用的结果缓存（预取与首次加载共用一次请求），逐用例清空
+  resetScoreApiCacheForTest();
+});
 
 afterEach(() => {
   vi.restoreAllMocks();

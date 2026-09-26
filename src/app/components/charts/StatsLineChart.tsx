@@ -6,7 +6,7 @@ import { useTheme } from 'next-themes';
 
 import { usePrefersReducedMotion } from '../../hooks/usePrefersReducedMotion';
 
-const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
+const ReactECharts = dynamic(() => import('./echartsCore'), { ssr: false });
 
 export type StatsLineChartSeries = {
   name: string;

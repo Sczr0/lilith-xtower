@@ -11,11 +11,38 @@ import {
   type ServerRksInfo,
 } from '../types/score';
 import { extractProblemMessage } from './problem';
+import { createDedupedCache } from '../utils/cacheWithDedup';
 
 const BASE_URL = '/api';
 
+const RKS_LIST_CACHE_KEY = 'rks-list';
+const SERVICE_STATS_CACHE_KEY = 'service-stats';
+/** 客户端结果缓存 TTL：只用于「预取与首次加载共用一次请求」，不宜过长 */
+const CLIENT_CACHE_TTL_MS = 60 * 1000;
+
+const rksListCache = createDedupedCache<RksResponse>({ ttlMs: CLIENT_CACHE_TTL_MS });
+const serviceStatsCache = createDedupedCache<ServiceStatsResponse>({ ttlMs: CLIENT_CACHE_TTL_MS });
+
+// 仅用于测试
+export function resetScoreApiCacheForTest(): void {
+  rksListCache.clear();
+  serviceStatsCache.clear();
+}
+
 export class ScoreAPI {
-  static async getRksList(): Promise<RksResponse> {
+  /**
+   * 获取 RKS 列表（按需缓存）
+   *
+   * 说明：仪表盘空闲预取与 RksRecordsList 的首次加载会打同一个上游接口，且 POST /save
+   * 是本站最大的响应体。走同一层缓存后两者共用一次请求（含并发去重）。
+   * 显式「刷新」按钮通过 force 绕过缓存。
+   */
+  static async getRksList(options?: { force?: boolean }): Promise<RksResponse> {
+    if (options?.force) rksListCache.invalidate(RKS_LIST_CACHE_KEY);
+    return rksListCache.get(RKS_LIST_CACHE_KEY, () => ScoreAPI.fetchRksList());
+  }
+
+  private static async fetchRksList(): Promise<RksResponse> {
     const response = await fetch(`${BASE_URL}/save?calculate_rks=true`, {
       method: 'POST',
       headers: {
@@ -223,7 +250,12 @@ export class ScoreAPI {
     };
   }
 
+  /** 获取服务统计（按需缓存，与仪表盘空闲预取共用一次请求） */
   static async getServiceStats(): Promise<ServiceStatsResponse> {
+    return serviceStatsCache.get(SERVICE_STATS_CACHE_KEY, () => ScoreAPI.fetchServiceStats());
+  }
+
+  private static async fetchServiceStats(): Promise<ServiceStatsResponse> {
     const response = await fetch(`${BASE_URL}/stats/summary`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },

@@ -4,6 +4,7 @@
  */
 
 import { LeaderboardAPI } from '../api/leaderboard';
+import { ScoreAPI } from '../api/score';
 import { LEADERBOARD_TOP_LIMIT_DEFAULT } from '../constants/leaderboard';
 
 // 预取缓存，避免重复请求
@@ -411,49 +412,42 @@ export function clearPrefetchCache(key?: string): void {
 
 /**
  * 预取 RKS 数据
+ *
+ * 走 ScoreAPI.getRksList（同一层缓存）：预取结果会被 RksRecordsList 的首次加载直接复用，
+ * 否则预取的响应无从消费，组件仍会再发一次 /save。
  */
 export async function prefetchRksData(): Promise<void> {
   if (!shouldPreload()) return;
   
   const key = 'rks';
-  await prefetchData(key, async () => {
-    const response = await fetch('/api/save?calculate_rks=true', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
-    });
-    if (!response.ok) throw new Error('Failed to prefetch RKS data');
-    return response.json();
-  });
+  await prefetchData(key, () => ScoreAPI.getRksList());
 }
 
 /**
  * 预取排行榜数据
+ *
+ * 参数必须与 LeaderboardPanel 首屏 loadTop(true) 一致（offset=0），否则会落到
+ * 不同的 cache key（LeaderboardAPI 内部按完整 query 建 key），预取结果不会被复用。
  */
 export async function prefetchLeaderboard(limit = LEADERBOARD_TOP_LIMIT_DEFAULT): Promise<void> {
   if (!shouldPreload()) return;
   
   const key = `leaderboard_top_${limit}`;
   await prefetchData(key, async () => {
-    return LeaderboardAPI.getTop({ limit });
+    return LeaderboardAPI.getTop({ limit, offset: 0 });
   });
 }
 
 /**
  * 预取服务统计数据
+ *
+ * 同样走 ScoreAPI.getServiceStats（同一层缓存），供 ServiceStats 组件直接复用。
  */
 export async function prefetchServiceStats(): Promise<void> {
   if (!shouldPreload()) return;
   
   const key = 'service_stats';
-  await prefetchData(key, async () => {
-    const response = await fetch('/api/stats/summary', {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    });
-    if (!response.ok) throw new Error('Failed to prefetch service stats');
-    return response.json();
-  });
+  await prefetchData(key, () => ScoreAPI.getServiceStats());
 }
 
 /**

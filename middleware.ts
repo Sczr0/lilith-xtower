@@ -29,6 +29,10 @@ const PUBLIC_HTML_CACHE: Record<string, string> = {
   '/qa': 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400',
   '/agreement': 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400',
   '/privacy': 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400',
+  // 纯静态壳 + 客户端状态：/verify 是本地校验工具，/banned 的封禁详情由客户端从
+  // sessionStorage 回填，两者匿名共享同一份 HTML 是安全的（带会话 Cookie 仍走 no-store）
+  '/verify': 'public, max-age=0, s-maxage=600, stale-while-revalidate=86400',
+  '/banned': 'public, max-age=0, s-maxage=600, stale-while-revalidate=86400',
 };
 
 function isHtmlDocumentRequest(request: NextRequest): boolean {

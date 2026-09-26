@@ -6,7 +6,14 @@ import { AlertTriangle, CheckCircle2, CloudUpload, Info, XCircle } from 'lucide-
 import { PageShell } from '../components/PageShell';
 import { SiteHeader } from '../components/SiteHeader';
 import { SiteFooter } from '../components/SiteFooter';
-import { verifySvgSignature, extractSvgSignature } from '../utils/svgRenderer';
+
+// svgRenderer 是 1600+ 行的大模块（渲染 + 水印逻辑），只有用户真正校验文件时才需要：
+// 首次调用按需加载，并复用同一份 Promise，避免重复 import。
+let svgRendererModule: Promise<typeof import('../utils/svgRenderer')> | null = null
+function loadSvgRenderer() {
+  svgRendererModule ??= import('../utils/svgRenderer')
+  return svgRendererModule
+}
 
 type VerifyState = 'idle' | 'loading' | 'svg-valid' | 'svg-invalid' | 'png-found' | 'png-none' | 'error';
 
@@ -72,6 +79,8 @@ export default function VerifyPage() {
     setSvgMeta(null)
     setVerifyBadge(null)
 
+    const { extractSvgSignature, verifySvgSignature } = await loadSvgRenderer()
+
     // 提取本地签名元数据
     const sig = extractSvgSignature(svgText)
     if (!sig) {
@@ -131,6 +140,7 @@ export default function VerifyPage() {
 
       if (sigComment) {
         // 从 tEXt 块拿到了签名注释，解析 sigHash
+        const { extractSvgSignature } = await loadSvgRenderer()
         const wrapped = '<!-- ' + sigComment + ' -->'
         const parsed = extractSvgSignature(wrapped)
 

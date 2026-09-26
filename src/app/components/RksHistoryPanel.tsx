@@ -10,7 +10,7 @@ import { formatFixedNumber, parseFiniteNumber } from '../lib/utils/number';
 import { RksHistoryItem, RksHistoryResponse } from '../lib/types/score';
 
 // 动态导入 ECharts 组件，禁用 SSR
-const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
+const ReactECharts = dynamic(() => import('./charts/echartsCore'), { ssr: false });
 
 interface RksHistoryPanelProps {
   showTitle?: boolean;

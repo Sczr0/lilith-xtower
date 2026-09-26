@@ -5,7 +5,6 @@ import { ThemeProvider } from "./components/ThemeProvider";
 import { AuthProvider } from "./contexts/AuthContext";
 import { InstallPromptProvider } from "./contexts/InstallPromptContext";
 import { MaintenanceProvider } from "./components/MaintenanceProvider";
-import { GenerationProvider } from "./contexts/GenerationContext";
 import { MaintenanceNotice } from "./components/MaintenanceNotice";
 import { PrivacyNotice } from "./components/PrivacyNotice";
 import { OfflineNotice } from "./components/OfflineNotice";
@@ -132,9 +131,7 @@ export default async function RootLayout({
                 <AuthProvider>
                   <DiagnosticsInit />
                   <MaintenanceProvider>
-                    <GenerationProvider>
-                      {children}
-                    </GenerationProvider>
+                    {children}
                   </MaintenanceProvider>
                 </AuthProvider>
               </InstallPromptProvider>

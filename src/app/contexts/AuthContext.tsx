@@ -14,7 +14,6 @@ import dynamic from 'next/dynamic';
 import { usePathname, useRouter } from 'next/navigation';
 
 import { RotatingTips } from '../components/RotatingTips';
-import { SessionExpiredModal } from '../components/SessionExpiredModal';
 import { AuthAPI } from '../lib/api/auth';
 import {
   detectGlobalBanFromResponse,
@@ -34,6 +33,13 @@ import { useServiceReachability } from '../hooks/useServiceReachability';
 
 const AgreementModal = dynamic(
   () => import('../components/AgreementModal').then((m) => m.AgreementModal),
+  { ssr: false, loading: () => null },
+);
+
+// 同 AgreementModal：该弹窗只在「本地有登录缓存但服务端判定未登录」时才会出现，
+// 动态加载可避免把 @radix-ui/react-dialog 带进全站共享 chunk。
+const SessionExpiredModal = dynamic(
+  () => import('../components/SessionExpiredModal').then((m) => m.SessionExpiredModal),
   { ssr: false, loading: () => null },
 );
 

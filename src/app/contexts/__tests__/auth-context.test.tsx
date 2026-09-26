@@ -25,12 +25,14 @@ vi.mock('../../lib/cap/client', () => ({
   getCapToken: vi.fn().mockResolvedValue(undefined),
 }));
 
-// AgreementModal 经 next/dynamic 懒加载，渲染为可探测标记，用于断言弹窗显隐。
+// AgreementModal / SessionExpiredModal 均经 next/dynamic 懒加载：测试里不真正异步加载，
+// 渲染为可探测标记，并按模块名区分，便于分别断言两个弹窗的显隐。
 vi.mock('next/dynamic', () => ({
   __esModule: true,
-  default: () => {
-    const DynamicPlaceholder = () => <div data-testid="dynamic-modal" />;
-    DynamicPlaceholder.displayName = 'DynamicPlaceholder';
+  default: (loader: () => Promise<unknown>) => {
+    const testId = String(loader).includes('SessionExpiredModal') ? 'session-expired-modal' : 'dynamic-modal';
+    const DynamicPlaceholder = () => <div data-testid={testId} />;
+    DynamicPlaceholder.displayName = `DynamicPlaceholder(${testId})`;
     return DynamicPlaceholder;
   },
 }));
@@ -85,7 +87,7 @@ describe('AuthContext 登录缓存与异常弹窗', () => {
       </AuthProvider>,
     );
 
-    expect(await screen.findByText('登录状态异常')).toBeTruthy();
+    expect(await screen.findByTestId('session-expired-modal')).toBeTruthy();
     expect(AuthStorage.getCachedLogin()).toBe(false);
     expect(screen.getByTestId('auth-state').textContent).toBe('guest');
   });
@@ -100,7 +102,7 @@ describe('AuthContext 登录缓存与异常弹窗', () => {
     );
 
     expect(await screen.findByText('guest')).toBeTruthy();
-    expect(screen.queryByText('登录状态异常')).toBeNull();
+    expect(screen.queryByTestId('session-expired-modal')).toBeNull();
   });
 
   it('缓存已登录且会话有效时：不弹窗', async () => {
@@ -114,7 +116,7 @@ describe('AuthContext 登录缓存与异常弹窗', () => {
     );
 
     expect(await screen.findByText('authed')).toBeTruthy();
-    expect(screen.queryByText('登录状态异常')).toBeNull();
+    expect(screen.queryByTestId('session-expired-modal')).toBeNull();
   });
 
   it('登录成功后写入登录缓存', async () => {
@@ -196,7 +198,7 @@ describe('AuthContext 登录缓存与异常弹窗', () => {
     // 瞬时失败已重试耗尽后：仍是登录态（沿用缓存），但标记为未确认。
     expect(await screen.findByText('authed', undefined, { timeout: 4_000 })).toBeTruthy();
     expect(screen.getByTestId('session-verified').textContent).toBe('unverified');
-    expect(screen.queryByText('登录状态异常')).toBeNull();
+    expect(screen.queryByTestId('session-expired-modal')).toBeNull();
     expect(AuthStorage.getCachedLogin()).toBe(true);
   });
 
@@ -212,7 +214,7 @@ describe('AuthContext 登录缓存与异常弹窗', () => {
 
     expect(await screen.findByText('authed', undefined, { timeout: 4_000 })).toBeTruthy();
     expect(screen.getByTestId('session-verified').textContent).toBe('unverified');
-    expect(screen.queryByText('登录状态异常')).toBeNull();
+    expect(screen.queryByTestId('session-expired-modal')).toBeNull();
   });
 
   it('服务端权威判定未登录时：清除缓存并弹窗（保持原行为）', async () => {
@@ -227,7 +229,7 @@ describe('AuthContext 登录缓存与异常弹窗', () => {
 
     expect(await screen.findByText('guest')).toBeTruthy();
     expect(screen.getByTestId('session-verified').textContent).toBe('verified');
-    expect(await screen.findByText('登录状态异常')).toBeTruthy();
+    expect(await screen.findByTestId('session-expired-modal')).toBeTruthy();
     expect(AuthStorage.getCachedLogin()).toBe(false);
   });
 });
