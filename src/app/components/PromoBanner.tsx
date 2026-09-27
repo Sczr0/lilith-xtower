@@ -102,15 +102,29 @@ export function PromoBanner({ pathname }: { pathname: string }) {
 
     updateLoopMetrics();
 
+    // ResizeObserver 回调里既 setState（canLoop 会增减暂停按钮、切换 hide-scrollbar）
+    // 又写 scrollLeft，观测元素在同一帧内被再次改动就会触发
+    // "ResizeObserver loop limit exceeded"（LILITH-XTOWER-Y）。
+    // 这里把测量挪到下一帧、同帧内多次通知只测一次，断开回调内的布局反馈。
+    let metricsRafId: number | null = null;
+    const scheduleLoopMetrics = () => {
+      if (metricsRafId != null) return;
+      metricsRafId = window.requestAnimationFrame(() => {
+        metricsRafId = null;
+        updateLoopMetrics();
+      });
+    };
+
     const resizeObserver =
-      typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateLoopMetrics) : null;
+      typeof ResizeObserver !== "undefined" ? new ResizeObserver(scheduleLoopMetrics) : null;
     resizeObserver?.observe(scrollContainer);
     resizeObserver?.observe(marqueeGroup);
-    window.addEventListener("resize", updateLoopMetrics);
+    window.addEventListener("resize", scheduleLoopMetrics);
 
     return () => {
+      if (metricsRafId != null) window.cancelAnimationFrame(metricsRafId);
       resizeObserver?.disconnect();
-      window.removeEventListener("resize", updateLoopMetrics);
+      window.removeEventListener("resize", scheduleLoopMetrics);
     };
   }, [visibleSlides.length]);
 
