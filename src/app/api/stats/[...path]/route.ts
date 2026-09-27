@@ -37,9 +37,14 @@ export async function GET(req: NextRequest, context: RouteContext) {
       cache: 'no-store',
     });
 
-    // 流式透传（超时由 AbortSignal.timeout 覆盖到 body 结束，无需手工清理定时器）
+    // 先在 handler 内读完 body：AbortSignal.timeout 会覆盖到读取结束，上游超时/中断
+    // 一定落进下面的 catch，返回干净的 504。若直接透传 res.body，超时发生在 handler
+    // 返回之后、catch 接不住，Next 只会记 "failed to pipe response"，客户端拿到的是
+    // 中断的响应（LILITH-XTOWER-Z）。统计响应体很小，缓冲不带来内存压力。
+    const body = await res.arrayBuffer();
+
     const isSuccess = res.status >= 200 && res.status < 300;
-    return new NextResponse(res.body, {
+    return new NextResponse(body, {
       status: res.status,
       headers: {
         'Content-Type': res.headers.get('content-type') || 'application/json; charset=utf-8',
