@@ -36,6 +36,11 @@ jobs:
             ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-
 
       - name: Build
+        env:
+          # 上传 source map 用。本地构建靠 .env.sentry-build-plugin（该文件不入库），
+          # CI 必须显式注入，否则 withSentryConfig 只产出带 debugId 的 chunk、
+          # Sentry 收不到对应 source file，线上栈永远无法符号化（LILITH-XTOWER-10 即为此例）。
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: |
           # 如果 Secrets 中有 ENV_FILE，则生成 .env 文件供构建使用
           if [ -n "${{ secrets.ENV_FILE }}" ]; then
