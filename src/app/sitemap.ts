@@ -30,7 +30,9 @@ const routeConfigs: RouteConfig[] = [
 
 function getLastModified(source: string): Date {
   try {
-    const stat = fs.statSync(path.join(process.cwd(), source))
+    // turbopackIgnore：source 是构建期的仓库相对路径，这里只为取 mtime。
+    // 不抑制的话 Turbopack 会认为路径动态，把整个项目（含 public/）trace 进 server 产物。
+    const stat = fs.statSync(path.join(/* turbopackIgnore: true */ process.cwd(), source))
     return stat.mtime
   } catch {
     // 回退到构建时间，避免生成失败

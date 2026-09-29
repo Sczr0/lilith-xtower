@@ -316,7 +316,9 @@ function ensureSqlite(): SqliteDatabase | null {
 
 /** 首次启用 SQLite 时，将旧 JSON 撤销记录一次性导入并归档。 */
 function importLegacyJsonInto(db: SqliteDatabase): void {
-  if (!LEGACY_FILE || LEGACY_FILE === DB_FILE || !fs.existsSync(LEGACY_FILE)) return
+  // turbopackIgnore：LEGACY_FILE 来自环境变量，位于部署目录之外（默认 /var/lib/lilith-xtower），
+  // 本就不会也不该被 trace 进 server 产物。
+  if (!LEGACY_FILE || LEGACY_FILE === DB_FILE || !fs.existsSync(/* turbopackIgnore: true */ LEGACY_FILE)) return
   try {
     const countRow = db
       .prepare(
