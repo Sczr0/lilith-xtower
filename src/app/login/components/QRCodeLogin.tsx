@@ -19,7 +19,7 @@ interface QRCodeLoginProps {
 }
 
 export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
-  const { login, consentRequired } = useAuth();
+  const { login, consentRequired, isAuthenticated, error: authError } = useAuth();
   // AuthProvider 每次渲染都会生成新的 login 引用；这里用 ref 持有最新值，避免触发“依赖变化导致重复拉码”
   const loginRef = useRef(login);
   useEffect(() => {
@@ -216,7 +216,10 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
         </div>
       )}
 
-      {status === 'success' && (
+      {/* 成功态必须同时满足 isAuthenticated：登录接口失败或用户在协议弹窗选择「不同意」
+          （handleCloseAgreement 会登出）时，status 仍是 success 但会话并未建立，
+          旧实现只凭 status 就渲染「正在跳转到首页…」，导致永久卡死。 */}
+      {status === 'success' && isAuthenticated && (
         <div className="flex flex-col items-center justify-center py-8 space-y-4">
           <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
             <svg className="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -232,7 +235,7 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
         </div>
       )}
 
-      {(status === 'error' || status === 'expired') && (
+      {(status === 'error' || status === 'expired' || (status === 'success' && !isAuthenticated)) && (
         <div className="flex flex-col items-center justify-center py-8 space-y-4">
           <div className="w-12 h-12 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center">
             <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -240,10 +243,10 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
             </svg>
           </div>
           <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
-            {status === 'expired' ? '二维码已过期' : '登录失败'}
+            {status === 'expired' ? '二维码已过期' : status === 'success' ? '登录未完成' : '登录失败'}
           </p>
           <p className="text-gray-600 dark:text-gray-400 text-center">
-            {error}
+            {error || authError || (status === 'success' ? '登录未能完成，请重新获取二维码' : '')}
           </p>
           <button
             onClick={handleRetry}

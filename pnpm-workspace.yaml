@@ -2,9 +2,13 @@ packages:
   - "."
 
 overrides:
-  vite: ^7.3.5
-  sharp: ^0.35.0
-  postcss: ^8.5.24
+  # 安全底线：只约束低于阈值的旧依赖范围（写法同下方 nanoid@<3.3.18）。
+  # 不要写成无条件 override（如 sharp: ^0.35.0）：它会遮蔽 package.json 中已升级的范围，
+  # 而 pnpm install --frozen-lockfile 按“override 之后的 specifier”比对 lockfile，
+  # pnpm up 升级依赖后再推 CI 必报 ERR_PNPM_OUTDATED_LOCKFILE（2026-09-29 master 部署失败即此）。
+  vite@<7.3.5: ^7.3.5
+  sharp@<0.35.0: ^0.35.0
+  postcss@<8.5.24: ^8.5.24
   brace-expansion: ^1.1.17
   esbuild: ^0.28.1
   # 安全修复（CVE-2026-59870）：gray-matter 依赖 js-yaml 3.x（使用 safeLoad API，不能升 4.x）

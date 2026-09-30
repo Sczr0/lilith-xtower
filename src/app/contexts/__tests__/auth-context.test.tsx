@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { AuthProvider, useAuth } from '../AuthContext';
 import { AuthStorage } from '../../lib/storage/auth';
 
@@ -62,6 +62,24 @@ function AuthStateProbe() {
       </span>
       <span data-testid="session-verified">{isSessionVerified ? 'verified' : 'unverified'}</span>
       <button onClick={() => login({ type: 'api', api_user_id: 'u1', timestamp: 0 })}>login</button>
+    </div>
+  );
+}
+
+function FailingLoginProbe({ onError }: { onError: (error: unknown) => void }) {
+  const { isAuthenticated, isLoading, login } = useAuth();
+  return (
+    <div>
+      <span data-testid="auth-state">
+        {isLoading ? 'loading' : isAuthenticated ? 'authed' : 'guest'}
+      </span>
+      <button
+        onClick={() => {
+          void login({ type: 'api', api_user_id: 'u1', timestamp: 0 }).catch(onError);
+        }}
+      >
+        login-may-fail
+      </button>
     </div>
   );
 }
@@ -144,6 +162,33 @@ describe('AuthContext 登录缓存与异常弹窗', () => {
 
     expect(await screen.findByText('authed')).toBeTruthy();
     expect(AuthStorage.getCachedLogin()).toBe(true);
+  });
+
+  it('登录接口失败时：login 必须 reject，而不是把失败伪装成成功', async () => {
+    // 回归用例：login 旧实现吞掉异常后正常 resolve，扫码组件据此渲染「正在跳转到首页…」，
+    // 但 isAuthenticated 仍为 false，页面级跳转条件不成立，用户永久卡死。
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(GUEST_PAYLOAD))
+      .mockResolvedValueOnce(
+        jsonResponse({ success: false, message: '安全验证未完成，请刷新页面后重试', code: 'CAP_FAILED' }, 403),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const onError = vi.fn();
+    render(
+      <AuthProvider>
+        <FailingLoginProbe onError={onError} />
+      </AuthProvider>,
+    );
+
+    expect(await screen.findByText('guest')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'login-may-fail' }));
+
+    await waitFor(() => expect(onError).toHaveBeenCalledTimes(1));
+    expect((onError.mock.calls[0][0] as Error).message).toBe('安全验证未完成，请刷新页面后重试');
+    expect(screen.getByTestId('auth-state').textContent).toBe('guest');
+    expect(AuthStorage.getCachedLogin()).toBe(false);
   });
 
   it('登录时未显式携带 capToken 也会自动附加 Cap token（手动/API/平台登录均可通过强制校验）', async () => {

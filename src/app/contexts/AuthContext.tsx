@@ -380,6 +380,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
           consentRequired: false,
           isSessionVerified: true,
         });
+        // 必须向上抛出：调用方（扫码/手动/API/平台登录）依赖「login 被拒绝」来区分
+        // 登录成功与失败。旧实现吞掉异常后 Promise 正常 resolve，扫码组件会把
+        // CAP_FAILED / 429 / 502 等失败当成登录成功，渲染「正在跳转到首页…」却永远
+        // 不会跳转（isAuthenticated 仍为 false，页面级跳转条件不成立）。
+        throw error instanceof Error ? error : new Error(errorMessage);
       }
     },
     [router],
