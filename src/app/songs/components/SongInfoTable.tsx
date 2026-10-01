@@ -19,6 +19,20 @@ import { useIsDesktop } from '../../hooks/useIsDesktop';
 
 const DIFFICULTIES: Difficulty[] = ['EZ', 'HD', 'IN', 'AT'];
 
+/**
+ * 桌面端数据行高度（px），必须与 CSS 保证的真实行高严格相等：
+ * py-2.5 上下内边距 20 + 曲名 20（text-sm 行高）+ 曲目ID 16（text-xs 行高）+ 分隔线 1 = 57。
+ *
+ * 这个值同时用作虚拟化的 estimateSize 与行的内联 height。此前估算写死 56、真实 57，
+ * 虚拟化每测量到一行就把总高度抬高 1px（实测滚动 25 步内容高度 16853→16966px），
+ * 加上 border-collapse 让行高在 57/56.5 之间跳、可见行整体位移半个像素。
+ * 曲名 / 曲师 / 画师 / 谱师都由 truncate 保证只有一行，改内边距 / 字号时必须同步改这里。
+ */
+export const SONG_INFO_ROW_HEIGHT = 57;
+
+/** 数据单元格：分隔线必须落在单元格上（border-separate 不画 tr 边框），行高才恒为常量。 */
+const SONG_INFO_BODY_CELL = 'border-b border-gray-100 dark:border-neutral-800/70';
+
 /** Difficulty → 谱师字段名（EZ → chartEz，避免与全大写常量混淆）。 */
 const DESIGNER_FIELD: Record<Difficulty, 'chartEz' | 'chartHd' | 'chartIn' | 'chartAt'> = {
   EZ: 'chartEz',
@@ -43,19 +57,20 @@ export function SongInfoTable({ songs }: { songs: SongInfo[] }) {
   }, [songs, q]);
 
   // 桌面端表格虚拟化：仅渲染可视行（搜索输入时不再重排数百行 DOM）
+  // 行高固定为 SONG_INFO_ROW_HEIGHT，估算值与真实行高严格相等（见该常量注释）。
   const { scrollRef, virtualItems, totalSize, measureElement, scrollClassName } = useVirtualRows(
     filtered.length,
-    56,
+    SONG_INFO_ROW_HEIGHT,
   );
 
-  // 移动端卡片列表虚拟化
+  // 移动端卡片列表虚拟化（卡片高度随视口变化，用首张卡片实测校准估算值）
   const {
     scrollRef: mobileScrollRef,
     virtualItems: mobileVirtualItems,
     totalSize: mobileTotalSize,
     measureElement: mobileMeasureElement,
     scrollClassName: mobileScrollClassName,
-  } = useVirtualRows(filtered.length, 190);
+  } = useVirtualRows(filtered.length, 190, { cardList: true });
 
   // 断点未确定（SSR 与 hydration 首帧）时两套都渲染，由 CSS 决定显隐；
   // 确定后只渲染对应的一套，避免重复 DOM 与多余的虚拟化行。
@@ -117,8 +132,11 @@ export function SongInfoTable({ songs }: { songs: SongInfo[] }) {
           <div
             ref={mobileScrollRef}
             className={cx('md:hidden', mobileScrollClassName)}
-            style={{ maxHeight: VIRTUAL_VIEWPORT_MAX_HEIGHT, height: mobileTotalSize, position: 'relative' }}
+            style={{ maxHeight: VIRTUAL_VIEWPORT_MAX_HEIGHT, position: 'relative' }}
           >
+            {/* 撑出完整列表长度：卡片是绝对定位，不显式给出这段高度时滚动范围只会到
+                「已渲染卡片的最低点」，滚动中不断变长；外层 maxHeight 会把自身高度压到 640。 */}
+            <div style={{ height: mobileTotalSize }} aria-hidden="true" />
             {mobileRows.map((virtualItem) => {
               const song = filtered[virtualItem.index];
               const designer = song[DESIGNER_FIELD[selectedDiff]];
@@ -159,7 +177,12 @@ export function SongInfoTable({ songs }: { songs: SongInfo[] }) {
             className={cx('hidden md:block', scrollClassName)}
             style={{ maxHeight: VIRTUAL_VIEWPORT_MAX_HEIGHT }}
           >
-            <table className="text-sm w-full table-fixed">
+            {/*
+              固定表格布局 + 显式列宽（原本就有）+ 固定行高 + border-separate：
+              分隔线画在单元格上，行高恒为 SONG_INFO_ROW_HEIGHT（border-collapse 的共用边框
+              会让行高出现 0.5px 零头，行在滚动中会位移半个像素）。
+            */}
+            <table className="text-sm w-full table-fixed border-separate border-spacing-0">
               <colgroup>
                 <col className="w-[32%]" />
                 <col className="w-[24%]" />
@@ -167,11 +190,19 @@ export function SongInfoTable({ songs }: { songs: SongInfo[] }) {
                 <col className="w-[20%]" />
               </colgroup>
               <thead className="sticky top-0 z-10 bg-white dark:bg-neutral-900">
-                <tr className="text-left text-xs text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-neutral-700">
-                  <th className="px-3 py-2 font-medium">曲目/曲目ID</th>
-                  <th className="px-2 py-2 font-medium">曲师</th>
-                  <th className="px-2 py-2 font-medium">画师</th>
-                  <th className="px-2 py-2 font-medium text-center whitespace-nowrap">{selectedDiff} 谱师</th>
+                <tr className="text-left text-xs text-gray-500 dark:text-gray-400">
+                  <th className="truncate border-b border-gray-200 px-3 py-2 font-medium dark:border-neutral-700">
+                    曲目/曲目ID
+                  </th>
+                  <th className="truncate border-b border-gray-200 px-2 py-2 font-medium dark:border-neutral-700">
+                    曲师
+                  </th>
+                  <th className="truncate border-b border-gray-200 px-2 py-2 font-medium dark:border-neutral-700">
+                    画师
+                  </th>
+                  <th className="truncate border-b border-gray-200 px-2 py-2 text-center font-medium dark:border-neutral-700">
+                    {selectedDiff} 谱师
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -184,9 +215,10 @@ export function SongInfoTable({ songs }: { songs: SongInfo[] }) {
                       key={song.id}
                       data-index={virtualItem.index}
                       ref={measureElement}
-                      className="border-b border-gray-100 dark:border-neutral-800/70 hover:bg-gray-50 dark:hover:bg-neutral-800/40 transition-colors"
+                      style={{ height: SONG_INFO_ROW_HEIGHT }}
+                      className="hover:bg-gray-50 dark:hover:bg-neutral-800/40 transition-colors"
                     >
-                      <td className="px-3 py-2.5">
+                      <td className={cx(SONG_INFO_BODY_CELL, 'px-3 py-2.5')}>
                         <div className="font-medium text-gray-900 dark:text-gray-100 truncate" title={song.name}>
                           {song.name}
                         </div>
@@ -194,13 +226,22 @@ export function SongInfoTable({ songs }: { songs: SongInfo[] }) {
                           {song.id}
                         </div>
                       </td>
-                      <td className="px-2 py-2.5 text-gray-600 dark:text-gray-400 truncate" title={song.composer || undefined}>
+                      <td
+                        className={cx(SONG_INFO_BODY_CELL, 'px-2 py-2.5 text-gray-600 dark:text-gray-400 truncate')}
+                        title={song.composer || undefined}
+                      >
                         {song.composer || '-'}
                       </td>
-                      <td className="px-2 py-2.5 text-gray-600 dark:text-gray-400 truncate" title={song.illustrator || undefined}>
+                      <td
+                        className={cx(SONG_INFO_BODY_CELL, 'px-2 py-2.5 text-gray-600 dark:text-gray-400 truncate')}
+                        title={song.illustrator || undefined}
+                      >
                         {song.illustrator || '-'}
                       </td>
-                      <td className="px-2 py-2.5 text-center text-gray-600 dark:text-gray-400 truncate" title={designer || undefined}>
+                      <td
+                        className={cx(SONG_INFO_BODY_CELL, 'px-2 py-2.5 text-center text-gray-600 dark:text-gray-400 truncate')}
+                        title={designer || undefined}
+                      >
                         {designer || <span className="text-gray-300 dark:text-gray-600">-</span>}
                       </td>
                     </tr>
