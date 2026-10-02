@@ -46,6 +46,12 @@ jobs:
           if [ -n "${{ secrets.ENV_FILE }}" ]; then
             echo "${{ secrets.ENV_FILE }}" > .env
           fi
+          # 不消费跨提交的 Turbopack 构建缓存：见 next.config.ts 中
+          # turbopackFileSystemCacheForBuild 的说明。上面 restore-keys 的前缀匹配会把
+          # 上一次提交留下的 .next/cache 恢复回来，Linux runner 上复用旧缓存后
+          # Turbopack 会在收尾阶段 panic（there must be a path to a root）。
+          # 配置开关之外再显式删一次，兜住历史缓存条目。
+          rm -rf .next/cache/turbopack
           pnpm build
 
       - name: Prepare deployment artifacts
