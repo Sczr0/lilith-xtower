@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Logger } from 'next-axiom';
 
-import { POST, allowReport } from '../route';
+import { POST } from '../route';
+import { allowReport } from '../allowReport';
 
 vi.mock('next-axiom', () => {
   const log = { info: vi.fn(), flush: vi.fn().mockResolvedValue(undefined) };

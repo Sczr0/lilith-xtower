@@ -46,13 +46,27 @@ jobs:
           if [ -n "${{ secrets.ENV_FILE }}" ]; then
             echo "${{ secrets.ENV_FILE }}" > .env
           fi
-          # 不消费跨提交的 Turbopack 构建缓存：见 next.config.ts 中
-          # turbopackFileSystemCacheForBuild 的说明。上面 restore-keys 的前缀匹配会把
-          # 上一次提交留下的 .next/cache 恢复回来，Linux runner 上复用旧缓存后
-          # Turbopack 会在收尾阶段 panic（there must be a path to a root）。
-          # 配置开关之外再显式删一次，兜住历史缓存条目。
-          rm -rf .next/cache/turbopack
-          pnpm build
+
+          # next 16.3.x 的 Turbopack 在本项目的 CI（Linux runner）上会在收尾阶段 panic：
+          #   FATAL: An unexpected Turbopack error occurred:
+          #   internal error: entered unreachable code: there must be a path to a root
+          #   - Execution of emit_all_output_assets_once_with_issues_operation failed
+          #   - Execution of PlainIssue::from_issue failed
+          #   - Execution of <ModuleGraphImportTracer as ImportTracer>::get_traces failed
+          # 这是 Turbopack 内部（为带 trace 的 issue 生成导入链）的缺陷，与本仓库代码无关：
+          # 本地（Windows）用默认 / 强制 output:standalone / 复用上一提交的构建缓存 / 把两处
+          # turbopackIgnore 还原成动态 fs 访问（会打印 2 条 tracing 警告）都无法复现。
+          # 因此保留 Turbopack 快路径，失败时自动退回 webpack —— 两条路径都产出
+          # output:standalone，且已本地验证 standalone 产物完整（server.js、.next/、
+          # 运行期需要的 src/app/content/** 与 public/precompiled/** 都在）。
+          # 待上游修复后可删掉 fallback，恢复单一 Turbopack 构建。
+          if pnpm build; then
+            echo "Turbopack build succeeded"
+          else
+            echo "::warning title=Turbopack build failed::Turbopack 收尾 panic，改用 webpack 重新构建"
+            rm -rf .next
+            pnpm exec next build --webpack
+          fi
 
       - name: Prepare deployment artifacts
         run: |

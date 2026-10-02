@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { Logger } from 'next-axiom';
-import { resolveClientIp, slidingWindowAllow } from '@/app/lib/api/rateLimit';
+import { resolveClientIp } from '@/app/lib/api/rateLimit';
+import { allowReport } from './allowReport';
 
 export const runtime = 'nodejs';
 
@@ -14,14 +15,6 @@ const ALLOWED_KINDS = new Set(['error', 'unhandledrejection']);
 const MAX_EVENTS = 50;
 const MAX_STR = 1000;
 const MAX_STACK = 8000;
-
-const RATE_LIMIT_WINDOW_MS = 60_000;
-const RATE_LIMIT_MAX = 60;
-
-/** 基于 IP 的滑动窗口限流（共享实现，含过期桶自动清理；单实例有效） */
-export function allowReport(key: string): boolean {
-  return slidingWindowAllow(`report:${key}`, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
-}
 
 export async function POST(req: NextRequest) {
   const log = new Logger();

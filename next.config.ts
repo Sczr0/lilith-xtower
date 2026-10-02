@@ -70,30 +70,6 @@ const nextConfig: NextConfig = {
       "@radix-ui/react-dialog",
       "@radix-ui/react-radio-group",
     ],
-    /**
-     * CI 构建关闭 Turbopack 的文件系统缓存。
-     *
-     * 背景：next 16.3.0 起 turbopackFileSystemCacheForBuild 默认 true（见
-     * node_modules/next/dist/docs/.../turbopackFileSystemCache.md 的版本历史），
-     * 构建会读写 .next/cache/turbopack。而 deploy.yml 按 Next 官方 CI 缓存示例配置了
-     * 「精确 key + 宽泛 restore-keys」，因此每次推送都会恢复**上一次提交**留下的缓存
-     * （精确 key 含 src 哈希，几乎永不命中）。
-     *
-     * 症状：在 Linux runner 上复用了跨提交的 Turbopack 缓存后，构建在收尾阶段崩溃：
-     *   FATAL: An unexpected Turbopack error occurred:
-     *   internal error: entered unreachable code: there must be a path to a root
-     *   - Execution of emit_all_output_assets_once_with_issues_operation failed
-     *   - Execution of PlainIssue::from_issue failed
-     *   - Execution of <ModuleGraphImportTracer as ImportTracer>::get_traces failed
-     * 这是 Turbopack 内部（模块图 issue 追踪）的 panic，不是应用代码报错。
-     *
-     * 本地（Windows）无法复现：默认与强制 output:standalone、以及「用上一个提交的缓存
-     * 再构建当前提交」都通过，说明触发条件在 Linux 侧与缓存复用有关。
-     * 关闭后 CI 每次构建都是冷构建（本地实测约 30s，本仓库规模下额外开销很小），
-     * 换来部署确定性；本地 dev 的 turbopackFileSystemCacheForDev 不受影响，仍然复用缓存。
-     * 若将来 Turbopack 修好该 panic，删掉这一段即可恢复 CI 增量缓存。
-     */
-    ...(process.env.CI === "true" ? { turbopackFileSystemCacheForBuild: false } : {}),
   },
   async redirects() {
     return [
