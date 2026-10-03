@@ -26,9 +26,6 @@ const outputMode: NextConfig["output"] =
 
 const nextConfig: NextConfig = {
   output: outputMode,
-  // undici 由 upstreamFetch 用于跨洋连接池（长连接保活）。它是 Node 侧库，
-  // 交给运行时 require 而非打进 bundle，避免打包出的副本与 Node 内置 fetch 行为不一致。
-  serverExternalPackages: ["undici"],
   /**
    * 生成浏览器端 source map。
    *

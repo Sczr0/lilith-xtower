@@ -2,6 +2,9 @@
   "name": "lilith-xtower",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "predev": "node scripts/patch-brand-font.mjs && node scripts/precompile-md.mjs && node scripts/precompile-tips.mjs",
     "dev": "next dev",
@@ -37,7 +40,6 @@
     "react-dom": "^19.3.0",
     "react-markdown": "^10.1.0",
     "sharp": "^0.35.5",
-    "undici": "^8.11.2",
     "web-vitals": "^4.2.4"
   },
   "devDependencies": {

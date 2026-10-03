@@ -16,8 +16,6 @@ export default defineConfig({
      *   使该模块的用例期望落空。
      */
     env: { NODE_ENV: 'test' },
-    // undici 的 fetch 在测试中转发到 globalThis.fetch（既有用例靠替换它拦截上游请求）
-    setupFiles: ['./test/undici-test-shim.ts'],
     alias: {
       '@': path.resolve(__dirname, 'src'),
       // Next.js 内部提供的 server-only 包在 vitest 下无法解析，使用空桩
