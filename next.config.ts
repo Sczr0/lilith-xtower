@@ -42,7 +42,7 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_BUILD_ID: BUILD_ID,
   },
   /**
-   * 已移除 htmlLimitedBots（原用于关闭「流式 metadata」以规避 React 19 宿主提升崩溃）。
+   * 关闭「流式 metadata」（htmlLimitedBots 匹配全部 UA → 一律走阻塞式 metadata）。
    *
    * 背景：Next 16 默认对普通浏览器启用 streaming metadata，把 title/meta/link 渲染进一个
    * hidden 容器并交给 React 19 hoist 到 head。客户端软导航删除该子树时，React 的
@@ -51,17 +51,16 @@ const nextConfig: NextConfig = {
    *   TypeError: Cannot read properties of null (reading 'removeChild')
    * 详见 node_modules/next/dist/lib/metadata/metadata.js 的 MetadataWrapper。
    *
-   * 移除依据（next 16.3.4 + react 19.3 实测）：
-   * - 确认开关确实生效：带该配置时页面 HTML 无 hidden metadata 容器（阻塞式），
-   *   移除后出现该容器（流式）；
-   * - 浏览器冒烟：在 /login 与 /dashboard 之间（文档记载的鉴权跳转路径，标题采样证实
-   *   /dashboard 被反复挂载并被软导航卸载）以及 /songs 到 /qa 到 /about 到 / 之间，
-   *   累计 86 次客户端软导航加 6 次整页加载；页内 error / unhandledrejection /
-   *   console.error 采集器（经阳性对照自验证有效）零记录。
+   * 恢复该开关的原因：曾在开发环境做过 86 次软导航 + 6 次整页加载冒烟（自带 error /
+   * unhandledrejection / console.error 采集器，经阳性对照验证有效）零命中，故一度移除本开关
+   * 并接受风险；但生产随后观测到该崩溃（Sentry LILITH-XTOWER-14，1290 事件 / 6 用户，
+   * 集中在 /dashboard 的软导航卸载路径）。据此按既定回退方案恢复本开关。
    *
-   * 若后续升级 next/react 后在生产观测到该崩溃，把 htmlLimitedBots 恢复为「匹配全部 UA
-   * 的正则」即可回退（等价于 Next 15.2 之前的阻塞式 metadata 行为）。
+   * 代价：所有 UA 都改为阻塞式 metadata，首屏 TTFB/LCP 的流式收益消失（等价于 Next 15.2
+   * 之前的默认行为）；这是稳定性优先的取舍。待 next/react 修掉该 hoist 删除缺陷后再移除，
+   * 并重跑一次软导航冒烟验证。
    */
+  htmlLimitedBots: /.*/,
   experimental: {
     // Radix 的这几个包都以桶文件方式导出，加入按需导入优化以避免整包进入客户端 chunk。
     optimizePackageImports: [
