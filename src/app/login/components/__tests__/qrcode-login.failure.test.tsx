@@ -14,7 +14,7 @@
 
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 const { routerMock } = vi.hoisted(() => ({
   routerMock: { replace: vi.fn(), push: vi.fn(), prefetch: vi.fn() },
@@ -32,6 +32,7 @@ vi.mock('../../../lib/cap/client', () => ({
 }));
 
 // TapTap 扫码链路：跳过真实上游，直接产出 sessionToken。
+// 组件现在把「轮询」与「授权后流程」拆开，以便授权成功后失败可续跑，故这里 mock 三个入口。
 vi.mock('../../../lib/taptap/qrLogin', () => ({
   requestTapTapDeviceCode: vi.fn().mockResolvedValue({
     deviceCode: 'device-code',
@@ -43,7 +44,8 @@ vi.mock('../../../lib/taptap/qrLogin', () => ({
     deviceId: 'web-test',
     flowId: 'flow-test',
   }),
-  completeTapTapQrLogin: vi.fn().mockResolvedValue({
+  pollTapTapToken: vi.fn().mockResolvedValue({ access_token: 'at-test' }),
+  finishTapTapQrLogin: vi.fn().mockResolvedValue({
     sessionToken: 'session-token',
     profile: {},
     token: {},
@@ -56,6 +58,7 @@ vi.mock('qrcode', () => ({
 
 import { AuthProvider } from '../../../contexts/AuthContext';
 import { QRCodeLogin } from '../QRCodeLogin';
+import { pollTapTapToken, requestTapTapDeviceCode } from '../../../lib/taptap/qrLogin';
 
 function jsonResponse(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
@@ -69,7 +72,8 @@ const GUEST_PAYLOAD = { isAuthenticated: false, credential: null };
 describe('QRCodeLogin 登录失败不得伪装成跳转中', () => {
   beforeEach(() => {
     localStorage.clear();
-    routerMock.replace.mockClear();
+    // 清调用记录（保留 mockResolvedValue 实现），避免跨用例累计
+    vi.clearAllMocks();
   });
 
   afterEach(() => {
@@ -133,5 +137,52 @@ describe('QRCodeLogin 登录失败不得伪装成跳转中', () => {
     expect(await screen.findByText('登录未完成')).toBeTruthy();
     expect(screen.queryByText('正在跳转到首页...')).toBeNull();
     expect(screen.getByRole('button', { name: '重新获取二维码' })).toBeTruthy();
+  });
+
+  it('授权成功后登录接口失败：点「重试登录」复用会话，不重新拉码', async () => {
+    let loginAttempts = 0;
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/api/session/login')) {
+        loginAttempts += 1;
+        if (loginAttempts === 1) {
+          return Promise.resolve(
+            jsonResponse(
+              { success: false, message: '安全验证未完成，请刷新页面后重试', code: 'CAP_FAILED' },
+              403,
+            ),
+          );
+        }
+        return Promise.resolve(
+          jsonResponse({
+            success: true,
+            credential: { type: 'api', api_user_id: 'u1', timestamp: 0 },
+            consentRequired: false,
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse(GUEST_PAYLOAD));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <AuthProvider>
+        <QRCodeLogin taptapVersion="cn" />
+      </AuthProvider>,
+    );
+
+    expect(await screen.findByText('登录失败')).toBeTruthy();
+
+    const deviceCodeMock = vi.mocked(requestTapTapDeviceCode);
+    const pollMock = vi.mocked(pollTapTapToken);
+    expect(deviceCodeMock).toHaveBeenCalledTimes(1);
+    expect(pollMock).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('button', { name: '重试登录' }));
+
+    await waitFor(() => expect(loginAttempts).toBe(2));
+    // 关键：续跑只重放登录接口，绝不重新拉码 / 重新轮询，用户无需重扫
+    expect(deviceCodeMock).toHaveBeenCalledTimes(1);
+    expect(pollMock).toHaveBeenCalledTimes(1);
   });
 });

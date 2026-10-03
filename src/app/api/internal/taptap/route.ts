@@ -61,7 +61,7 @@ export const dynamic = 'force-dynamic';
 // —— 按 action 的 IP 限流（滑动窗口，单实例） ——
 const RATE_LIMITS: Record<Action, { limit: number; windowMs: number }> = {
   device_code: { limit: 30, windowMs: 60_000 }, // 二维码获取：每次登录仅 1 次，留出重试余量
-  poll_token: { limit: 240, windowMs: 60_000 }, // 轮询：间隔 1s 时 120 秒最多 ~120 次
+  poll_token: { limit: 240, windowMs: 60_000 }, // 轮询：客户端间隔 1s，120 秒最多 ~120 次
   profile: { limit: 30, windowMs: 60_000 },
   leancloud: { limit: 10, windowMs: 60_000 }, // 登录落库：低频
 };
@@ -90,24 +90,88 @@ function resolveRateLimit(ip: string, action: Action): { key: string; limit: num
 // 安全说明：poll_token / profile / leancloud 必须携带 device_code 阶段下发的 flowId。
 // token 与 profile 由服务端在流程内获取并持有，leancloud 登录只使用服务端持有的
 // 状态（忽略客户端传入的 profile/token），杜绝“自造 token + 伪造他人 openid”的注入路径。
+type PollStatus = 'pending' | 'waiting' | 'slow_down' | 'denied' | 'error' | 'ok';
+
+/** 服务端侧流程状态：轮询由服务端在后台完成，客户端只读取这里的终态。 */
+type FlowStatus = 'pending' | 'ok' | 'denied' | 'expired' | 'error';
+
 type FlowState = {
   version: TapTapVersion;
   deviceId: string;
+  deviceCode: string;
   createdAt: number;
+  /** 二维码有效期（来自 device_code 的 expires_in），到点停止轮询并标记 expired。 */
+  expiresAt: number;
+  status: FlowStatus;
+  msg?: string;
+  /** 当前轮询间隔；遇 slow_down 只增不减，避免反复触发上游限速。 */
+  intervalMs: number;
+  /** 连续无法联系上游的起始时间；恢复联系后清零。 */
+  failureSince: number | null;
   token?: TokenResponse;
   profile?: TapTapProfile;
   used?: boolean;
+  /** 是否已有后台轮询循环在跑（用于并发上限计数与重复启动保护）。 */
+  polling: boolean;
+  timer: NodeJS.Timeout | null;
 };
 
 const FLOW_TTL_MS = 10 * 60 * 1000;
 const FLOW_SWEEP_INTERVAL = 64;
+/** 轮询基准/上限间隔。上限 8s 仍小于 upstreamFetch 连接池的 keepAliveTimeout（30s），连接不被回收。 */
+const DEFAULT_POLL_INTERVAL_MS = 1_000;
+const MAX_POLL_INTERVAL_MS = 8_000;
+/** 连续联系不上上游超过该时长，判定为链路故障并交回客户端提示重试（此前是客户端连续 5 次错误）。 */
+const MAX_UPSTREAM_UNREACHABLE_MS = 45_000;
+/**
+ * 单进程后台轮询循环的并发上限。每个流程一个循环，超过上限时 poll_token 退化为
+ * 「同步轮询一次」（即旧行为），保证可用性不被拖垮，也避免内存/定时器无界增长。
+ */
+const MAX_ACTIVE_POLLERS = 256;
+
 const flows = new Map<string, FlowState>();
 let flowOpCount = 0;
+let activePollers = 0;
 
-function createFlow(version: TapTapVersion, deviceId: string): string {
+function createFlow(
+  version: TapTapVersion,
+  deviceId: string,
+  deviceCode: string,
+  intervalSec: number,
+  expiresInSec: number,
+): string {
   const flowId = crypto.randomUUID();
-  flows.set(flowId, { version, deviceId, createdAt: Date.now() });
+  const now = Date.now();
+  flows.set(flowId, {
+    version,
+    deviceId,
+    deviceCode,
+    createdAt: now,
+    expiresAt: now + Math.max(30, expiresInSec) * 1000,
+    status: 'pending',
+    intervalMs: Math.max(1, intervalSec) * 1000 || DEFAULT_POLL_INTERVAL_MS,
+    failureSince: null,
+    polling: false,
+    timer: null,
+  });
   return flowId;
+}
+
+function stopFlowPolling(flow: FlowState): void {
+  if (flow.timer) {
+    clearTimeout(flow.timer);
+    flow.timer = null;
+  }
+  if (flow.polling) {
+    flow.polling = false;
+    activePollers = Math.max(0, activePollers - 1);
+  }
+}
+
+function removeFlow(flowId: string): void {
+  const flow = flows.get(flowId);
+  if (flow) stopFlowPolling(flow);
+  flows.delete(flowId);
 }
 
 function getFlow(flowId: string | undefined): FlowState | null {
@@ -115,7 +179,7 @@ function getFlow(flowId: string | undefined): FlowState | null {
   const flow = flows.get(flowId);
   if (!flow) return null;
   if (Date.now() - flow.createdAt > FLOW_TTL_MS) {
-    flows.delete(flowId);
+    removeFlow(flowId);
     return null;
   }
   return flow;
@@ -124,7 +188,7 @@ function getFlow(flowId: string | undefined): FlowState | null {
 function sweepFlows(): void {
   const now = Date.now();
   for (const [id, flow] of flows) {
-    if (now - flow.createdAt > FLOW_TTL_MS) flows.delete(id);
+    if (now - flow.createdAt > FLOW_TTL_MS) removeFlow(id);
   }
 }
 
@@ -133,6 +197,109 @@ function trackFlowOp(): void {
   if (flowOpCount >= FLOW_SWEEP_INTERVAL) {
     flowOpCount = 0;
     sweepFlows();
+  }
+}
+
+function finishFlow(flow: FlowState, status: FlowStatus, msg?: string): void {
+  stopFlowPolling(flow);
+  flow.status = status;
+  flow.msg = msg;
+}
+
+function scheduleFlowPoll(flowId: string, delayMs: number): void {
+  const flow = flows.get(flowId);
+  if (!flow || flow.status !== 'pending' || !flow.polling) return;
+  const remaining = flow.expiresAt - Date.now();
+  const delay = Math.max(0, Math.min(delayMs, remaining));
+  flow.timer = setTimeout(() => {
+    void runFlowPoll(flowId);
+  }, delay);
+  // 后台轮询不应阻止进程退出（PM2 reload / 优雅关闭时可正常收尾）
+  // 说明：unref 为可选——单元测试的假定时器没有该方法。
+  flow.timer.unref?.();
+}
+
+/** 将单次上游轮询结果落到 flow 上；返回后由调用方决定是否继续调度。 */
+function applyPollResult(flow: FlowState, data: PollResult): void {
+  if (data.contacted) {
+    flow.failureSince = null;
+  } else if (flow.failureSince === null) {
+    flow.failureSince = Date.now();
+  }
+
+  if (data.status === 'ok' && data.token) {
+    flow.token = data.token;
+    finishFlow(flow, 'ok');
+    return;
+  }
+  if (data.status === 'denied') {
+    finishFlow(flow, 'denied', data.msg);
+    return;
+  }
+  if (data.status === 'slow_down') {
+    flow.intervalMs = Math.min(Math.round(flow.intervalMs * 2), MAX_POLL_INTERVAL_MS);
+  } else if (data.status === 'pending' || data.status === 'waiting') {
+    // 正常授权等待：保持当前节奏（slow_down 后不回落到基准，避免反复触发限速）
+  }
+  if (
+    data.status === 'error' &&
+    flow.failureSince !== null &&
+    Date.now() - flow.failureSince >= MAX_UPSTREAM_UNREACHABLE_MS
+  ) {
+    finishFlow(flow, 'error', data.msg || '网络异常，请重试');
+  }
+}
+
+async function runFlowPoll(flowId: string): Promise<void> {
+  const flow = flows.get(flowId);
+  if (!flow || flow.status !== 'pending') return;
+  if (Date.now() >= flow.expiresAt) {
+    finishFlow(flow, 'expired', '二维码已过期，请重新获取');
+    return;
+  }
+
+  const config = getTapConfig(flow.version);
+  let data: PollResult;
+  try {
+    data = await pollTokenOnceServer(config, flow.deviceCode, flow.deviceId);
+  } catch (err) {
+    data = { status: 'error', msg: err instanceof Error ? err.message : '轮询上游失败', contacted: false };
+  }
+
+  // await 期间流程可能已被清扫 / 结束，重新取一次再落地
+  const current = flows.get(flowId);
+  if (!current || current.status !== 'pending') return;
+
+  applyPollResult(current, data);
+  if (current.status === 'pending') scheduleFlowPoll(flowId, current.intervalMs);
+}
+
+function ensureFlowPolling(flowId: string): boolean {
+  const flow = flows.get(flowId);
+  if (!flow || flow.status !== 'pending') return false;
+  if (flow.polling) return true;
+  if (activePollers >= MAX_ACTIVE_POLLERS) return false;
+  flow.polling = true;
+  activePollers += 1;
+  scheduleFlowPoll(flowId, 0);
+  return true;
+}
+
+/** 把服务端 flow 状态翻译成客户端可理解的轮询响应。 */
+function toPollResponse(flow: FlowState): { status: PollStatus; token?: TokenResponse; msg?: string } {
+  switch (flow.status) {
+    case 'ok':
+      return flow.token
+        ? { status: 'ok', token: flow.token }
+        : { status: 'error', msg: '上游未返回授权令牌' };
+    case 'denied':
+      return { status: 'denied', msg: flow.msg };
+    case 'expired':
+      return { status: 'denied', msg: flow.msg || '二维码已过期，请重新获取' };
+    case 'error':
+      return { status: 'error', msg: flow.msg };
+    default:
+      return { status: 'pending' };
   }
 }
 
@@ -157,25 +324,32 @@ export async function POST(req: NextRequest) {
 
     if (action === 'device_code') {
       const data = await requestDeviceCodeServer(config);
-      const flowId = createFlow(version, data.deviceId);
+      const flowId = createFlow(version, data.deviceId, data.deviceCode, data.interval, data.expiresIn);
       trackFlowOp();
       return NextResponse.json({ ...data, flowId });
     }
 
     if (action === 'poll_token') {
       const flow = getFlow(body.flowId);
-      if (!flow || flow.used) {
+      if (!flow) {
         return NextResponse.json({ error: '授权流程无效或已过期' }, { status: 400 });
+      }
+      // 授权已完成（token 已拿到）：直接回终态，供客户端断线续跑
+      if (flow.used || flow.status === 'ok') {
+        return NextResponse.json(toPollResponse(flow));
       }
       if (!body.deviceCode || !body.deviceId || body.deviceId !== flow.deviceId) {
         return NextResponse.json({ error: 'deviceCode/deviceId 与授权流程不匹配' }, { status: 400 });
       }
-      const data = await pollTokenOnceServer(config, body.deviceCode, body.deviceId);
-      if (data.status === 'ok' && data.token) {
-        flow.token = data.token;
+
+      // 由服务端在后台持续轮询上游；客户端只读状态，跨洋抖动不再中断授权。
+      if (flow.status === 'pending' && !ensureFlowPolling(body.flowId as string)) {
+        // 后台循环已达并发上限：退化为「同步轮询一次」，保持功能可用。
+        const data = await pollTokenOnceServer(config, flow.deviceCode, flow.deviceId);
+        applyPollResult(flow, data);
       }
       trackFlowOp();
-      return NextResponse.json(data);
+      return NextResponse.json(toPollResponse(flow));
     }
 
     if (action === 'profile') {
@@ -222,6 +396,44 @@ export async function POST(req: NextRequest) {
   }
 }
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * 带重试的上游请求（仅用于一次性调用：device_code / profile / leancloud）。
+ *
+ * 跨洋链路上单次抖动很常见，此前这些调用零重试，一次超时就直接把整个登录打断。
+ * 这里对「网络异常/超时」与 5xx 各重试至多 ATTEMPTS 次（指数退避），4xx 视为业务结果直接返回。
+ * poll_token 不走这里——它由后台循环天然重试。
+ */
+const UPSTREAM_RETRY_ATTEMPTS = 3;
+const UPSTREAM_RETRY_BASE_DELAY_MS = 300;
+
+async function fetchUpstreamWithRetry(
+  input: string | URL,
+  init: RequestInit,
+  options: { timeoutMs?: number } = {},
+): Promise<Response> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < UPSTREAM_RETRY_ATTEMPTS; attempt += 1) {
+    try {
+      const res = await upstreamFetch(input, init, options);
+      if (res.status >= 500 && attempt < UPSTREAM_RETRY_ATTEMPTS - 1) {
+        await sleep(UPSTREAM_RETRY_BASE_DELAY_MS * 2 ** attempt);
+        continue;
+      }
+      return res;
+    } catch (err) {
+      lastError = err;
+      if (attempt < UPSTREAM_RETRY_ATTEMPTS - 1) {
+        await sleep(UPSTREAM_RETRY_BASE_DELAY_MS * 2 ** attempt);
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error('上游请求失败');
+}
+
 async function requestDeviceCodeServer(config: ReturnType<typeof getTapConfig>): Promise<Omit<QrCodeData, 'flowId'>> {
   const deviceId = `web-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
   const form = new URLSearchParams({
@@ -233,7 +445,7 @@ async function requestDeviceCodeServer(config: ReturnType<typeof getTapConfig>):
     info: JSON.stringify({ device_id: deviceId }),
   });
 
-  const res = await upstreamFetch(
+  const res = await fetchUpstreamWithRetry(
     config.deviceCodeEndpoint,
     {
       method: 'POST',
@@ -258,13 +470,19 @@ async function requestDeviceCodeServer(config: ReturnType<typeof getTapConfig>):
   };
 }
 
-type PollStatus = 'pending' | 'waiting' | 'slow_down' | 'denied' | 'error' | 'ok';
+type PollResult = {
+  status: PollStatus;
+  token?: TokenResponse;
+  msg?: string;
+  /** 是否真正与上游建立了 HTTP 往返（用于区分链路故障与业务失败）。 */
+  contacted: boolean;
+};
 
 async function pollTokenOnceServer(
   config: ReturnType<typeof getTapConfig>,
   deviceCode: string,
   deviceId: string,
-): Promise<{ status: PollStatus; token?: TokenResponse; msg?: string }> {
+): Promise<PollResult> {
   const form = new URLSearchParams({
     grant_type: 'device_token',
     client_id: config.clientId,
@@ -287,23 +505,27 @@ async function pollTokenOnceServer(
       { timeoutMs: 10_000 },
     );
   } catch (err) {
-    // 上游网络异常按瞬时故障返回，交由客户端退避重试，避免一次抖动就判死整个登录
-    return { status: 'error', msg: err instanceof Error ? err.message : '轮询上游失败' };
+    // 链路层失败：contacted=false，交由后台循环退避重试 / 超时判定
+    return { status: 'error', msg: err instanceof Error ? err.message : '轮询上游失败', contacted: false };
   }
 
   const json = (await res.json().catch(() => null)) as TokenApiResponse | null;
   if (json?.success === true && json?.data) {
-    return { status: 'ok', token: json.data as TokenResponse };
+    return { status: 'ok', token: json.data as TokenResponse, contacted: true };
   }
 
   const err = json?.data?.error;
-  if (err === 'authorization_pending') return { status: 'pending' };
-  if (err === 'authorization_waiting') return { status: 'waiting' };
-  if (err === 'slow_down') return { status: 'slow_down' };
-  if (err === 'access_denied') return { status: 'denied', msg: '用户取消或拒绝授权' };
-  if (err === 'expired_token') return { status: 'denied', msg: '二维码已过期，请重新获取' };
+  if (err === 'authorization_pending') return { status: 'pending', contacted: true };
+  if (err === 'authorization_waiting') return { status: 'waiting', contacted: true };
+  if (err === 'slow_down') return { status: 'slow_down', contacted: true };
+  if (err === 'access_denied') return { status: 'denied', msg: '用户取消或拒绝授权', contacted: true };
+  if (err === 'expired_token') return { status: 'denied', msg: '二维码已过期，请重新获取', contacted: true };
   // 未知响应（网关错误 / 非预期响应体等）：不直接判死，标记为可重试的 error
-  return { status: 'error', msg: json?.data?.msg || `获取授权状态失败（${res.status}）` };
+  return {
+    status: 'error',
+    msg: json?.data?.msg || `获取授权状态失败（${res.status}）`,
+    contacted: true,
+  };
 }
 
 async function fetchProfileServer(config: ReturnType<typeof getTapConfig>, token: TokenResponse): Promise<TapTapProfile> {
@@ -318,7 +540,7 @@ async function fetchProfileServer(config: ReturnType<typeof getTapConfig>, token
   url.searchParams.set('client_id', config.clientId);
 
   const auth = generateMacHeaderServer(token, 'GET', url);
-  const res = await upstreamFetch(
+  const res = await fetchUpstreamWithRetry(
     url,
     {
       headers: {
@@ -367,7 +589,7 @@ async function loginLeanCloudServer(
     token,
   };
 
-  const res = await upstreamFetch(
+  const res = await fetchUpstreamWithRetry(
     url,
     {
       method: 'POST',

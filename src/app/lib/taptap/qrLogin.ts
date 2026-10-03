@@ -193,7 +193,13 @@ type PollStatusResponse = {
   msg?: string;
 };
 
-/** 轮询期间允许的连续瞬时失败次数，超过则终止并提示重新获取。 */
+/**
+ * 轮询期间允许的连续瞬时失败次数，超过则终止并提示重新获取。
+ *
+ * 说明：真正的上游轮询已由服务端后台循环承担（含退避与链路故障判定），
+ * 客户端这里统计的是「客户端 → 本服务」这一跳的失败，正常情况下几乎不会触发；
+ * 保留该上限只为兜底同源请求持续不可用的极端情况。
+ */
 const MAX_CONSECUTIVE_POLL_ERRORS = 5;
 /** 退避间隔上限，避免 slow_down / 抖动把等待拖得过长。 */
 const MAX_POLL_INTERVAL_MS = 8_000;
@@ -442,24 +448,19 @@ export const getTapConfig = (version: TapTapVersion) => TAP_CONFIG[version];
 export type { TokenResponse };
 
 
-export async function completeTapTapQrLogin(
+/**
+ * 授权之后的流程：拿资料 → LeanCloud 换 sessionToken。
+ *
+ * 与轮询（pollTapTapToken）拆开是为了支持「授权失败绝不重扫码」：
+ * 一旦拿到 token，后续任何一步失败都可以复用同一个 flowId 原地重试本函数，
+ * 而不必重新拉二维码让用户再扫一次（profile/leancloud 都在较脆弱的链路上）。
+ */
+export async function finishTapTapQrLogin(
   version: TapTapVersion,
   qr: QrCodeData,
-  options?: { signal?: AbortSignal; timeoutMs?: number },
+  token: TokenResponse,
+  options?: { signal?: AbortSignal },
 ): Promise<{ sessionToken: string; profile: TapTapProfile; token: TokenResponse }> {
-  const timeoutMs = options?.timeoutMs ?? 120_000;
-
-  const token = await pollTapTapToken(
-    version,
-    qr.deviceCode,
-    qr.deviceId,
-    qr.interval * 1000,
-    timeoutMs,
-    options?.signal,
-    qr.flowId,
-  );
-  if (options?.signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-
   const profile = await fetchTapTapProfile(version, token, options?.signal, qr.flowId);
   if (options?.signal?.aborted) throw new DOMException('Aborted', 'AbortError');
 

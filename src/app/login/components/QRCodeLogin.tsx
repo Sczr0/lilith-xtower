@@ -6,8 +6,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import { SessionCredential, TapTapVersion } from '../../lib/types/auth';
 import { AuthStorage } from '../../lib/storage/auth';
 import {
-  completeTapTapQrLogin,
+  finishTapTapQrLogin,
+  pollTapTapToken,
   requestTapTapDeviceCode,
+  TokenResponse,
+  QrCodeData,
 } from '../../lib/taptap/qrLogin';
 import { buildTapTapLoginAuthDeepLink, normalizeTapTapConfirmUrl } from '../../lib/taptap/deeplink';
 import { getCapToken } from '../../lib/cap/client';
@@ -16,6 +19,24 @@ import { buildGoHref } from '../../utils/outbound';
 
 interface QRCodeLoginProps {
   taptapVersion: TapTapVersion;
+}
+
+/**
+ * 一次扫码登录的进度快照。用于「授权失败绝不重扫码」：
+ * 走到越靠后的阶段（已拿 token / sessionToken），失败后能原地续跑越远。
+ */
+type TapTapFlow = {
+  version: TapTapVersion;
+  qr: QrCodeData;
+  /** 已从上游拿到 TapTap access_token（说明用户已授权）。 */
+  token?: TokenResponse;
+  /** 已用 token 换到 LeanCloud sessionToken。 */
+  sessionToken?: string;
+};
+
+/** 服务端 flow 已失效时的报错：此时无法续跑，只能重新拉码。 */
+function isFlowInvalidError(err: unknown): boolean {
+  return err instanceof Error && /授权流程无效|已过期/.test(err.message);
 }
 
 export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
@@ -28,8 +49,10 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
 
   const [qrCodeImage, setQrCodeImage] = useState<string>('');
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
-  const [status, setStatus] = useState<'idle' | 'loading' | 'scanning' | 'success' | 'error' | 'expired'>('idle');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'scanning' | 'resuming' | 'success' | 'error' | 'expired'>('idle');
   const [error, setError] = useState<string>('');
+  // 当前流程是否可续跑（已拿到 token 或 sessionToken）。用 state 而非仅 ref：它是渲染依据。
+  const [canResume, setCanResume] = useState(false);
   // 移动端确认链接：scheme 优先唤起 TapTap，https 作为兜底（新开标签页）
   const [taptapConfirmUrl, setTaptapConfirmUrl] = useState<string>('');
   const isMobile = useClientValue(() => {
@@ -40,6 +63,7 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
   const taptapSchemeConfirmUrl = buildTapTapLoginAuthDeepLink(taptapWebConfirmUrl || taptapConfirmUrl);
   const pollAbortRef = useRef<AbortController | null>(null);
   const expireTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flowRef = useRef<TapTapFlow | null>(null);
 
   // 清理轮询与定时器
   const cancelPolling = useCallback(() => {
@@ -53,11 +77,25 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
     }
   }, []);
 
-  // 使用完整的 TapTap 扫码登录流程
-  const getQRCode = useCallback(async () => {
+  // 拿到 sessionToken 后统一提交到 /api/session/login（Cap 验证 → 建立会话）
+  const submitSessionLogin = useCallback(async (sessionToken: string) => {
+    const credential: SessionCredential = {
+      type: 'session',
+      token: sessionToken,
+      timestamp: Date.now(),
+    };
+    // 获取 Cap 验证码 token（程序化模式，已在页面加载时启动后台解题）
+    const capToken = await getCapToken();
+    await loginRef.current(credential, capToken);
+  }, []);
+
+  // 首次登录：拉码 → 轮询授权 → 换资料/sessionToken → 建会话
+  const startLogin = useCallback(async () => {
     try {
       setStatus('loading');
       setError('');
+      setCanResume(false);
+      flowRef.current = null;
       cancelPolling();
 
       const version = taptapVersion ?? AuthStorage.getTapTapVersion();
@@ -65,6 +103,7 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
       pollAbortRef.current = controller;
 
       const codeData = await requestTapTapDeviceCode(version, controller.signal);
+      flowRef.current = { version, qr: codeData };
 
       setQrCodeImage(codeData.qrcodeUrl);
       try {
@@ -88,27 +127,33 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
         }
       }, (codeData.expiresIn ?? 300) * 1000);
 
-      // 执行完整扫码登录流程
-      const { sessionToken } = await completeTapTapQrLogin(
+      // 轮询授权（真正的上游轮询已由服务端后台承担，客户端只读状态）
+      const token = await pollTapTapToken(
         version,
-        codeData,
-        {
-          signal: controller.signal,
-          timeoutMs: (codeData.expiresIn ?? 300) * 1000,
-        },
+        codeData.deviceCode,
+        codeData.deviceId,
+        codeData.interval * 1000,
+        (codeData.expiresIn ?? 300) * 1000,
+        controller.signal,
+        codeData.flowId,
       );
 
-      const credential: SessionCredential = {
-        type: 'session',
-        token: sessionToken,
-        timestamp: Date.now(),
-      };
+      // 用户已授权：二维码不再重要，撤掉过期定时器，并标记为可续跑
+      if (expireTimerRef.current) {
+        clearTimeout(expireTimerRef.current);
+        expireTimerRef.current = null;
+      }
+      if (flowRef.current) flowRef.current.token = token;
+      setCanResume(true);
 
-      // 获取 Cap 验证码 token（程序化模式，已在页面加载时启动后台解题）
-      const capToken = await getCapToken();
+      const { sessionToken } = await finishTapTapQrLogin(version, codeData, token, { signal: controller.signal });
+      if (flowRef.current) flowRef.current.sessionToken = sessionToken;
 
-      await loginRef.current(credential, capToken);
+      await submitSessionLogin(sessionToken);
+
       cancelPolling();
+      flowRef.current = null;
+      setCanResume(false);
       setStatus('success');
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
@@ -116,25 +161,78 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
       }
       console.error('扫码登录失败:', err);
       cancelPolling();
+      if (isFlowInvalidError(err)) {
+        flowRef.current = null;
+        setCanResume(false);
+      }
       setStatus('error');
       setError(err instanceof Error ? err.message : '扫码登录失败，请重试');
     }
-  }, [taptapVersion, cancelPolling]);
+  }, [taptapVersion, cancelPolling, submitSessionLogin]);
+
+  // 续跑：复用已拿到的 token / sessionToken，绝不重新拉码让用户重扫
+  const resumeLogin = useCallback(async () => {
+    const flow = flowRef.current;
+    if (!flow || (!flow.token && !flow.sessionToken)) {
+      await startLogin();
+      return;
+    }
+    try {
+      setStatus('resuming');
+      setError('');
+      cancelPolling();
+      const controller = new AbortController();
+      pollAbortRef.current = controller;
+
+      let sessionToken = flow.sessionToken;
+      if (!sessionToken) {
+        // 已授权但还没换到 sessionToken：只重放「资料 → LeanCloud」这一段
+        const result = await finishTapTapQrLogin(flow.version, flow.qr, flow.token as TokenResponse, {
+          signal: controller.signal,
+        });
+        sessionToken = result.sessionToken;
+        flow.sessionToken = sessionToken;
+      }
+
+      await submitSessionLogin(sessionToken);
+
+      cancelPolling();
+      flowRef.current = null;
+      setCanResume(false);
+      setStatus('success');
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        return;
+      }
+      console.error('继续登录失败:', err);
+      cancelPolling();
+      if (isFlowInvalidError(err)) {
+        flowRef.current = null;
+        setCanResume(false);
+      }
+      setStatus('error');
+      setError(err instanceof Error ? err.message : '登录失败，请重试');
+    }
+  }, [cancelPolling, submitSessionLogin, startLogin]);
 
   // 组件挂载时自动获取二维码
   useEffect(() => {
     // 说明：通过异步调度触发拉码，避免在 effect 同步阶段直接触发一串 setState（符合 React 19 hooks 规则）。
     const timer = window.setTimeout(() => {
-      void getQRCode();
+      void startLogin();
     }, 0);
     return () => {
       window.clearTimeout(timer);
       cancelPolling();
     };
-  }, [getQRCode, cancelPolling]);
+  }, [startLogin, cancelPolling]);
 
   const handleRetry = () => {
-    getQRCode();
+    if (canResume) {
+      void resumeLogin();
+    } else {
+      void startLogin();
+    }
   };
 
   return (
@@ -148,10 +246,12 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
         </p>
       </div>
 
-      {status === 'loading' && (
+      {(status === 'loading' || status === 'resuming') && (
         <div className="flex flex-col items-center justify-center py-8">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-2"></div>
-          <p className="text-gray-600 dark:text-gray-400">正在获取二维码...</p>
+          <p className="text-gray-600 dark:text-gray-400">
+            {status === 'resuming' ? '正在完成登录...' : '正在获取二维码...'}
+          </p>
           <RotatingTips />
         </div>
       )}
@@ -248,12 +348,27 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
           <p className="text-gray-600 dark:text-gray-400 text-center">
             {error || authError || (status === 'success' ? '登录未能完成，请重新获取二维码' : '')}
           </p>
-          <button
-            onClick={handleRetry}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            重新获取二维码
-          </button>
+          <div className="flex flex-col items-center gap-2">
+            <button
+              onClick={handleRetry}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              {canResume ? '重试登录' : '重新获取二维码'}
+            </button>
+            {canResume && (
+              <button
+                onClick={() => {
+                  // 用户已授权但若续跑始终失败，仍允许主动换一张码重来
+                  flowRef.current = null;
+                  setCanResume(false);
+                  void startLogin();
+                }}
+                className="px-4 py-1.5 text-sm text-blue-600 hover:underline dark:text-blue-400"
+              >
+                重新获取二维码
+              </button>
+            )}
+          </div>
         </div>
       )}
 
