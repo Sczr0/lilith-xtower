@@ -6,8 +6,6 @@ import { getConsentStatus } from '@/app/lib/auth/consent';
 import { exchangeBackendToken } from '@/app/lib/auth/phi-session';
 import { ensureAuthSessionKey, getAuthSession } from '@/app/lib/auth/session';
 import { getSeekendApiBaseUrl } from '@/app/lib/auth/upstream';
-import { verifyCapToken } from '@/app/lib/api/withCap';
-import { resolveClientIp, slidingWindowAllow } from '@/app/lib/api/rateLimit';
 import { upstreamFetch } from '@/app/lib/api/upstreamFetch';
 import type { AuthCredential, TapTapVersion } from '@/app/lib/types/auth';
 
@@ -16,10 +14,6 @@ export const dynamic = 'force-dynamic';
 
 const GLOBAL_BAN_STATUS = 403;
 const GLOBAL_BAN_CODE = 'FORBIDDEN';
-
-/** 登录接口 IP 限流（滑动窗口，单实例）：30 次/分钟/IP。 */
-const LOGIN_RATE_LIMIT = 30;
-const LOGIN_RATE_WINDOW_MS = 60_000;
 
 type LoginRequestBody = {
   credential?: unknown;
@@ -95,15 +89,6 @@ function parseCredential(value: unknown): AuthCredential | null {
 
 export async function POST(request: NextRequest) {
   try {
-    // IP 限流：先于一切业务逻辑执行
-    const ip = resolveClientIp(request);
-    if (!slidingWindowAllow(`session-login:${ip}`, LOGIN_RATE_LIMIT, LOGIN_RATE_WINDOW_MS)) {
-      return NextResponse.json(
-        { success: false, message: '请求过于频繁，请稍后重试' },
-        { status: 429, headers: { 'Cache-Control': 'no-store' } },
-      );
-    }
-
     const body = (await request.json().catch(() => ({}))) as LoginRequestBody;
     const credential = parseCredential(body.credential);
     if (!credential) {
@@ -111,25 +96,6 @@ export async function POST(request: NextRequest) {
         { success: false, message: '无效的登录凭证' },
         { status: 400, headers: { 'Cache-Control': 'no-store' } },
       );
-    }
-
-    // Cap 验证码：渐进式上线 — 未配置时跳过，配置后强制校验
-    const capToken = typeof body.capToken === 'string' ? body.capToken.trim() : undefined;
-    const capResult = await verifyCapToken(capToken);
-    if (!capResult.ok) {
-      // 缺 token / 无效 token：明确拒绝（已配置密钥后强制校验，防止不带 token 绕过）
-      if (capResult.reason === 'invalid_token' || capResult.reason === 'missing_token') {
-        const message =
-          capResult.reason === 'missing_token'
-            ? '安全验证未完成，请刷新页面后重试'
-            : '安全验证失败，请刷新页面重试';
-        return NextResponse.json(
-          { success: false, message, code: 'CAP_FAILED' },
-          { status: 403, headers: { 'Cache-Control': 'no-store' } },
-        );
-      }
-      // upstream_error / timeout / circuit_open → 降级通过，允许登录
-      console.warn('Cap degraded, allowing login:', capResult.reason);
     }
 
     const taptapVersion = normalizeTapTapVersion(body.taptapVersion);

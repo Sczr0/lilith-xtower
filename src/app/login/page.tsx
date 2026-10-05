@@ -16,21 +16,12 @@ import { LoginMethodSelector } from './components/LoginMethodSelector';
 import { useClientValue } from '../hooks/useClientValue';
 import { LOGIN_METHODS } from './loginMethods';
 import { LoginFormPanel } from './components/LoginFormPanel';
-import { initCap } from '../lib/cap/client';
 
 export default function LoginPage() {
   const [activeMethod, setActiveMethod] = useState<AuthMethod>('qrcode');
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const { isAuthenticated, isLoading, credential, logout, consentRequired } = useAuth();
   const router = useRouter();
-
-  // Cap 验证码：页面加载时立即启动后台解题（程序化模式，无可见 UI）
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const endpoint =
-      process.env.NEXT_PUBLIC_CAP_ENDPOINT || 'https://cap.xtower.site/904b5b0099/';
-    initCap(endpoint);
-  }, []);
 
   // 客户端挂载后才渲染登录面板：
   // hydration 之前只能拿到服务端默认值 'cn'，若此时就挂载 QRCodeLogin，国际版用户会先以

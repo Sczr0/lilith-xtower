@@ -4,7 +4,6 @@ import { URL } from 'url';
 
 import { TapTapVersion } from '@/app/lib/types/auth';
 import { getTapConfig, TapTapProfile, QrCodeData } from '@/app/lib/taptap/qrLogin';
-import { resolveClientIp, slidingWindowAllow } from '@/app/lib/api/rateLimit';
 import { upstreamFetch } from '@/app/lib/api/upstreamFetch';
 
 type TokenResponse = {
@@ -58,33 +57,7 @@ type TapRequestBody = {
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// —— 按 action 的 IP 限流（滑动窗口，单实例） ——
-const RATE_LIMITS: Record<Action, { limit: number; windowMs: number }> = {
-  device_code: { limit: 30, windowMs: 60_000 }, // 二维码获取：每次登录仅 1 次，留出重试余量
-  poll_token: { limit: 240, windowMs: 60_000 }, // 轮询：客户端间隔 1s，120 秒最多 ~120 次
-  profile: { limit: 30, windowMs: 60_000 },
-  leancloud: { limit: 10, windowMs: 60_000 }, // 登录落库：低频
-};
-
-/**
- * 拿不到可信客户端 IP 时（resolveClientIp 返回 'unknown'），所有访客会共享同一个限流桶。
- * 若沿用单 IP 的严格限额，一旦部署侧未配置 TRUSTED_CLIENT_IP_HEADER，整站登录会被一起限流成 429。
- * 这里对共享桶放宽到 N 倍：既保留兜底上限（防止伪造头绕过），又不至于把正常访客挡在门外。
- */
-const UNKNOWN_IP_LIMIT_MULTIPLIER = 10;
-
-function rateLimitKey(ip: string, action: Action): string {
-  return `taptap:${ip}:${action}`;
-}
-
-function resolveRateLimit(ip: string, action: Action): { key: string; limit: number; windowMs: number } {
-  const { limit, windowMs } = RATE_LIMITS[action];
-  return {
-    key: rateLimitKey(ip, action),
-    limit: ip === 'unknown' ? limit * UNKNOWN_IP_LIMIT_MULTIPLIER : limit,
-    windowMs,
-  };
-}
+const VALID_ACTIONS: readonly Action[] = ['device_code', 'poll_token', 'profile', 'leancloud'];
 
 // —— 授权流程状态绑定 ——
 // 安全说明：poll_token / profile / leancloud 必须携带 device_code 阶段下发的 flowId。
@@ -304,20 +277,13 @@ function toPollResponse(flow: FlowState): { status: PollStatus; token?: TokenRes
 }
 
 export async function POST(req: NextRequest) {
-  const ip = resolveClientIp(req);
-
   try {
     const body = (await req.json().catch(() => ({}))) as TapRequestBody;
     const action: Action = body.action;
     const version: TapTapVersion = body.version === 'global' ? 'global' : 'cn';
 
-    if (!action || !(action in RATE_LIMITS)) {
+    if (!action || !VALID_ACTIONS.includes(action)) {
       return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
-    }
-
-    const { key, limit, windowMs } = resolveRateLimit(ip, action);
-    if (!slidingWindowAllow(key, limit, windowMs)) {
-      return NextResponse.json({ error: '请求过于频繁，请稍后重试' }, { status: 429 });
     }
 
     const config = getTapConfig(version);
