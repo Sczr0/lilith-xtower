@@ -23,8 +23,14 @@ export default defineConfig({
     entrypoint: 'src/index.ts',
     triggers: [
       // 只接管扫码登录这两个端点；其余 /api/* 仍走源站。
-      triggers.fetch({ pattern: 'lilith.xtower.site/api/auth/qrcode*', zone: 'xtower.site' }),
+      // 注意：zone 必须是**实际承载流量**的那个——`lilith.xtower.site` 在 xtower.site 里只是灰云 CNAME，
+      // 经阿里云 DNS 的 r0semi.net 分流后，境外落在 23232233.xyz（Cloudflare 代理），故 route 要挂这里。
+      triggers.fetch({ pattern: 'lilith.xtower.site/api/auth/qrcode*', zone: '23232233.xyz' }),
     ],
+    // 开启 Workers Logs（含 invocation logs 并持久化）——与 wrangler.toml 保持一致。
+    observability: {
+      logs: { enabled: true, invocationLogs: true, persist: true },
+    },
     exports: {
       TapTapFlow: exports.durableObject({ storage: 'sqlite' }),
     },

@@ -28,6 +28,8 @@ export const DEVICE_CODE_FORM_VERSION = '1.2.0';
 export const DEFAULT_EXPIRES_IN_SECS = 300;
 /** 轮询默认间隔（秒），上游未给时回退（后端默认 5）。 */
 export const DEFAULT_INTERVAL_SECS = 5;
+/** cn 版本在海外的轮询下限（秒）：cn 上游在国内，跨境轮询贵，放大间隔以减少调用。 */
+export const MIN_CN_INTERVAL_SECS = 2;
 export const TAP_USER_AGENT = 'TapTapAndroidSDK/3.16.5';
 export const LEANCLOUD_USER_AGENT = 'LeanCloud-CSharp-SDK/1.0.3';
 

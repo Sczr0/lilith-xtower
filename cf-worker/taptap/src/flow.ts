@@ -14,6 +14,14 @@ export interface Env {
   PROXY_BASE?: string;
 }
 
+export type StatusOutcome = {
+  res: QrStatusResponse;
+  /** 本次真正打上游的耗时（ms）；未打上游为 0。 */
+  upstreamMs: number;
+  /** 本次是否真的向上游发起了一次轮询。 */
+  polled: boolean;
+};
+
 /**
  * 每个 qrId 一个 DO 实例，替代后端的 Moka 进程内缓存（可水平扩展、抗重启）。
  * 「轮询即上游」+ `nextPollAt` 节流与后端 `get_qrcode_status` 一致。
@@ -57,33 +65,36 @@ export class TapTapFlow extends DurableObject<Env> {
     await this.save();
   }
 
-  async status(): Promise<QrStatusResponse> {
+  async status(): Promise<StatusOutcome> {
     const d = this.data;
-    if (!d) return { status: 'Expired', message: '二维码不存在或已过期' };
+    if (!d) return { res: { status: 'Expired', message: '二维码不存在或已过期' }, upstreamMs: 0, polled: false };
 
     const now = Date.now();
     if (now - d.createdAt > QR_TTL_MS || now >= d.expiresAt) {
       await this.clear();
-      return { status: 'Expired', message: '二维码已过期' };
+      return { res: { status: 'Expired', message: '二维码已过期' }, upstreamMs: 0, polled: false };
     }
     if (now < d.nextPollAt) {
-      return { status: 'Pending', retryAfter: toRetryAfterSecs(d.nextPollAt - now) };
+      return { res: { status: 'Pending', retryAfter: toRetryAfterSecs(d.nextPollAt - now) }, upstreamMs: 0, polled: false };
     }
 
+    const t0 = performance.now();
     try {
       const sessionToken = await pollForToken(TAP_CONFIG[d.version], d.deviceCode, d.deviceId);
+      const upstreamMs = performance.now() - t0;
       // 一次性：拿到 sessionToken 即作废（与后端 set_confirmed + remove 一致）
       await this.clear();
-      return { status: 'Confirmed', sessionToken };
+      return { res: { status: 'Confirmed', sessionToken }, upstreamMs, polled: true };
     } catch (err) {
+      const upstreamMs = performance.now() - t0;
       // 无论 pending 还是错误都退避，避免客户端重试把上游打爆
       d.nextPollAt = Date.now() + d.intervalMs;
       await this.save();
       if (err instanceof AuthPendingError) {
-        return { status: 'Pending', retryAfter: toRetryAfterSecs(d.intervalMs) };
+        return { res: { status: 'Pending', retryAfter: toRetryAfterSecs(d.intervalMs) }, upstreamMs, polled: true };
       }
       const { errorCode, message } = classifyError(err);
-      return { status: 'Error', errorCode, message };
+      return { res: { status: 'Error', errorCode, message }, upstreamMs, polled: true };
     }
   }
 }
