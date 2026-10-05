@@ -1,0 +1,17 @@
+{
+  "name": "@lilith/edge-probe-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "cf dev",
+    "build": "cf build",
+    "deploy": "cf deploy",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261001.1",
+    "cf": "^1.0.0-beta.12",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.147.0"
+  }
+}

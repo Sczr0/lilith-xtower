@@ -4,6 +4,8 @@ import path from 'path';
 export default defineConfig({
   test: {
     environment: 'node',
+    // cf-worker 是独立的 Cloudflare Worker 子包：用自己的 vitest 配置（含 workers pool）与依赖运行，不并入主套件。
+    exclude: ['**/node_modules/**', '**/dist/**', 'cf-worker/**'],
     /**
      * 测试必须运行在非 production 的 NODE_ENV 下（vitest 默认即 test），这里显式固定，
      * 避免受外部环境干扰（本机 shell / CI 可能预设 NODE_ENV=production）：

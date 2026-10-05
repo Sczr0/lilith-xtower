@@ -6,10 +6,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { SessionCredential, TapTapVersion } from '../../lib/types/auth';
 import { AuthStorage } from '../../lib/storage/auth';
 import {
-  finishTapTapQrLogin,
-  pollTapTapToken,
+  pollTapTapSessionToken,
   requestTapTapDeviceCode,
-  TokenResponse,
   QrCodeData,
 } from '../../lib/taptap/qrLogin';
 import { buildTapTapLoginAuthDeepLink, normalizeTapTapConfirmUrl } from '../../lib/taptap/deeplink';
@@ -28,15 +26,13 @@ interface QRCodeLoginProps {
 type TapTapFlow = {
   version: TapTapVersion;
   qr: QrCodeData;
-  /** 已从上游拿到 TapTap access_token（说明用户已授权）。 */
-  token?: TokenResponse;
-  /** 已用 token 换到 LeanCloud sessionToken。 */
+  /** 已拿到 LeanCloud sessionToken（说明授权已完成）。 */
   sessionToken?: string;
 };
 
 /** 服务端 flow 已失效时的报错：此时无法续跑，只能重新拉码。 */
 function isFlowInvalidError(err: unknown): boolean {
-  return err instanceof Error && /授权流程无效|已过期/.test(err.message);
+  return err instanceof Error && /已过期|不存在|无效/.test(err.message);
 }
 
 export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
@@ -127,27 +123,21 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
         }
       }, (codeData.expiresIn ?? 300) * 1000);
 
-      // 轮询授权（真正的上游轮询已由服务端后台承担，客户端只读状态）
-      const token = await pollTapTapToken(
-        version,
-        codeData.deviceCode,
-        codeData.deviceId,
+      // 轮询授权（服务端持有待授权流程，Confirmed 时直接返回 sessionToken）
+      const sessionToken = await pollTapTapSessionToken(
+        codeData.qrId,
         codeData.interval * 1000,
         (codeData.expiresIn ?? 300) * 1000,
         controller.signal,
-        codeData.flowId,
       );
 
-      // 用户已授权：二维码不再重要，撤掉过期定时器，并标记为可续跑
+      // 已换到 sessionToken：二维码不再重要，撤掉过期定时器，并标记为可续跑
       if (expireTimerRef.current) {
         clearTimeout(expireTimerRef.current);
         expireTimerRef.current = null;
       }
-      if (flowRef.current) flowRef.current.token = token;
-      setCanResume(true);
-
-      const { sessionToken } = await finishTapTapQrLogin(version, codeData, token, { signal: controller.signal });
       if (flowRef.current) flowRef.current.sessionToken = sessionToken;
+      setCanResume(true);
 
       await submitSessionLogin(sessionToken);
 
@@ -173,7 +163,7 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
   // 续跑：复用已拿到的 token / sessionToken，绝不重新拉码让用户重扫
   const resumeLogin = useCallback(async () => {
     const flow = flowRef.current;
-    if (!flow || (!flow.token && !flow.sessionToken)) {
+    if (!flow || !flow.sessionToken) {
       await startLogin();
       return;
     }
@@ -184,17 +174,8 @@ export function QRCodeLogin({ taptapVersion }: QRCodeLoginProps) {
       const controller = new AbortController();
       pollAbortRef.current = controller;
 
-      let sessionToken = flow.sessionToken;
-      if (!sessionToken) {
-        // 已授权但还没换到 sessionToken：只重放「资料 → LeanCloud」这一段
-        const result = await finishTapTapQrLogin(flow.version, flow.qr, flow.token as TokenResponse, {
-          signal: controller.signal,
-        });
-        sessionToken = result.sessionToken;
-        flow.sessionToken = sessionToken;
-      }
-
-      await submitSessionLogin(sessionToken);
+      // 已拿到 sessionToken，只需重放「提交会话」这一步
+      await submitSessionLogin(flow.sessionToken);
 
       cancelPolling();
       flowRef.current = null;

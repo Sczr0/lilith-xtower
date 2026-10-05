@@ -1,0 +1,8 @@
+# 独立子工作区：仓库根的 pnpm-workspace.yaml 只包含 "."，不含本目录。
+packages:
+  - "."
+
+# pnpm 11 默认不执行依赖安装期脚本；cf/wrangler 需要 esbuild 与 workerd 的原生二进制。
+allowBuilds:
+  esbuild: true
+  workerd: true

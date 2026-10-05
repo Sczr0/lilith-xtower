@@ -1,0 +1,20 @@
+# 说明：本文件用于「wrangler 兜底路径」——Windows 上 `cf` 有 beta bug（spawn EFTYPE），
+# 可在本机直接 `wrangler deploy`；cf 会忽略本文件、读 cloudflare.config.ts，wrangler 会忽略后者。
+# 切换模式（wrangler 路径）不改文件：`wrangler deploy --var HANDLE_MODE:do`（或 --var HANDLE_MODE:proxy 回滚）。
+name = "taptap-flow"
+main = "src/index.ts"
+compatibility_date = "2025-09-01"
+
+[[durable_objects.bindings]]
+name = "TAP_FLOW"
+class_name = "TapTapFlow"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["TapTapFlow"]
+
+[vars]
+# proxy = 透传 seekend（灰度/回滚/CN 兜底）；do = 本地 DO 处理。
+HANDLE_MODE = "proxy"
+CN_FALLBACK_COUNTRIES = "CN"
+PROXY_BASE = "https://seekend.xtower.site/api/v1"

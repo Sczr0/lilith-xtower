@@ -1,111 +1,78 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
-const upstreamFetchMock = vi.hoisted(() => vi.fn());
-
-vi.mock('@/app/lib/api/upstreamFetch', () => ({
-  upstreamFetch: (...args: unknown[]) => upstreamFetchMock(...args),
-}));
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { POST } from '../route';
 
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  });
+function jsonRes(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
 function makeRequest(body: unknown) {
-  return {
-    headers: new Headers(),
-    json: async () => body,
-  } as never;
+  return { json: async () => body } as never;
 }
 
-function pollRequest(dev: { flowId: string; deviceCode: string; deviceId: string }) {
-  return makeRequest({
-    action: 'poll_token',
-    version: 'cn',
-    flowId: dev.flowId,
-    deviceCode: dev.deviceCode,
-    deviceId: dev.deviceId,
-  });
+/** seekend 2 端点流程的假上游：POST=建码，GET=状态。 */
+function installUpstream(statusBody: unknown) {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === 'POST') {
+        return jsonRes({ qrId: 'qr-1', verificationUrl: 'https://accounts.taptap.cn/device', expiresIn: 300, interval: 1 });
+      }
+      return jsonRes(statusBody);
+    }),
+  );
 }
 
-const DEVICE_CODE_PAYLOAD = {
-  data: {
-    device_code: 'dc-1',
-    user_code: 'uc-1',
-    qrcode_url: 'https://example.com/qr',
-    verification_url: 'https://example.com/verify',
-    interval: 1,
-    expires_in: 300,
-  },
-};
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
-describe('api/internal/taptap：服务端代为轮询', () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-    upstreamFetchMock.mockReset();
+describe('api/internal/taptap 过渡 shim（兼容旧客户端 4 动作）', () => {
+  it('device_code → poll(Confirmed) → profile → leancloud 交出 sessionToken', async () => {
+    installUpstream({ status: 'Confirmed', sessionToken: 'r:session' });
+
+    const create = await (await POST(makeRequest({ action: 'device_code', version: 'cn' }))).json();
+    expect(create.verificationUrl).toBe('https://accounts.taptap.cn/device');
+    expect(create.qrcodeUrl).toBe('https://accounts.taptap.cn/device');
+    expect(create.flowId).toBeTruthy();
+
+    const poll = await (await POST(makeRequest({ action: 'poll_token', version: 'cn', flowId: create.flowId }))).json();
+    expect(poll).toEqual({ status: 'ok', token: {} });
+
+    const profile = await (
+      await POST(makeRequest({ action: 'profile', version: 'cn', flowId: create.flowId }))
+    ).json();
+    expect(profile).toMatchObject({ verified: false });
+
+    const leancloud = await (
+      await POST(makeRequest({ action: 'leancloud', version: 'cn', flowId: create.flowId }))
+    ).json();
+    expect(leancloud).toEqual({ sessionToken: 'r:session' });
   });
 
-  afterEach(() => {
-    vi.useRealTimers();
+  it('未授权时 poll_token 回 pending', async () => {
+    installUpstream({ status: 'Pending', retryAfter: 1 });
+    const create = await (await POST(makeRequest({ action: 'device_code', version: 'cn' }))).json();
+    const poll = await (await POST(makeRequest({ action: 'poll_token', flowId: create.flowId }))).json();
+    expect(poll.status).toBe('pending');
   });
 
-  it('device_code 下发 flowId，此时尚不启动上游轮询', async () => {
-    upstreamFetchMock.mockResolvedValueOnce(jsonResponse(DEVICE_CODE_PAYLOAD));
+  it('二维码过期时回 denied', async () => {
+    installUpstream({ status: 'Expired', message: '二维码已过期' });
+    const create = await (await POST(makeRequest({ action: 'device_code', version: 'cn' }))).json();
+    const poll = await (await POST(makeRequest({ action: 'poll_token', flowId: create.flowId }))).json();
+    expect(poll).toEqual({ status: 'denied', msg: '二维码已过期' });
+  });
 
-    const res = await POST(makeRequest({ action: 'device_code', version: 'cn' }));
+  it('未知 flow 返回 400 与旧客户端能识别的文案', async () => {
+    const res = await POST(makeRequest({ action: 'poll_token', flowId: 'nope' }));
+    expect(res.status).toBe(400);
     const body = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(body.flowId).toBeTruthy();
-    expect(body.deviceCode).toBe('dc-1');
-    expect(body.deviceId).toBeTruthy();
-    // 只有 device_code 一次上游调用，未额外发起轮询
-    expect(upstreamFetchMock).toHaveBeenCalledTimes(1);
+    expect(body.error).toBe('授权流程无效或已过期');
   });
 
-  it('poll_token 由服务端后台轮询上游，客户端只读状态，拿到 token 后回 ok', async () => {
-    upstreamFetchMock
-      .mockResolvedValueOnce(jsonResponse(DEVICE_CODE_PAYLOAD)) // device_code
-      .mockResolvedValueOnce(jsonResponse({ data: { error: 'authorization_pending' } }))
-      .mockResolvedValueOnce(jsonResponse({ success: true, data: { access_token: 'at-1' } }));
-
-    const dev = await (await POST(makeRequest({ action: 'device_code', version: 'cn' }))).json();
-
-    // 第一次 poll_token：启动后台循环并立即返回 pending（不打上游）
-    const first = await (await POST(pollRequest(dev))).json();
-    expect(first.status).toBe('pending');
-    expect(upstreamFetchMock).toHaveBeenCalledTimes(1);
-
-    // 推进时间：后台循环完成 pending → ok
-    await vi.advanceTimersByTimeAsync(2500);
-
-    const second = await (await POST(pollRequest(dev))).json();
-    expect(second.status).toBe('ok');
-    expect(second.token.access_token).toBe('at-1');
-    // 上游调用：device_code 1 次 + 后台轮询 2 次
-    expect(upstreamFetchMock).toHaveBeenCalledTimes(3);
-
-    // 终态后再查不会新增上游调用
-    const third = await (await POST(pollRequest(dev))).json();
-    expect(third.status).toBe('ok');
-    expect(upstreamFetchMock).toHaveBeenCalledTimes(3);
-  });
-
-  it('上游 access_denied 时，客户端读到 denied 终态', async () => {
-    upstreamFetchMock
-      .mockResolvedValueOnce(jsonResponse(DEVICE_CODE_PAYLOAD))
-      .mockResolvedValueOnce(jsonResponse({ data: { error: 'access_denied' } }));
-
-    const dev = await (await POST(makeRequest({ action: 'device_code', version: 'cn' }))).json();
-    await POST(pollRequest(dev));
-    await vi.advanceTimersByTimeAsync(1000);
-
-    const body = await (await POST(pollRequest(dev))).json();
-    expect(body.status).toBe('denied');
-    expect(body.msg).toBe('用户取消或拒绝授权');
+  it('未知 action 返回 400', async () => {
+    const res = await POST(makeRequest({ action: 'bogus' }));
+    expect(res.status).toBe(400);
   });
 });

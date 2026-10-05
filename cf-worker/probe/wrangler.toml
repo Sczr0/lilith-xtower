@@ -1,0 +1,11 @@
+# 探针是临时诊断工具：保留一份 wrangler.toml 以便在 Windows 上用 `wrangler deploy` 直接部署
+# （cf 在本机 Windows 上有 beta bug，见仓库根 cf-worker/taptap/README.md）。
+# cf 会忽略本文件、读 cloudflare.config.ts；wrangler 会忽略 cloudflare.config.ts。
+name = "edge-probe"
+main = "src/index.ts"
+compatibility_date = "2025-09-01"
+workers_dev = true
+
+[vars]
+# 部署时用 `--var PROBE_KEY:<随机串>` 覆盖，别用这个占位值。
+PROBE_KEY = "change-me"

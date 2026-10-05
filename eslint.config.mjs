@@ -12,6 +12,7 @@ const eslintConfig = [
       "build/**",
       "next-env.d.ts",
       "tailwind.config.js",
+      "cf-worker/**",
     ],
   },
   {

@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { pollTapTapToken, requestTapTapDeviceCode } from '../qrLogin';
+import { pollTapTapSessionToken, requestTapTapDeviceCode } from '../qrLogin';
 
 /**
- * 说明：jsdom 环境下 `USE_PROXY` 为 true，测试走的是生产实际使用的代理路径
- * （即 /api/internal/taptap），而非 Node 直连分支。
+ * 新契约：POST /api/auth/qrcode 拉码，GET /api/auth/qrcode/{qrId}/status 轮询。
+ * jsdom 环境下走同源代理路径（与生产一致）。
  */
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -20,90 +20,89 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('requestTapTapDeviceCode 错误展示', () => {
-  it('从 429 的 JSON 中提取可读文案，而不是把原始 JSON 抛到界面', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ error: '请求过于频繁，请稍后重试' }, 429));
-    vi.stubGlobal('fetch', fetchMock);
+describe('requestTapTapDeviceCode', () => {
+  it('映射创建响应（qrcodeUrl = verificationUrl）', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse({ qrId: 'q1', verificationUrl: 'https://x/device', expiresIn: 300, interval: 1 }),
+      ),
+    );
+    await expect(requestTapTapDeviceCode('cn')).resolves.toEqual({
+      qrId: 'q1',
+      verificationUrl: 'https://x/device',
+      qrcodeUrl: 'https://x/device',
+      expiresIn: 300,
+      interval: 1,
+    });
+  });
 
-    const error = await requestTapTapDeviceCode('cn').catch((e: unknown) => e);
-
-    expect(error).toBeInstanceOf(Error);
-    expect((error as Error).message).toBe('请求过于频繁，请稍后重试');
-    // 不能把原始 JSON 文本暴露给用户
-    expect((error as Error).message).not.toContain('{"error"');
+  it('从 ProblemDetails 里提取可读文案', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse(
+          {
+            type: 'about:blank',
+            title: 'Validation Failed',
+            status: 422,
+            code: 'VALIDATION_FAILED',
+            detail: 'taptapVersion 必须为 cn 或 global',
+          },
+          422,
+        ),
+      ),
+    );
+    await expect(requestTapTapDeviceCode('cn')).rejects.toThrow('taptapVersion 必须为 cn 或 global');
   });
 
   it('错误体为纯文本时回退为文本内容', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response('Bad Gateway', { status: 502 }));
-    vi.stubGlobal('fetch', fetchMock);
-
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('Bad Gateway', { status: 502 })));
     await expect(requestTapTapDeviceCode('cn')).rejects.toThrow('Bad Gateway');
   });
 });
 
-describe('pollTapTapToken 轮询容错', () => {
-  it('轮询到 ok 时返回令牌', async () => {
+describe('pollTapTapSessionToken', () => {
+  it('Confirmed 时返回 sessionToken', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse({ status: 'pending' }))
-      .mockResolvedValueOnce(jsonResponse({ status: 'waiting' }))
-      .mockResolvedValueOnce(jsonResponse({ status: 'ok', token: { access_token: 'at-ok' } }));
+      .mockResolvedValueOnce(jsonResponse({ status: 'Pending', retryAfter: 1 }))
+      .mockResolvedValueOnce(jsonResponse({ status: 'Scanned' }))
+      .mockResolvedValueOnce(jsonResponse({ status: 'Confirmed', sessionToken: 'r:sess' }));
     vi.stubGlobal('fetch', fetchMock);
 
-    const token = await pollTapTapToken('cn', 'dc', 'dev', 1, 5_000, undefined, 'flow-1');
-
-    expect(token.access_token).toBe('at-ok');
+    await expect(pollTapTapSessionToken('q1', 1, 5_000)).resolves.toBe('r:sess');
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
-  it('瞬时 5xx 不判死，退避后继续轮询直至成功', async () => {
+  it('非瞬时错误（UNAUTHORIZED）立即终止并抛上游文案', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse({ error: 'bad gateway' }, 502))
-      .mockResolvedValueOnce(jsonResponse({ status: 'ok', token: { access_token: 'at-retry' } }));
+      .mockResolvedValue(jsonResponse({ status: 'Error', errorCode: 'UNAUTHORIZED', message: '认证失败' }));
     vi.stubGlobal('fetch', fetchMock);
 
-    const token = await pollTapTapToken('cn', 'dc', 'dev', 1, 5_000, undefined, 'flow-1');
-
-    expect(token.access_token).toBe('at-retry');
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-  });
-
-  it('slow_down 视为可继续，退避后继续轮询', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse({ status: 'slow_down' }))
-      .mockResolvedValueOnce(jsonResponse({ status: 'ok', token: { access_token: 'at-slow' } }));
-    vi.stubGlobal('fetch', fetchMock);
-
-    const token = await pollTapTapToken('cn', 'dc', 'dev', 1, 5_000, undefined, 'flow-1');
-
-    expect(token.access_token).toBe('at-slow');
-  });
-
-  it('denied（用户拒绝授权）立即终止并抛出上游文案', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(jsonResponse({ status: 'denied', msg: '用户取消或拒绝授权' }));
-    vi.stubGlobal('fetch', fetchMock);
-
-    await expect(pollTapTapToken('cn', 'dc', 'dev', 1, 5_000, undefined, 'flow-1')).rejects.toThrow(
-      '用户取消或拒绝授权',
-    );
+    await expect(pollTapTapSessionToken('q1', 1, 5_000)).rejects.toThrow('认证失败');
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it('连续瞬时错误超过阈值后终止并提示重试', async () => {
-    // 每次都要新建 Response：body 只能被读取一次，复用同一实例会让后续 res.text() 抛错
+  it('Expired 立即终止', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(jsonResponse({ status: 'Expired', message: '二维码已过期' })),
+    );
+    await expect(pollTapTapSessionToken('q1', 1, 5_000)).rejects.toThrow('二维码已过期');
+  });
+
+  it('瞬时上游错误退避重试，超过阈值后终止', async () => {
+    // 每次新建 Response（body 只能读一次）
     const fetchMock = vi
       .fn()
-      .mockImplementation(() => Promise.resolve(jsonResponse({ error: '上游持续失败' }, 500)));
+      .mockImplementation(() =>
+        Promise.resolve(jsonResponse({ status: 'Error', errorCode: 'UPSTREAM_ERROR', message: '上游网络错误' })),
+      );
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(
-      pollTapTapToken('cn', 'dc', 'dev', 1, 60_000, undefined, 'flow-1'),
-    ).rejects.toThrow('上游持续失败');
-    // 至少发生了若干次重试后才放弃
+    await expect(pollTapTapSessionToken('q1', 1, 60_000)).rejects.toThrow('上游网络错误');
     expect(fetchMock.mock.calls.length).toBeGreaterThan(1);
   });
 });

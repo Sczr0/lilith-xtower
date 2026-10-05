@@ -1,0 +1,7 @@
+# 独立子工作区：仓库根的 pnpm-workspace.yaml 只包含 "."，不包含本目录。
+# 在此放置后，于本目录直接运行 `pnpm install` 即可安装到本地 node_modules（不污染主仓库 lockfile）。
+packages:
+  - "."
+allowBuilds:
+  esbuild: true
+  workerd: true

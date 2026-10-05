@@ -1,0 +1,63 @@
+name: Deploy TapTap Worker
+
+# 只在这个 Worker 或其共享配置变动时触发；也可手动触发并选择模式。
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'cf-worker/taptap/**'
+      - 'shared/taptap-config.json'
+      - '.github/workflows/deploy-worker.yml'
+  workflow_dispatch:
+    inputs:
+      handle_mode:
+        description: 'HANDLE_MODE：do = 边缘 Durable Object；proxy = 透传 seekend（灰度/回滚）'
+        type: choice
+        options:
+          - proxy
+          - do
+        default: proxy
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 11
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'pnpm'
+          cache-dependency-path: cf-worker/taptap/pnpm-lock.yaml
+
+      # Worker 是独立子工作区（自带 pnpm-workspace.yaml / pnpm-lock.yaml），与根 workspace 无关。
+      - name: Install dependencies
+        working-directory: cf-worker/taptap
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck & test
+        working-directory: cf-worker/taptap
+        run: |
+          pnpm typecheck
+          pnpm test
+
+      # 模式解析优先级：手动触发选的 inputs → 仓库变量 vars.HANDLE_MODE → 默认 proxy。
+      # - 永久切换到 do：把仓库 Variable `HANDLE_MODE` 设为 `do`（Settings → Variables，免改文件），
+      #   之后 push 触发的部署也会沿用。
+      # - 只想临时跑一次 do：直接 workflow_dispatch 选 do（不改仓库变量）。
+      # `cloudflare.config.ts` 会读取该环境变量覆盖 HANDLE_MODE。
+      - name: Deploy
+        working-directory: cf-worker/taptap
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          HANDLE_MODE: ${{ inputs.handle_mode || vars.HANDLE_MODE || 'proxy' }}
+        run: pnpm exec cf deploy

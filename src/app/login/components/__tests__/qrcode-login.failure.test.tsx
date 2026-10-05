@@ -31,25 +31,17 @@ vi.mock('../../../lib/cap/client', () => ({
   initCap: vi.fn(),
 }));
 
-// TapTap 扫码链路：跳过真实上游，直接产出 sessionToken。
-// 组件现在把「轮询」与「授权后流程」拆开，以便授权成功后失败可续跑，故这里 mock 三个入口。
+// TapTap 扫码链路：跳过真实上游。新契约只需两个入口——
+// 拉码（返回 qrId/verificationUrl）与轮询（Confirmed 时直接给 sessionToken）。
 vi.mock('../../../lib/taptap/qrLogin', () => ({
   requestTapTapDeviceCode: vi.fn().mockResolvedValue({
-    deviceCode: 'device-code',
-    userCode: 'user-code',
-    qrcodeUrl: 'https://example.com/qr',
+    qrId: 'qr-test',
     verificationUrl: 'https://example.com/verify',
+    qrcodeUrl: 'https://example.com/verify',
     interval: 1,
     expiresIn: 300,
-    deviceId: 'web-test',
-    flowId: 'flow-test',
   }),
-  pollTapTapToken: vi.fn().mockResolvedValue({ access_token: 'at-test' }),
-  finishTapTapQrLogin: vi.fn().mockResolvedValue({
-    sessionToken: 'session-token',
-    profile: {},
-    token: {},
-  }),
+  pollTapTapSessionToken: vi.fn().mockResolvedValue('session-token'),
 }));
 
 vi.mock('qrcode', () => ({
@@ -58,7 +50,7 @@ vi.mock('qrcode', () => ({
 
 import { AuthProvider } from '../../../contexts/AuthContext';
 import { QRCodeLogin } from '../QRCodeLogin';
-import { pollTapTapToken, requestTapTapDeviceCode } from '../../../lib/taptap/qrLogin';
+import { pollTapTapSessionToken, requestTapTapDeviceCode } from '../../../lib/taptap/qrLogin';
 
 function jsonResponse(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
@@ -174,7 +166,7 @@ describe('QRCodeLogin 登录失败不得伪装成跳转中', () => {
     expect(await screen.findByText('登录失败')).toBeTruthy();
 
     const deviceCodeMock = vi.mocked(requestTapTapDeviceCode);
-    const pollMock = vi.mocked(pollTapTapToken);
+    const pollMock = vi.mocked(pollTapTapSessionToken);
     expect(deviceCodeMock).toHaveBeenCalledTimes(1);
     expect(pollMock).toHaveBeenCalledTimes(1);
 
