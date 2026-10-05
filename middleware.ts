@@ -35,21 +35,30 @@ const PUBLIC_HTML_CACHE: Record<string, string> = {
   '/banned': 'public, max-age=0, s-maxage=600, stale-while-revalidate=86400',
 };
 
-function isHtmlDocumentRequest(request: NextRequest): boolean {
-  if (request.method !== 'GET' && request.method !== 'HEAD') return false;
+/** 白名单查询须用 hasOwnProperty，避免 `/constructor` 这类原型键被误判为公开页。 */
+function isPublicHtmlPath(pathname: string): boolean {
+  return Object.prototype.hasOwnProperty.call(PUBLIC_HTML_CACHE, pathname);
+}
 
-  const accept = request.headers.get('accept') || '';
-  if (!accept.includes('text/html')) return false;
+export function shouldApplyHtmlCache(request: NextRequest): boolean {
+  if (request.method !== 'GET' && request.method !== 'HEAD') return false;
 
   const pathname = request.nextUrl.pathname;
   if (pathname.includes('.')) return false;
 
-  return true;
+  // 公开白名单页面必须对「任意 Accept」生效：爬虫/bot 常发 `Accept: */*`，若因缺少
+  // text/html 而跳过，Next 会给静态页漏出默认的 `Cache-Control: s-maxage=31536000`；
+  // 而源站 Vary 不含 Accept，边缘缓存键不区分两种变体 —— 一个 bot 请求即可把整页钉死一年。
+  if (isPublicHtmlPath(pathname)) return true;
+
+  return (request.headers.get('accept') || '').includes('text/html');
 }
 
 export function decideHtmlCacheControl(input: HtmlCacheDecisionInput): string {
   if (input.hasSession) return 'private, no-store, max-age=0';
-  return PUBLIC_HTML_CACHE[input.pathname] ?? 'private, no-store, max-age=0';
+  return isPublicHtmlPath(input.pathname)
+    ? PUBLIC_HTML_CACHE[input.pathname]
+    : 'private, no-store, max-age=0';
 }
 
 export function middleware(request: NextRequest) {
@@ -66,7 +75,7 @@ export function middleware(request: NextRequest) {
   );
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
 
-  if (isHtmlDocumentRequest(request)) {
+  if (shouldApplyHtmlCache(request)) {
     const pathname = request.nextUrl.pathname;
     const hasSession = request.cookies.get(AUTH_SESSION_COOKIE_NAME) !== undefined;
     response.headers.set('Cache-Control', decideHtmlCacheControl({ pathname, hasSession }));
