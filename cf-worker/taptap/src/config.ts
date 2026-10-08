@@ -26,10 +26,12 @@ export const DEFAULT_TAPTAAP_VERSION: TapTapVersion = 'cn';
 export const DEVICE_CODE_FORM_VERSION = '1.2.0';
 /** 设备码默认有效期（秒），上游未给时回退。 */
 export const DEFAULT_EXPIRES_IN_SECS = 300;
+/** 二维码会话有效期下限（秒）：上游给了异常小值时兜底，避免二维码瞬间失效。 */
+export const MIN_EXPIRES_IN_SECS = 30;
 /** 轮询默认间隔（秒），上游未给时回退（后端默认 5）。 */
 export const DEFAULT_INTERVAL_SECS = 5;
-/** cn 版本在海外的轮询下限（秒）：cn 上游在国内，跨境轮询贵，放大间隔以减少调用。 */
-export const MIN_CN_INTERVAL_SECS = 2;
+/** cn 版本在海外的轮询下限（秒）：cn 上游在国内，跨境轮询贵；取后端默认间隔作下限，才能真正减少调用。 */
+export const MIN_CN_INTERVAL_SECS = DEFAULT_INTERVAL_SECS;
 export const TAP_USER_AGENT = 'TapTapAndroidSDK/3.16.5';
 export const LEANCLOUD_USER_AGENT = 'LeanCloud-CSharp-SDK/1.0.3';
 

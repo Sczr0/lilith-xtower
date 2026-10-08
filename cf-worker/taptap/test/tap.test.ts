@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { TAP_CONFIG } from '../src/config';
-import { AuthError, AuthPendingError, pollForToken, requestDeviceCode } from '../src/tap';
+import { AuthError, AuthPendingError, NetworkError, pollForToken, requestDeviceCode } from '../src/tap';
 
 const cn = TAP_CONFIG.cn;
 
@@ -9,7 +9,14 @@ function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
-type Overrides = { device?: unknown; token?: unknown; userInfo?: unknown; leancloud?: unknown };
+type Overrides = {
+  device?: unknown;
+  token?: unknown;
+  userInfo?: unknown;
+  leancloud?: unknown;
+  deviceStatus?: number;
+  tokenStatus?: number;
+};
 
 function installFetch(overrides: Overrides = {}) {
   const calls: Array<{ url: string; headers: Headers; body: string | undefined }> = [];
@@ -29,10 +36,14 @@ function installFetch(overrides: Overrides = {}) {
             expires_in: 300,
           },
         },
+        overrides.deviceStatus ?? 200,
       );
     }
     if (url.startsWith(cn.tokenEndpoint)) {
-      return jsonResponse(overrides.token ?? { success: true, data: { kid: 'kid-1', mac_key: 'mac-1' } });
+      return jsonResponse(
+        overrides.token ?? { success: true, data: { kid: 'kid-1', mac_key: 'mac-1' } },
+        overrides.tokenStatus ?? 200,
+      );
     }
     if (url.startsWith(cn.userInfoEndpoint)) {
       return jsonResponse(overrides.userInfo ?? { success: true, data: { openid: 'open-1', unionid: 'union-1' } });
@@ -61,6 +72,11 @@ describe('requestDeviceCode', () => {
     installFetch({ device: { success: false, data: { error: 'invalid_client', msg: 'bad client' } } });
     await expect(requestDeviceCode(cn, 'device-1')).rejects.toBeInstanceOf(AuthError);
   });
+
+  it('treats a 5xx response as a transient network error, not an auth error', async () => {
+    installFetch({ deviceStatus: 500, device: { success: false, data: { error: 'server_error' } } });
+    await expect(requestDeviceCode(cn, 'device-1')).rejects.toBeInstanceOf(NetworkError);
+  });
 });
 
 describe('pollForToken', () => {
@@ -88,5 +104,18 @@ describe('pollForToken', () => {
   it('throws AuthError on an invalid grant', async () => {
     installFetch({ token: { success: false, data: { error: 'invalid_grant', error_description: 'expired' } } });
     await expect(pollForToken(cn, 'dc-1', 'device-1')).rejects.toBeInstanceOf(AuthError);
+  });
+
+  it('accepts a success-less 200 payload instead of misreading it as an error', async () => {
+    installFetch({ token: { data: { kid: 'kid-1', mac_key: 'mac-1' } } });
+    await expect(pollForToken(cn, 'dc-1', 'device-1')).resolves.toBe('r:session-token');
+  });
+
+  it('treats a 5xx token response as a transient network error even with an error body', async () => {
+    installFetch({
+      tokenStatus: 500,
+      token: { success: false, data: { error: 'server_error', error_description: 'boom' } },
+    });
+    await expect(pollForToken(cn, 'dc-1', 'device-1')).rejects.toBeInstanceOf(NetworkError);
   });
 });

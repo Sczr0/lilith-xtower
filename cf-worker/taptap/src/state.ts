@@ -13,7 +13,7 @@ export type QrStatusResponse = {
   retryAfter?: number;
 };
 
-/** DO 内保存的待授权流程状态（对应后端 `QrCodeStatus::Pending`）。 */
+/** DO 内保存的授权流程状态（对应后端 `QrCodeStatus`）。 */
 export type FlowState = {
   version: TapTapVersion;
   deviceId: string;
@@ -21,7 +21,14 @@ export type FlowState = {
   createdAt: number;
   expiresAt: number;
   intervalMs: number;
+  /** 下一次允许打上游的时刻；在 DO alarm 内自行推进（与客户端轮询解耦）。 */
   nextPollAt: number;
+  /** pending=等待扫码；confirmed=已换到 sessionToken；error=终态失败。 */
+  status: 'pending' | 'confirmed' | 'error';
+  /** status=confirmed 时的 LeanCloud sessionToken（被 status() 一次性取走）。 */
+  sessionToken?: string;
+  errorCode?: string;
+  errorMessage?: string;
 };
 
 /**

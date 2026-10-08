@@ -76,20 +76,43 @@ async function fetchUpstream(input: string | URL, init: RequestInit, timeoutMs: 
   }
 }
 
-function businessError(body: unknown): { code: string; message: string } | null {
-  if (typeof body !== 'object' || body === null) return null;
-  const b = body as { success?: unknown; data?: unknown };
-  if (b.success === true) return null;
-  const data = b.data;
-  if (typeof data === 'object' && data !== null) {
-    const d = data as { error?: unknown; error_description?: unknown; msg?: unknown };
-    const code = typeof d.error === 'string' ? d.error : '';
-    const message =
-      typeof d.error_description === 'string' ? d.error_description : typeof d.msg === 'string' ? d.msg : '';
-    return { code, message };
+function pickString(...values: unknown[]): string {
+  for (const v of values) {
+    if (typeof v === 'string' && v.trim() !== '') return v.trim();
   }
-  if (typeof data === 'string') return { code: '', message: data };
-  return { code: '', message: data === undefined || data === null ? '' : JSON.stringify(data) };
+  return '';
+}
+
+/**
+ * 从响应体判定「业务错误」。只认显式错误，避免把正常响应误判为失败：
+ * - `success === true` → 无错误；
+ * - `success === false` → 显式失败，从 data（或顶层）取 error/error_description/msg/message；
+ * - 无 `success` 字段 → 仅当出现 `error`/`error_code` 字段、或 `data` 为非空字符串时才判为错误；
+ * - 其余返回 null，交给 HTTP 状态归类。
+ */
+function businessError(body: unknown): { code: string; message: string } | null {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) return null;
+  const b = body as Record<string, unknown>;
+  if (b.success === true) return null;
+
+  const data = b.data;
+  const dataIsObject = typeof data === 'object' && data !== null && !Array.isArray(data);
+  const container = dataIsObject ? (data as Record<string, unknown>) : b;
+
+  const code = pickString(container.error, container.error_code, b.error, b.error_code);
+  const message = pickString(
+    container.error_description,
+    container.msg,
+    container.message,
+    b.message,
+    b.error_description,
+  );
+
+  const stringData = typeof data === 'string' && data.trim() !== '';
+  if (b.success === false || code !== '' || stringData) {
+    return { code, message: message || (stringData ? (data as string).trim() : '') };
+  }
+  return null;
 }
 
 /** 设备码申请：POST device_code_endpoint（对应后端 `request_device_code`）。 */
@@ -121,13 +144,13 @@ export async function requestDeviceCode(config: TapConfig, deviceId: string): Pr
     throw new NetworkError(`TapTap 设备码响应解析失败`);
   }
 
-  if (!res.ok) throw new NetworkError(`TapTap 设备码请求失败: HTTP ${res.status}`);
-
-  const err = businessError(body);
+  // 业务错误优先于 HTTP 状态（4xx 常带错误体）；5xx 一律按上游瞬时故障处理，不按 body 判定。
+  const err = res.status < 500 ? businessError(body) : null;
   if (err) {
     const detail = err.message.trim() || err.code.trim();
     throw new AuthError(detail ? `TapTap 设备码申请失败: ${detail}` : 'TapTap 设备码申请失败');
   }
+  if (!res.ok) throw new NetworkError(`TapTap 设备码请求失败: HTTP ${res.status}`);
 
   const data = (body as { data?: Record<string, unknown> }).data ?? {};
   const deviceCode = data.device_code;
@@ -198,8 +221,9 @@ export async function pollForToken(config: TapConfig, deviceCode: string, device
     tokenBody = null;
   }
 
-  // 业务错误优先判定（与后端一致）：pending/waiting/slow_down → AuthPendingError
-  const tokenErr = businessError(tokenBody);
+  // 业务错误优先判定（与后端一致）：pending/waiting/slow_down → AuthPendingError。
+  // 5xx 一律视为上游瞬时故障，不按 body 判定（避免把可重试错误误判成终态）。
+  const tokenErr = tokenRes.status < 500 ? businessError(tokenBody) : null;
   if (tokenErr) {
     const classifier = `${tokenErr.code} ${tokenErr.message}`.toLowerCase();
     const msg = tokenErr.message.trim() || (tokenErr.code.trim() ? `TapTap 业务错误: ${tokenErr.code}` : 'TapTap 业务错误');
@@ -272,9 +296,11 @@ export async function pollForToken(config: TapConfig, deviceCode: string, device
   return lcUser.sessionToken;
 }
 
-/** 错误 → 状态码 + 错误码 + 文案（对应后端 handler 里的分类）。 */
+/**
+ * 错误 → 错误码 + 文案（对应后端 handler 里的分类）。
+ * 注意：`AuthPendingError`（用户尚未授权）不是错误，调用方需在调用本函数前单独处理。
+ */
 export function classifyError(err: unknown): { errorCode: string; message: string } {
-  if (err instanceof AuthPendingError) return { errorCode: 'INTERNAL_ERROR', message: '服务器内部错误' };
   if (err instanceof AuthError) return { errorCode: 'UNAUTHORIZED', message: '认证失败' };
   if (err instanceof TimeoutError) return { errorCode: 'UPSTREAM_TIMEOUT', message: '上游超时' };
   if (err instanceof NetworkError) return { errorCode: 'UPSTREAM_ERROR', message: '上游网络错误' };

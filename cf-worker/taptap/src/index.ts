@@ -1,6 +1,7 @@
 import {
   DEFAULT_TAPTAAP_VERSION,
   MIN_CN_INTERVAL_SECS,
+  MIN_EXPIRES_IN_SECS,
   TAP_CONFIG,
   VALID_TAPTAAP_VERSIONS,
   type TapTapVersion,
@@ -14,6 +15,32 @@ export { TapTapFlow };
 const CREATE_PATH = '/api/auth/qrcode';
 const STATUS_RE = /^\/api\/auth\/qrcode\/([^/]+)\/status$/;
 const DEFAULT_PROXY_BASE = 'https://seekend.xtower.site/api/v1';
+/** 透传回源的超时（与源站上游超时一致），避免上游挂住时 Worker 无限等待。 */
+const PROXY_TIMEOUT_MS = 15_000;
+/** 不应转发给上游的逐跳头 / CF 私有头。 */
+const STRIPPED_PROXY_HEADERS = [
+  'host',
+  'connection',
+  'keep-alive',
+  'proxy-authenticate',
+  'proxy-authorization',
+  'te',
+  'trailer',
+  'transfer-encoding',
+  'upgrade',
+  'content-length',
+  'cf-connecting-ip',
+  'cf-ipcountry',
+  'cf-ray',
+  'cf-visitor',
+  'cf-worker',
+  'cf-ew-via',
+  'cdn-loop',
+  'x-forwarded-for',
+  'x-forwarded-proto',
+  'x-forwarded-host',
+  'x-real-ip',
+];
 const EDGE_HEADER = 'X-TapTap-Edge';
 const JSON_HEADERS = {
   'Content-Type': 'application/json; charset=utf-8',
@@ -44,17 +71,26 @@ async function proxyToSeekend(request: Request, env: Env): Promise<Response> {
   const target = `${base}${url.pathname.replace(/^\/api/, '')}${url.search}`;
 
   const headers = new Headers(request.headers);
-  headers.delete('host');
+  for (const name of STRIPPED_PROXY_HEADERS) headers.delete(name);
   const body = request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.text();
   const t0 = performance.now();
   try {
-    const res = await fetch(target, { method: request.method, headers, body });
+    const res = await fetch(target, {
+      method: request.method,
+      headers,
+      body,
+      signal: AbortSignal.timeout(PROXY_TIMEOUT_MS),
+    });
     const out = new Headers(res.headers);
     out.set(EDGE_HEADER, 'proxy');
     out.set('Server-Timing', serverTiming({ proxy: performance.now() - t0 }));
     return new Response(res.body, { status: res.status, headers: out });
   } catch (err) {
-    return problem(502, 'UPSTREAM_ERROR', err instanceof Error ? err.message : '回源失败', 'Upstream Error');
+    const detail = err instanceof Error ? err.message : '回源失败';
+    const timedOut = err instanceof Error && (err.name === 'TimeoutError' || /abort|timeout/i.test(err.message));
+    return timedOut
+      ? problem(504, 'UPSTREAM_TIMEOUT', detail, 'Upstream Timeout')
+      : problem(502, 'UPSTREAM_ERROR', detail, 'Upstream Error');
   }
 }
 
@@ -80,16 +116,18 @@ async function handleCreate(request: Request, env: Env): Promise<Response> {
     const upstreamMs = performance.now() - startedAt;
     // cn 版本在海外：上游在国内，跨境轮询贵 → 放大间隔（global 保持上游给的间隔）
     const intervalSec = version === 'cn' ? Math.max(device.interval, MIN_CN_INTERVAL_SECS) : device.interval;
+    // 有效期下限只在此处 clamp 一次，DO 状态与响应共用同一值，避免两端不一致。
+    const expiresIn = Math.max(MIN_EXPIRES_IN_SECS, device.expiresIn);
     await env.TAP_FLOW.getByName(qrId).create({
       version,
       deviceId,
       deviceCode: device.deviceCode,
       intervalSec,
-      expiresInSec: device.expiresIn,
+      expiresInSec: expiresIn,
     });
     // 不返回 qrcodeBase64：客户端用 verificationUrl 自行渲染二维码（少一个边缘 QR 依赖）。
     return json(
-      { qrId, verificationUrl: buildScanUrl(device), expiresIn: device.expiresIn, interval: intervalSec },
+      { qrId, verificationUrl: buildScanUrl(device), expiresIn, interval: intervalSec },
       200,
       { 'Server-Timing': serverTiming({ upstream: upstreamMs, app: performance.now() - startedAt }) },
     );
@@ -128,7 +166,13 @@ export default {
     }
     const matched = STATUS_RE.exec(url.pathname);
     if (matched && request.method === 'GET') {
-      return handleStatus(env, decodeURIComponent(matched[1]));
+      let qrId: string;
+      try {
+        qrId = decodeURIComponent(matched[1]);
+      } catch {
+        return problem(400, 'VALIDATION_FAILED', '非法的二维码 ID', 'Validation Failed');
+      }
+      return handleStatus(env, qrId);
     }
 
     return problem(404, 'NOT_FOUND', 'Not Found', 'Not Found');

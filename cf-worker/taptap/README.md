@@ -15,7 +15,7 @@ TapTap 扫码登录的**海外副本**：Cloudflare Worker + Durable Object，�
 - `src/config.ts` — 读取仓库根 `shared/taptap-config.json`（端点用 `accounts.tapapis.*`，**不要**照抄后端的 `open.tapapis.io`，该域名 NXDOMAIN）+ 常量。
 - `src/tap.ts` — 移植自后端 `TapTapClient`：`requestDeviceCode` + `pollForToken`（一次完成 token→资料(MAC)→LeanCloud），**LeanCloud 用 `X-LC-Id`+`X-LC-Key`，无 MD5**。
 - `src/state.ts` — 纯逻辑（`buildScanUrl` / `toRetryAfterSecs` / 类型）。
-- `src/flow.ts` — Durable Object `TapTapFlow`（替代后端 Moka 缓存；`nextPollAt` 节流、轮询即上游）。
+- `src/flow.ts` — Durable Object `TapTapFlow`（替代后端 Moka 缓存；**alarm 驱动上游轮询**，`status()` 只读本地状态、不 await 上游；打上游前先推进 `nextPollAt` 以去重；过期/终态即清理）。
 - `src/index.ts` — 入口：两个端点 + `HANDLE_MODE` 灰度 + CN 兜底透传 seekend。
 
 ## 安装 / 校验
