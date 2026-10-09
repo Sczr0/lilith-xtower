@@ -10,10 +10,30 @@ import { describe, expect, it } from 'vitest';
  * - isProbablyCacheableResponse：可缓存判断是否对齐服务端的 no-store/private 语义
  * - isSrwApi：SWR 白名单是否已排除 /api/stats
  * - touchApiCache：高基数 API 缓存的 LRU 容量上限
+ * - isCacheFirstCandidate / isManifestRequest：manifest 是否已脱离 cache-first
+ * - isRscRequest / isRscPrefetchRequest / isRscPayloadResponse / rscCacheKey：
+ *   App Router 软导航的识别、预取排除、载荷类型闸门与 _rsc 哈希剔除
+ * - PUBLIC_PAGES：与 middleware.ts 的 PUBLIC_HTML_CACHE 双向一致（直接从源码解析）
+ * - matchCachedNavigation：导航断网回退时的 pathname 忽略查询串匹配
+ * - networkFirstRsc：写入闸门（公开页 / 非预取 / text/x-component / 非 private）与
+ *   离线回退行为（无缓存返回网络错误，绝不回退 HTML 离线页）
  */
 
 const SW_SOURCE = readFileSync(new URL('../public/sw.js', import.meta.url), 'utf8');
+const MIDDLEWARE_SOURCE = readFileSync(new URL('../middleware.ts', import.meta.url), 'utf8');
 const ORIGIN = 'https://example.com';
+
+/**
+ * 从 middleware.ts 抽取 PUBLIC_HTML_CACHE 的键集合，用于和 sw.js 的 PUBLIC_PAGES
+ * 做双向一致性断言，避免「中间件加了公开页、SW 忘了加」这类再次漂移。
+ */
+function middlewarePublicHtmlPaths(): Set<string> {
+  const block = MIDDLEWARE_SOURCE.match(/const PUBLIC_HTML_CACHE[^=]*=\s*\{([\s\S]*?)\n\};/);
+  if (!block) throw new Error('PUBLIC_HTML_CACHE block not found in middleware.ts');
+  const paths = new Set<string>();
+  for (const match of block[1].matchAll(/^\s*'([^']+)':/gm)) paths.add(match[1]);
+  return paths;
+}
 
 function keyOf(input: Request | string): string {
   return typeof input === 'string' ? input : input.url;
@@ -60,16 +80,36 @@ function createFakeCacheStorage(): { open(name: string): Promise<FakeCache> } {
   };
 }
 
+type RscReq = { headers: { get(name: string): string | null } };
+
 type SwInternals = {
   isProbablyCacheableResponse(res: Response): boolean;
   isSrwApi(url: URL): boolean;
   touchApiCache(cache: FakeCache, req: Request): Promise<void>;
+  isCacheFirstCandidate(url: URL): boolean;
+  isManifestRequest(url: URL): boolean;
+  isRscRequest(req: RscReq, url: URL): boolean;
+  isRscPrefetchRequest(req: RscReq): boolean;
+  isRscPayloadResponse(res: Response): boolean;
+  rscCacheKey(url: URL): string;
+  matchCachedNavigation(
+    cache: { match(input: Request | string): Promise<Response | undefined> },
+    req: RscReq,
+    url: URL,
+  ): Promise<Response | undefined>;
+  networkFirstRsc(req: Request): Promise<Response>;
+  PUBLIC_PAGES: Set<string>;
+  RSC_CACHE: string;
   API_CACHE_MAX_ENTRIES: number;
   API_LRU_KEY: string;
   SWR_API_PATTERNS: RegExp[];
 };
 
-function loadServiceWorker(cachesStub: unknown = createFakeCacheStorage()): SwInternals {
+function loadServiceWorker(
+  cachesStub: unknown = createFakeCacheStorage(),
+  fetchStub: (req: Request) => Promise<Response> = () =>
+    Promise.reject(new Error('no network in test')),
+): SwInternals {
   const selfStub = {
     location: { origin: ORIGIN },
     addEventListener: () => {},
@@ -85,7 +125,7 @@ function loadServiceWorker(cachesStub: unknown = createFakeCacheStorage()): SwIn
     'Response',
     'URL',
     'fetch',
-    `${SW_SOURCE}\n;return { isProbablyCacheableResponse, isSrwApi, touchApiCache, API_CACHE_MAX_ENTRIES, API_LRU_KEY, SWR_API_PATTERNS };`,
+    `${SW_SOURCE}\n;return { isProbablyCacheableResponse, isSrwApi, touchApiCache, isCacheFirstCandidate, isManifestRequest, isRscRequest, isRscPrefetchRequest, isRscPayloadResponse, rscCacheKey, matchCachedNavigation, networkFirstRsc, PUBLIC_PAGES, RSC_CACHE, API_CACHE_MAX_ENTRIES, API_LRU_KEY, SWR_API_PATTERNS };`,
   );
 
   return factory(
@@ -94,7 +134,7 @@ function loadServiceWorker(cachesStub: unknown = createFakeCacheStorage()): SwIn
     Request,
     Response,
     URL,
-    () => Promise.reject(new Error('no network in test')),
+    fetchStub,
   ) as SwInternals;
 }
 
@@ -206,5 +246,210 @@ describe('sw.js API 缓存容量上限（LRU）', () => {
 
     expect(await cache.match(hot)).toBeDefined();
     expect(await cache.match(new Request(`${ORIGIN}/api/public/profile/c0`))).toBeUndefined();
+  });
+});
+
+describe('sw.js manifest 不再 cache-first', () => {
+  it('manifest 走 network-first，其它静态资源仍 cache-first', () => {
+    const sw = loadServiceWorker();
+    expect(sw.isCacheFirstCandidate(new URL(`${ORIGIN}/manifest.webmanifest`))).toBe(false);
+    expect(sw.isManifestRequest(new URL(`${ORIGIN}/manifest.webmanifest`))).toBe(true);
+    // 回归保护：immutable 的构建产物不应被一起挪走
+    expect(sw.isCacheFirstCandidate(new URL(`${ORIGIN}/_next/static/chunks/a.js`))).toBe(true);
+    expect(sw.isCacheFirstCandidate(new URL(`${ORIGIN}/icons/icon-192.png`))).toBe(true);
+    expect(sw.isManifestRequest(new URL(`${ORIGIN}/_next/static/chunks/a.js`))).toBe(false);
+  });
+});
+
+describe('sw.js RSC 软导航识别与缓存键', () => {
+  const noHeaders = { headers: { get: () => null } };
+  const rscHeader = { headers: { get: (n: string) => (n === 'rsc' ? '1' : null) } };
+
+  it('URL 带 _rsc 或请求头 rsc: 1 都识别为软导航', () => {
+    const sw = loadServiceWorker();
+    expect(sw.isRscRequest(noHeaders, new URL(`${ORIGIN}/songs?_rsc=abc`))).toBe(true);
+    expect(sw.isRscRequest(rscHeader, new URL(`${ORIGIN}/songs`))).toBe(true);
+    expect(sw.isRscRequest(noHeaders, new URL(`${ORIGIN}/songs`))).toBe(false);
+  });
+
+  it('整段/分段预取请求被识别（只走网络，不参与缓存）', () => {
+    const sw = loadServiceWorker();
+    expect(
+      sw.isRscPrefetchRequest({ headers: { get: (n) => (n === 'next-router-prefetch' ? '1' : null) } }),
+    ).toBe(true);
+    expect(
+      sw.isRscPrefetchRequest({
+        headers: { get: (n) => (n === 'next-router-segment-prefetch' ? '/_tree' : null) },
+      }),
+    ).toBe(true);
+    expect(sw.isRscPrefetchRequest(noHeaders)).toBe(false);
+  });
+
+  it('只有 text/x-component 才算 RSC 载荷', () => {
+    const sw = loadServiceWorker();
+    expect(
+      sw.isRscPayloadResponse(
+        new Response('x', { headers: { 'Content-Type': 'text/x-component; charset=utf-8' } }),
+      ),
+    ).toBe(true);
+    expect(
+      sw.isRscPayloadResponse(new Response('x', { headers: { 'Content-Type': 'text/html' } })),
+    ).toBe(false);
+  });
+
+  it('缓存键剔除 _rsc 哈希、保留其它查询串（不同哈希共用一条）', () => {
+    const sw = loadServiceWorker();
+    expect(sw.rscCacheKey(new URL(`${ORIGIN}/songs?diff=IN&_rsc=abc`))).toBe(
+      `${ORIGIN}/songs?diff=IN`,
+    );
+    expect(sw.rscCacheKey(new URL(`${ORIGIN}/songs?diff=IN&_rsc=xyz`))).toBe(
+      sw.rscCacheKey(new URL(`${ORIGIN}/songs?diff=IN&_rsc=abc`)),
+    );
+  });
+});
+
+describe('sw.js 公开页白名单与中间件对齐', () => {
+  it('与 middleware.ts 的 PUBLIC_HTML_CACHE 双向一致（防止再次漂移）', () => {
+    const { PUBLIC_PAGES } = loadServiceWorker();
+    const middlewarePaths = middlewarePublicHtmlPaths();
+    expect(middlewarePaths.size).toBeGreaterThan(0);
+    expect([...PUBLIC_PAGES].sort()).toEqual([...middlewarePaths].sort());
+    // 个性化页面不得进入离线缓存
+    expect(PUBLIC_PAGES.has('/dashboard')).toBe(false);
+  });
+});
+
+describe('sw.js 导航缓存回退（忽略查询串）', () => {
+  // 精确分支要按原 Request 的 URL 与请求头匹配（Cache API 会比对 Vary）
+  const navReq = (url: string) => new Request(url, { headers: { 'accept-encoding': 'gzip' } });
+
+  it('精确未命中时按 pathname 回退到已缓存页', async () => {
+    const sw = loadServiceWorker();
+    const store = new Map<string, Response>();
+    store.set(`${ORIGIN}/songs`, new Response('cached-html'));
+    const cache = {
+      async match(input: Request | string) {
+        return store.get(keyOf(input));
+      },
+    };
+
+    const found = await sw.matchCachedNavigation(
+      cache,
+      navReq(`${ORIGIN}/songs?diff=IN`),
+      new URL(`${ORIGIN}/songs?diff=IN`),
+    );
+    expect(found).toBeDefined();
+    expect(await found!.text()).toBe('cached-html');
+
+    // 完全没有缓存的页面不能误配
+    expect(
+      await sw.matchCachedNavigation(cache, navReq(`${ORIGIN}/about?x=1`), new URL(`${ORIGIN}/about?x=1`)),
+    ).toBeUndefined();
+  });
+
+  it('带查询串的精确缓存优先于 pathname 回退', async () => {
+    const sw = loadServiceWorker();
+    const store = new Map<string, Response>();
+    store.set(`${ORIGIN}/songs`, new Response('bare'));
+    store.set(`${ORIGIN}/songs?diff=IN`, new Response('exact'));
+    const cache = {
+      async match(input: Request | string) {
+        return store.get(keyOf(input));
+      },
+    };
+
+    const found = await sw.matchCachedNavigation(
+      cache,
+      navReq(`${ORIGIN}/songs?diff=IN`),
+      new URL(`${ORIGIN}/songs?diff=IN`),
+    );
+    expect(await found!.text()).toBe('exact');
+  });
+});
+
+describe('sw.js RSC 缓存写入闸门（安全不变量）', () => {
+  const rscRequest = (path: string, extra: Record<string, string> = {}) =>
+    new Request(`${ORIGIN}${path}`, { headers: { rsc: '1', ...extra } });
+
+  const rscResponse = (headers: Record<string, string>) =>
+    new Response('flight', {
+      status: 200,
+      headers: { 'Content-Type': 'text/x-component', ...headers },
+    });
+
+  const cachedKeys = async (
+    storage: ReturnType<typeof createFakeCacheStorage>,
+    sw: SwInternals,
+  ) => (await storage.open(sw.RSC_CACHE)).keys();
+
+  it('公开页的可缓存完整载荷会写入', async () => {
+    const storage = createFakeCacheStorage();
+    const sw = loadServiceWorker(storage, async () =>
+      rscResponse({ 'Cache-Control': 'public, max-age=0, s-maxage=600' }),
+    );
+    await sw.networkFirstRsc(rscRequest('/songs?_rsc=abc'));
+    expect((await cachedKeys(storage, sw)).length).toBe(1);
+  });
+
+  it('带会话的 private/no-store 响应不写入（防跨用户泄漏）', async () => {
+    const storage = createFakeCacheStorage();
+    const sw = loadServiceWorker(storage, async () =>
+      rscResponse({ 'Cache-Control': 'private, no-store, max-age=0' }),
+    );
+    await sw.networkFirstRsc(rscRequest('/songs?_rsc=abc'));
+    expect((await cachedKeys(storage, sw)).length).toBe(0);
+  });
+
+  it('非公开页（/dashboard）不写入', async () => {
+    const storage = createFakeCacheStorage();
+    const sw = loadServiceWorker(storage, async () =>
+      rscResponse({ 'Cache-Control': 'public, max-age=0, s-maxage=600' }),
+    );
+    await sw.networkFirstRsc(rscRequest('/dashboard?_rsc=abc'));
+    expect((await cachedKeys(storage, sw)).length).toBe(0);
+  });
+
+  it('响应不是 text/x-component（如 HTML）不写入 RSC_CACHE', async () => {
+    const storage = createFakeCacheStorage();
+    const sw = loadServiceWorker(
+      storage,
+      async () =>
+        new Response('<html>', {
+          status: 200,
+          headers: { 'Content-Type': 'text/html', 'Cache-Control': 'public, max-age=60' },
+        }),
+    );
+    await sw.networkFirstRsc(rscRequest('/songs?_rsc=abc'));
+    expect((await cachedKeys(storage, sw)).length).toBe(0);
+  });
+
+  it('预取请求不读写缓存', async () => {
+    const storage = createFakeCacheStorage();
+    const sw = loadServiceWorker(storage, async () =>
+      rscResponse({ 'Cache-Control': 'public, max-age=0, s-maxage=600' }),
+    );
+    await sw.networkFirstRsc(rscRequest('/songs?_rsc=abc', { 'next-router-prefetch': '1' }));
+    expect((await cachedKeys(storage, sw)).length).toBe(0);
+  });
+
+  it('离线且无缓存时返回网络错误，绝不回退 HTML 离线页', async () => {
+    const storage = createFakeCacheStorage();
+    const sw = loadServiceWorker(storage); // fetch 默认 reject
+    const res = await sw.networkFirstRsc(rscRequest('/songs?_rsc=abc'));
+    expect(res.type).toBe('error');
+    expect(res.status).toBe(0);
+  });
+
+  it('离线时按剔除 _rsc 哈希的键命中缓存（不同哈希也能回退）', async () => {
+    const storage = createFakeCacheStorage();
+    const onlineSw = loadServiceWorker(storage, async () =>
+      rscResponse({ 'Cache-Control': 'public, max-age=0, s-maxage=600' }),
+    );
+    await onlineSw.networkFirstRsc(rscRequest('/songs?_rsc=abc'));
+
+    const offlineSw = loadServiceWorker(storage);
+    const res = await offlineSw.networkFirstRsc(rscRequest('/songs?_rsc=xyz'));
+    expect(res.type).not.toBe('error');
+    expect(await res.text()).toBe('flight');
   });
 });

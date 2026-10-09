@@ -1,40 +1,23 @@
 /* ============================================================================
  * Phigros Query — Service Worker (PWA)
- *
- * 策略摘要：
- *  - 静态资源 (/_next/static, /chunks, /precompiled, /icons, favicon,
- *    manifest)  → cache-first（这些资源均由 next.config 配置了 long/immutable
- *    Cache-Control，缓存命中即不再发网，离线可复用）。
- *  - /fonts/*（品牌字体 CSS 与子集）→ 不拦截，交给浏览器 HTTP 缓存
- *    （同样是 immutable 一年）。原因：复访要靠 <head> 里的渲染阻塞样式表
- *    在首帧前拿到字体，Service Worker 的 respondWith 会多一跳异步（SW 冷启动
- *    时更久），那一跳足以让字体错过首帧、退回「先系统字体再切换」。
- *  - 公开只读 API（白名单）→ stale-while-revalidate（先回缓存，后台刷新）。
- *  - 页面导航（HTML）→ network-first；离线时回退到已缓存的公开页，否则给出
- *    /offline.html。
- *  - 其余（鉴权/会话/保存/内部端点、catch-all 与 unified 代理、非 GET、跨域
- *    分析脚本）→ 一律不拦截、不缓存，交给浏览器正常走网络，避免缓存到带
- *    用户凭据的响应造成跨用户泄漏。
- *
- * 注意：当静态资源布局或缓存策略变化时，请将 CACHE_VERSION 递增以清空旧缓存。
+ * 当静态资源布局或缓存策略变化时，递增 CACHE_VERSION 
  * ========================================================================== */
 
-const CACHE_VERSION = "v3";
+const CACHE_VERSION = "v4";
 const STATIC_CACHE = `lilith-static-${CACHE_VERSION}`;
 const PAGES_CACHE = `lilith-pages-${CACHE_VERSION}`;
 const API_CACHE = `lilith-api-${CACHE_VERSION}`;
+const RSC_CACHE = `lilith-rsc-${CACHE_VERSION}`;
 
 const OFFLINE_PATH = "/offline.html";
 
-// API 缓存容量上限（LRU）。SW 的 API 缓存按 URL 累积，其中
-// /api/public/profile/<alias> 是高基数 key（别名由用户产生），不设上限会无界增长；
-// 这里与服务端 publicProxyCache 的 100/300/500 上限对齐取 300。
-// 说明：PAGES_CACHE 的 key 是站内自己的导航 URL，基数由站点路由决定，不设额外上限。
+const RSC_QUERY_PARAM = "_rsc";
+
 const API_CACHE_MAX_ENTRIES = 300;
-/** 存放 LRU 顺序的元数据条目（合成 URL，不会与真实请求冲突）。 */
+
 const API_LRU_KEY = "__sw_api_lru__";
 
-// 安装时预缓存的最小壳（允许个别失败，不阻断安装）。
+// 安装时预缓存的最小壳
 const PRECACHE = [
   OFFLINE_PATH,
   "/manifest.webmanifest",
@@ -42,13 +25,6 @@ const PRECACHE = [
   "/icons/icon-512.png",
 ];
 
-// 只对“确定公开且只读的 GET 接口”做 SWR 缓存；其余 /api/* 与 /internal/*
-// （含 catch-all 与 unified 代理）一律不缓存。
-//
-// 注意：这里不含 /api/stats/*。服务端该接口按响应状态下发缓存头：
-// 成功为 `public, s-maxage=60, stale-while-revalidate=30`（刻意不带 max-age，
-// 即只允许 CDN 缓存 60s，不允许客户端持有），失败为 `no-store, no-cache`。
-// SW 的 SWR 会无视新鲜度直接回缓存，会把统计结果展示成陈旧值，故不参与 SWR。
 const SWR_API_PATTERNS = [
   /^\/api\/public\/profile\/.+/,
   /^\/api\/leaderboard\/rks\/(?:top|by-rank)$/,
@@ -59,8 +35,6 @@ const SWR_API_PATTERNS = [
   /^\/internal\/sponsors$/,
 ];
 
-// 公开页面（与 middleware.ts 的 PUBLIC_HTML_CACHE 键保持一致），仅这些页面的
-// HTML 响应会被缓存以支持离线访问；个性化页面（dashboard 等）不缓存。
 const PUBLIC_PAGES = new Set([
   "/",
   "/about",
@@ -73,6 +47,8 @@ const PUBLIC_PAGES = new Set([
   "/qa",
   "/agreement",
   "/privacy",
+  "/verify",
+  "/banned",
 ]);
 
 function isSameOrigin(url) {
@@ -82,15 +58,40 @@ function isSameOrigin(url) {
 function isCacheFirstCandidate(url) {
   if (!isSameOrigin(url)) return false;
   const p = url.pathname;
-  // 注意：/fonts/ 刻意不在此列，见文件头「策略摘要」中的说明。
   return (
     p.startsWith("/_next/static/") ||
     p.startsWith("/chunks/") ||
     p.startsWith("/precompiled/") ||
     p.startsWith("/icons/") ||
-    p === "/favicon.ico" ||
-    p === "/manifest.webmanifest"
+    p === "/favicon.ico"
   );
+}
+
+function isManifestRequest(url) {
+  return url.pathname === "/manifest.webmanifest";
+}
+
+function isRscRequest(req, url) {
+  if (url.searchParams.has(RSC_QUERY_PARAM)) return true;
+  return req.headers.get("rsc") === "1";
+}
+
+function isRscPrefetchRequest(req) {
+  return (
+    req.headers.get("next-router-prefetch") !== null ||
+    req.headers.get("next-router-segment-prefetch") !== null
+  );
+}
+
+function isRscPayloadResponse(res) {
+  return (res.headers.get("content-type") || "").startsWith("text/x-component");
+}
+
+function rscCacheKey(url) {
+  const u = new URL(url.href);
+  u.searchParams.delete(RSC_QUERY_PARAM);
+  u.hash = "";
+  return u.toString();
 }
 
 function isSrwApi(url) {
@@ -100,15 +101,6 @@ function isSrwApi(url) {
   );
 }
 
-/**
- * 判断响应是否可写入 Cache。
- *
- * 与服务端的缓存语义对齐：
- * - 仅缓存成功响应；
- * - 带 Set-Cookie 的一律不缓存（可能携带用户状态）；
- * - 显式声明 no-store / private 的一律不缓存
- *   （服务端错误响应会下发 `no-store, no-cache`，此前 SW 不看该头会照存不误）。
- */
 function isProbablyCacheableResponse(res) {
   if (!res || !res.ok) return false;
   if (res.headers.get("set-cookie")) return false;
@@ -116,10 +108,6 @@ function isProbablyCacheableResponse(res) {
   if (cacheControl.includes("no-store") || cacheControl.includes("private")) return false;
   return true;
 }
-
-// ── API 缓存 LRU ──
-// 用一条元数据记录（按使用顺序排列的 URL 列表）实现真实 LRU；
-// 所有簿记都容错，失败只退化为“不做淘汰”，绝不阻断请求。
 
 function apiLruRequest() {
   return new Request(new URL(`/${API_LRU_KEY}`, self.location.origin));
@@ -149,7 +137,6 @@ async function writeApiLruList(cache, list) {
   }
 }
 
-/** 记录一次写入并做 LRU 淘汰：超上限时删除最久未使用的条目。 */
 async function touchApiCache(cache, req) {
   const key = req.url;
   const list = (await readApiLruList(cache)).filter((k) => k !== key);
@@ -172,7 +159,6 @@ async function cacheFirst(req, cacheName) {
   if (cached) return cached;
   const res = await fetch(req);
   if (isProbablyCacheableResponse(res)) {
-    // 只缓存成功的同源 GET；clone 以避免已使用的响应体被再次读取
     cache.put(req, res.clone()).catch(() => {});
   }
   return res;
@@ -208,6 +194,38 @@ async function notifyClients(type, url) {
   }
 }
 
+async function networkFirstStatic(req, cacheName) {
+  let cache;
+  try {
+    cache = await caches.open(cacheName);
+  } catch {
+    return fetch(req);
+  }
+  const url = new URL(req.url);
+  try {
+    const res = await fetch(req);
+    if (isProbablyCacheableResponse(res)) {
+      cache.put(req, res.clone()).catch(() => {});
+    }
+    return res;
+  } catch {
+    const cached = (await cache.match(req)) || (await cache.match(url.pathname));
+    if (cached) return cached;
+    return Response.error();
+  }
+}
+
+async function matchCachedNavigation(cache, req, url) {
+  const exact = await cache.match(req);
+  if (exact) return exact;
+
+  const fallback = new URL(url.href);
+  fallback.search = "";
+  fallback.hash = "";
+  if (fallback.toString() === url.toString()) return undefined;
+  return cache.match(new Request(fallback.toString(), { headers: req.headers }));
+}
+
 async function networkFirstNavigate(req) {
   const cache = await caches.open(PAGES_CACHE);
   const url = new URL(req.url);
@@ -215,21 +233,60 @@ async function networkFirstNavigate(req) {
 
   try {
     const res = await fetch(req);
-    // 网络可用（即便 4xx/5xx 也算连通）——通知页面恢复在线状态
     notifyClients("NETWORK_OK", url.pathname);
     if (publicPage && isProbablyCacheableResponse(res)) {
       cache.put(req, res.clone()).catch(() => {});
     }
     return res;
-  } catch (err) {
-    // 网络失败：回退到已缓存内容 / 离线页，并通知页面正在使用缓存
+  } catch {
     notifyClients("OFFLINE_FALLBACK", url.pathname);
-    const cached = await cache.match(req);
+    const cached = await matchCachedNavigation(cache, req, url);
     if (cached) return cached;
     const offline = await caches.match(OFFLINE_PATH);
     if (offline) return offline;
     return Response.error();
   }
+}
+
+async function readRscCache(key) {
+  try {
+    const cache = await caches.open(RSC_CACHE);
+    return await cache.match(key);
+  } catch {
+    return undefined;
+  }
+}
+
+async function writeRscCache(key, res) {
+  try {
+    const cache = await caches.open(RSC_CACHE);
+    await cache.put(key, res);
+  } catch {
+  }
+}
+
+async function networkFirstRsc(req) {
+  const url = new URL(req.url);
+  const prefetch = isRscPrefetchRequest(req);
+  const cacheable = !prefetch && PUBLIC_PAGES.has(url.pathname);
+  const key = rscCacheKey(url);
+
+  let res;
+  try {
+    res = await fetch(req);
+  } catch {
+    if (cacheable) {
+      const cached = await readRscCache(key);
+      if (cached) return cached;
+    }
+    return Response.error();
+  }
+
+  if (!prefetch) notifyClients("NETWORK_OK", url.pathname);
+  if (cacheable && isRscPayloadResponse(res) && isProbablyCacheableResponse(res)) {
+    await writeRscCache(key, res.clone());
+  }
+  return res;
 }
 
 self.addEventListener("install", (event) => {
@@ -241,7 +298,6 @@ self.addEventListener("install", (event) => {
           cache
             .add(u)
             .catch(() => {
-              /* 个别资源不可用时不阻断安装 */
             }),
         ),
       );
@@ -250,8 +306,6 @@ self.addEventListener("install", (event) => {
   );
 });
 
-// 注册组件在检测到 waiting 的 SW 时会发来 SKIP_WAITING，配合安装时的
-// skipWaiting 与 activate 的 clients.claim，让新版本尽快接管。
 self.addEventListener("message", (event) => {
   if (event.data && event.data.type === "SKIP_WAITING") {
     self.skipWaiting();
@@ -261,7 +315,7 @@ self.addEventListener("message", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
-      const keep = new Set([STATIC_CACHE, PAGES_CACHE, API_CACHE]);
+      const keep = new Set([STATIC_CACHE, PAGES_CACHE, API_CACHE, RSC_CACHE]);
       const names = await caches.keys();
       await Promise.all(
         names.map((n) => (keep.has(n) ? null : caches.delete(n))),
@@ -273,13 +327,20 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const req = event.request;
-  // 仅拦截同源的安全 GET；其余交给浏览器直接走网络（不缓存带凭据的请求）
   if (req.method !== "GET") return;
   const url = new URL(req.url);
   if (!isSameOrigin(url)) return;
 
   if (req.mode === "navigate") {
     event.respondWith(networkFirstNavigate(req));
+    return;
+  }
+  if (isRscRequest(req, url)) {
+    event.respondWith(networkFirstRsc(req));
+    return;
+  }
+  if (isManifestRequest(url)) {
+    event.respondWith(networkFirstStatic(req, STATIC_CACHE));
     return;
   }
   if (isCacheFirstCandidate(url)) {
@@ -290,5 +351,4 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(staleWhileRevalidate(req, API_CACHE));
     return;
   }
-  // 其余（鉴权/会话/保存/内部端点、代理、非白名单 /api/*）→ 浏览器默认网络
 });

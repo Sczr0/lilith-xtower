@@ -4,6 +4,14 @@
 
 ## Unreleased
 
+- 修复（PWA/Service Worker）：四项中优先级缓存策略修复，`CACHE_VERSION` 升至 `v4`
+  - `/manifest.webmanifest` 由 cache-first 改为 network-first：它没有内容哈希，原先一旦缓存就被钉死、改 name/图标后必须等 `CACHE_VERSION` 递增才生效；现在网络优先、断网回退 install 期预缓存的副本（Cache API 按响应 `Vary` 比对请求头，故回退同时按原请求与 pathname 两种键匹配）
+  - `PUBLIC_PAGES` 补齐 `/verify`、`/banned`，与 `middleware.ts` 的 `PUBLIC_HTML_CACHE` 逐键一致（此前注释声称一致、实际漏了两页，导致这两页离线不可回退）
+  - 页面导航断网回退新增「按 pathname 忽略查询串」二次匹配：`/songs?diff=IN` 在只缓存过 `/songs` 时也能回退成功；精确匹配必须复用原 Request（`cache.match(req)`）而非 URL 字符串——否则会被响应的 `Vary: Accept-Encoding` 挡住，导致缓存在、却全部回退失败
+  - 新增 App Router 软导航（RSC 载荷）离线支持：按 URL `_rsc` 参数或请求头 `rsc: 1` 识别，走 network-first + 独立 `RSC_CACHE`。只缓存「完整软导航载荷」（公开页 + 非预取 + `text/x-component` + 通过 `private`/`no-store`/`Set-Cookie` 闸门），预取请求（`next-router-prefetch` / `next-router-segment-prefetch`）只走网络，避免半成品载荷回给软导航；缓存键剔除 `_rsc` 哈希，离线按不同哈希也能命中。离线无缓存时返回网络错误而非回退 HTML 离线页（避免 Next 路由按 `text/x-component` 解析崩溃）
+  - `OfflineNotice`：网络恢复时在 `online` 事件清掉 SW 回退标记，避免「网络已恢复、提示条仍显示已缓存内容」（此前只有 `NETWORK_OK` 消息能清除，而 cache-first/SWR 请求不发该消息）
+  - 单测：`test/serviceWorkerCache.test.ts` 由 11 项扩至 26 项（manifest 脱离 cache-first、RSC 识别/预取排除/载荷闸门/键剔除、公开页白名单改为直接解析 `middleware.ts` 做双向一致断言、导航 query 回退、RSC 写入闸门与离线回退不变量）；`offline-notice.test.tsx` 增补 online 事件清除回退标记用例
+
 - 修复（可观测性）：过滤阿里云 ESA 注入的 RUM 拨测脚本的「网络失败」噪音
   - 背景：ESA 在边缘注入 `rum_common.js`，其「网络质量拨测」会 fetch `https://rumprbjs-sp.ialicdn.com/target*/test*.jpg`；本站 CSP `connect-src` 原先只放行了上报域名 `*.myalicdn.com`、未放行拨测域名 `*.ialicdn.com`，请求被拦后 Safari 抛 `TypeError: Load failed`，且该脚本顶层 `try/catch` 包的是 async 调用、捕获不到 rejection，冒泡成 `unhandledrejection` 被 Sentry 误报成本站未捕获异常
   - 根因修复：`lib/security/csp.ts` 的 `connect-src` 放行 `https://*.ialicdn.com`（拨测域名，与上报用的 `*.myalicdn.com` 不同域）；仅限 `connect-src`，不并入 `wildcards`，避免顺带放开脚本/图片来源

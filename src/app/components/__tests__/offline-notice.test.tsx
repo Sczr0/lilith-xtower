@@ -49,4 +49,20 @@ describe("OfflineNotice", () => {
     );
     await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
   });
+
+  it("浏览器恢复联网时清除 SW 回退标记（无需等待 NETWORK_OK）", async () => {
+    online = false;
+    render(<OfflineNotice />);
+
+    window.dispatchEvent(new Event("offline"));
+    window.dispatchEvent(
+      new MessageEvent("message", { data: { type: "OFFLINE_FALLBACK", url: "/" } }),
+    );
+    expect(await screen.findByRole("status")).toBeTruthy();
+
+    // 仅 online 事件（cache-first/SWR 请求不会发 NETWORK_OK）也应隐藏提示条
+    online = true;
+    window.dispatchEvent(new Event("online"));
+    await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
+  });
 });

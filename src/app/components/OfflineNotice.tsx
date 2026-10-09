@@ -34,8 +34,13 @@ export function OfflineNotice() {
       if (type === "OFFLINE_FALLBACK") setFallback(true);
       else if (type === "NETWORK_OK") setFallback(false);
     };
+    const onOnline = () => setFallback(false);
     window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
+    window.addEventListener("online", onOnline);
+    return () => {
+      window.removeEventListener("message", onMessage);
+      window.removeEventListener("online", onOnline);
+    };
   }, []);
 
   if (online && !fallback) return null;
