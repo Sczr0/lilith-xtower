@@ -27,6 +27,7 @@ import {
 } from '../lib/auth/sessionStatus';
 import { AGREEMENT_ACCEPTED_KEY, BANNED_DETAIL_KEY } from '../lib/constants/storageKeys';
 import { getCapToken } from '../lib/cap/client';
+import { consumePostLoginRedirect } from '../lib/auth/postLoginRedirect';
 import { AuthStorage } from '../lib/storage/auth';
 import type { AuthCredential } from '../lib/types/auth';
 import { useServiceReachability } from '../hooks/useServiceReachability';
@@ -368,7 +369,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // 仅为 UI 提示用途（菜单引导等）保留本地记号，不作为拦截依据。
           localStorage.setItem(AGREEMENT_ACCEPTED_KEY, 'true');
           triggerPostLoginPreload();
-          router.replace('/dashboard');
+          router.replace(consumePostLoginRedirect());
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : '登录失败';
@@ -411,7 +412,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       localStorage.setItem(AGREEMENT_ACCEPTED_KEY, 'true');
       AuthStorage.setCachedLogin(true);
       triggerPostLoginPreload();
-      router.replace('/dashboard');
+      router.replace(consumePostLoginRedirect());
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '记录同意状态失败';
       setAuthState((prev) => ({ ...prev, error: errorMessage }));

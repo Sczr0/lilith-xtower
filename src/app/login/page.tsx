@@ -6,6 +6,7 @@ import { AuthStatusBanner } from '../components/AuthStatusBanner';
 import { AuthDetailsModal } from '../components/AuthDetailsModal';
 import { useAuth } from '../contexts/AuthContext';
 import { useRouter } from 'next/navigation';
+import { consumePostLoginRedirect, rememberPostLoginRedirect } from '../lib/auth/postLoginRedirect';
 import { AuthStorage } from '../lib/storage/auth';
 import { runWhenIdle, shouldPreload } from '../lib/utils/preload';
 import { SiteHeader } from '../components/SiteHeader';
@@ -32,6 +33,11 @@ export default function LoginPage() {
   const [taptapVersionOverride, setTaptapVersionOverride] = useState<TapTapVersion | null>(null);
   const taptapVersion = taptapVersionOverride ?? storedTapTapVersion;
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    rememberPostLoginRedirect(new URLSearchParams(window.location.search).get('next'));
+  }, []);
+
   // 空闲时预取 dashboard 路由（Next Router 预取，不涉及任何二维码/device_code 请求）
   useEffect(() => {
     if (!shouldPreload()) return;
@@ -50,7 +56,7 @@ export default function LoginPage() {
     // 已认证且无需重新同意协议时，自动进入面板；
     // 若服务端要求重新同意，则保持在本页等待协议弹窗确认。
     if (!isLoading && isAuthenticated && !consentRequired) {
-      router.replace('/dashboard');
+      router.replace(consumePostLoginRedirect());
     }
   }, [isAuthenticated, isLoading, router, consentRequired]);
 
