@@ -34,6 +34,21 @@ describe('isSameOrigin', () => {
     expect(isSameOrigin(request({ origin: 'https://evil.test' }))).toBe(false)
   })
 
+  it('accepts a proxied request using the forwarded host', () => {
+    expect(
+      isSameOrigin(
+        request(
+          {
+            origin: 'https://app.test',
+            'sec-fetch-site': 'same-origin',
+            'x-forwarded-host': 'app.test',
+          },
+          'http://localhost:3000/api/delegations/consent',
+        ),
+      ),
+    ).toBe(true)
+  })
+
   it('falls back to Referer when Origin is absent', () => {
     expect(
       isSameOrigin(request({ referer: 'https://app.test/login?next=/delegations' })),
